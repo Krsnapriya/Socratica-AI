@@ -20,6 +20,7 @@ const adminRoutes = require("./routes/admin");
 const coursesRoutes = require("./routes/courses");
 const sessionRoutes = require("./routes/sessions");
 const notificationRoutes = require("./routes/notifications");
+const aiRoutes = require("./routes/ai");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const cookieParser = require("cookie-parser");
 const { csrfProtection, csrfToken } = require("./middleware/csrf");
@@ -62,8 +63,9 @@ app.use("/api/auth", authLimiter, authRoutes);
 // CSRF token endpoint must be accessible before csrfProtection
 app.get("/api/csrf-token", csrfToken, (req, res) => res.json({ token: req._csrfToken || req.cookies?._csrf }));
 
-// Submissions bypass CSRF — students need reliable submission from Workspace
+// Submissions & AI bypass CSRF — students need reliable access from Workspace
 app.use("/api/submissions", submissionsRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use(csrfProtection);
 app.use("/api/problems", problemsRoutes);

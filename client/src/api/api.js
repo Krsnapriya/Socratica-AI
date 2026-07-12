@@ -266,3 +266,59 @@ export async function fetchActiveNotifications() {
   const { data } = await client.get('/notifications/active');
   return data;
 }
+
+// ── AI Mentor ─────────────────────────────────────────────────────────────────
+export async function aiChat({ message, sessionId, topic, context, style }) {
+  const { data } = await client.post('/ai/chat', { message, sessionId, topic, context, style });
+  return data;
+}
+
+export async function aiSyllabus({ moduleId, problemId }) {
+  const { data } = await client.post('/ai/syllabus', { moduleId, problemId });
+  return data;
+}
+
+export async function aiDebug({ code, language, problemId, error, sessionId }) {
+  const { data } = await client.post('/ai/debug', { code, language, problemId, error, sessionId });
+  return data;
+}
+
+export async function aiCodeReview({ code, language, problemId, sessionId }) {
+  const { data } = await client.post('/ai/code-review', { code, language, problemId, sessionId });
+  return data;
+}
+
+export async function aiQuiz({ moduleId, problemId, difficulty, count }) {
+  const { data } = await client.post('/ai/quiz', { moduleId, problemId, difficulty, count });
+  return data;
+}
+
+export async function aiInterview({ topic, difficulty, type }) {
+  const { data } = await client.post('/ai/interview', { topic, difficulty, type });
+  return data;
+}
+
+export async function aiReflect({ sessionId, problemId }) {
+  const { data } = await client.post('/ai/reflect', { sessionId, problemId });
+  return data;
+}
+
+export async function fetchAILearningPath() {
+  const { data } = await client.get('/ai/learning-path');
+  return data;
+}
+
+export async function fetchAIHistory(limit = 10) {
+  const { data } = await client.get(`/ai/history?limit=${limit}`);
+  return data;
+}
+
+export async function fetchAIConversation(sessionId) {
+  const { data } = await client.get(`/ai/conversation/${sessionId}`);
+  return data;
+}
+
+export async function clearAIHistory(sessionId) {
+  const { data } = await client.delete('/ai/history', { data: { sessionId } });
+  return data;
+}

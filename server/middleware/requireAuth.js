@@ -50,6 +50,7 @@ async function requireAuth(req, res, next) {
     }
   } catch (err) {
     console.warn("[requireAuth] DB check failed:", err.message);
+    return res.status(503).json({ error: "Authentication service unavailable. Please try again." });
   }
 
   // Passively update active timestamp without blocking

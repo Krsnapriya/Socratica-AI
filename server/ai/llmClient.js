@@ -106,10 +106,6 @@ async function callLLM(systemContent, userContent) {
         top_p: 0.95,
         max_tokens: MAX_TOKENS,
         stream: false,
-        extra_body: {
-          chat_template_kwargs: { enable_thinking: true },
-          reasoning_budget: REASONING_BUDGET,
-        },
       }),
     });
 
