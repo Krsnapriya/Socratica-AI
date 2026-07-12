@@ -100,6 +100,11 @@ export async function fetchSolved() {
   return data;
 }
 
+export async function fetchSessionAnalysis(sessionId) {
+  const { data } = await client.get(`/submissions/session/${sessionId}/analysis`);
+  return data;
+}
+
 // ── Admin: Users ──────────────────────────────────────────────────────────────
 export async function fetchAdminUsers(page = 1, search = '') {
   const params = new URLSearchParams({ page, limit: 50 });

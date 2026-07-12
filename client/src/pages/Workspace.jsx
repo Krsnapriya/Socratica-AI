@@ -6,6 +6,7 @@ import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import VerdictDisplay from '../components/ui/VerdictDisplay.jsx';
 import AIMentorPanel from '../components/AIMentorPanel.jsx';
+import SessionAnalysis from '../components/SessionAnalysis.jsx';
 
 const WORKSPACE_NAV = [
   { to: '/workspace', icon: 'code', label: 'Workspace' },
@@ -348,21 +349,10 @@ export default function Workspace() {
                     <span className="font-mono text-xs">Running in sandbox…</span>
                   </div>
                 ) : maxAttemptsReached ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                    <div className="w-12 h-12 rounded-full bg-tertiary/15 border border-tertiary/30 flex items-center justify-center">
-                      <Icon name="flag" size={24} className="text-tertiary" />
-                    </div>
-                    <div>
-                      <p className="text-on-surface text-sm font-semibold">Session Complete</p>
-                      <p className="text-on-surface-variant text-xs mt-1 max-w-[220px]">
-                        You've used all 5 attempts for this session. Start a new session to continue practicing.
-                      </p>
-                    </div>
-                    <Button variant="primary" size="sm" onClick={startNewSession}>
-                      <Icon name="add" size={14} />
-                      New Session
-                    </Button>
-                  </div>
+                  <SessionAnalysis
+                    sessionId={localStorage.getItem('socratica-last-session-id')}
+                    onStartNewSession={startNewSession}
+                  />
                 ) : output ? (
                   <VerdictDisplay
                     verdict={output.verdict}

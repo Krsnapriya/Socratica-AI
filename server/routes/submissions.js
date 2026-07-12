@@ -203,6 +203,64 @@ router.get("/session/:sessionId", requireAuth, requireRole(["student", "instruct
   }
 });
 
+router.get("/session/:sessionId/analysis", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const rounds = await Submission.find({ sessionId: req.params.sessionId })
+      .sort({ round: 1 }).lean();
+    if (rounds.length === 0) return res.status(404).json({ error: "No submissions found" });
+
+    const problemId = rounds[0].problemId;
+    const language = rounds[0].language;
+    const problem = await Problem.findOne({ problemId }).lean();
+    if (!problem) return res.status(404).json({ error: "Problem not found" });
+
+    const oracleCode = problem.oracleSolutions?.[language] || null;
+    const bestRound = rounds.reduce((best, r) => {
+      if (r.verdict === 'pass') return r;
+      if (!best) return r;
+      if (r.tier === 1 && (!best.tier || best.tier !== 1)) return r;
+      return best;
+    }, null);
+
+    const divergences = rounds
+      .filter(r => r.divergenceStep != null)
+      .map(r => ({ round: r.round, step: r.divergenceStep, tier: r.tier }));
+
+    res.json({
+      problemId,
+      language,
+      title: problem.title,
+      statement: problem.statement,
+      difficulty: problem.difficulty,
+      category: problem.category,
+      oracleCode,
+      rounds: rounds.map(r => ({
+        round: r.round,
+        code: r.code,
+        verdict: r.verdict,
+        tier: r.tier,
+        hint: r.hint,
+        divergenceStep: r.divergenceStep,
+        tier2Result: r.tier2Result,
+      })),
+      bestAttempt: bestRound ? {
+        round: bestRound.round,
+        code: bestRound.code,
+        verdict: bestRound.verdict,
+        tier: bestRound.tier,
+        hint: bestRound.hint,
+        divergenceStep: bestRound.divergenceStep,
+      } : null,
+      divergences,
+      totalRounds: rounds.length,
+      hasPass: rounds.some(r => r.verdict === 'pass'),
+    });
+  } catch (err) {
+    console.error("[submissions] analysis error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id).lean();
