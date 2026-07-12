@@ -1,0 +1,36 @@
+# Staging environment — mimics production with tighter resource limits
+# Usage: docker compose -f docker/docker-compose.staging.yml up -d
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: socratica
+    ports: ["27017:27017"]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: ["6379:6379"]
+
+  sandbox-python:
+    build:
+      context: ..
+      dockerfile: docker/python.Dockerfile
+    image: socratica/sandbox-python:staging
+    profiles: [build]
+
+  sandbox-cpp:
+    build:
+      context: ..
+      dockerfile: docker/cpp.Dockerfile
+    image: socratica/sandbox-cpp:staging
+    profiles: [build]
+
+  sandbox-javascript:
+    build:
+      context: ..
+      dockerfile: docker/node.Dockerfile
+    image: socratica/sandbox-javascript:staging
+    profiles: [build]

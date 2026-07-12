@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongoose": "^8.4.1",
+    "cors": "^2.8.5",
+    "helmet": "^8.2.0",
+    "cookie-parser": "^1.4.7",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
+    "express-rate-limit": "^8.5.2",
+    "rate-limit-redis": "^5.0.0",
+    "dockerode": "^4.0.0",
+    "@sentry/node": "^10.63.0",
+    "zod": "^3.25.76",
+    "nodemailer": "^9.0.3",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@google/generative-ai": "^0.10.0"
+  }
+}

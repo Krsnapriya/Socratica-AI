@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Curriculum Dashboard</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: { extend: {
+        colors: {"on-background":"#dae2fd","background":"#0b1326","surface-container-high":"#222a3d","on-tertiary-fixed-variant":"#653e00","on-primary-fixed":"#0f0069","surface-variant":"#2d3449","surface-container-lowest":"#060e20","on-primary-fixed-variant":"#3323cc","tertiary-fixed":"#ffddb8","on-surface-variant":"#c7c4d8","outline-variant":"#464555","inverse-on-surface":"#283044","surface-container":"#171f33","secondary-fixed":"#d6eab4","primary":"#c3c0ff","outline":"#918fa1","secondary-fixed-dim":"#bace99","surface-dim":"#0b1326","surface":"#0b1326","on-secondary":"#26350f","surface-bright":"#31394d","primary-fixed-dim":"#c3c0ff","on-error":"#690005","surface-tint":"#c3c0ff","secondary-container":"#3e4e26","on-primary-container":"#dad7ff","inverse-surface":"#dae2fd","error-container":"#93000a","surface-container-highest":"#2d3449","tertiary-fixed-dim":"#ffb95f","on-tertiary-container":"#ffd4a4","surface-container-low":"#131b2e","on-surface":"#dae2fd","on-secondary-container":"#acbf8c","on-tertiary-fixed":"#2a1700","inverse-primary":"#4d44e3","tertiary-container":"#885500","on-primary":"#1d00a5","secondary":"#bace99","on-secondary-fixed":"#121f00","error":"#ffb4ab","primary-fixed":"#e2dfff","on-error-container":"#ffdad6","tertiary":"#ffb95f","primary-container":"#4f46e5","on-tertiary":"#472a00","on-secondary-fixed-variant":"#3c4c24"},
+        borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},
+        spacing:{"max-width":"1440px","base":"4px","margin-mobile":"16px","gutter":"16px","margin-desktop":"32px"},
+        fontFamily:{"label-sm":["JetBrains Mono"],"body-md":["Inter"],"headline-xl-mobile":["Inter"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"headline-xl":["Inter"]},
+        fontSize:{"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}
+      }}
+    };
+  </script>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- TopNavBar -->
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link active" href="index.html">Curriculum</a>
+          <a class="nav-link" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="flex flex-1 pt-16 max-w-max-width mx-auto w-full">
+    <!-- SideNavBar -->
+    <aside class="hidden md:flex bg-surface-container-low h-[calc(100vh-4rem)] w-64 flex-col border-r border-outline-variant sticky top-16">
+      <div class="p-6 border-b border-outline-variant">
+        <div class="headline-lg text-primary mb-1">Project Alpha</div>
+        <div class="label-sm text-on-surface-variant">C++ Environment</div>
+      </div>
+      <div class="flex flex-col py-4 px-2 gap-1">
+        <a class="sidebar-link active" href="index.html"><span class="material-symbols-outlined">dashboard</span>Dashboard</a>
+        <a class="sidebar-link" href="modules.html"><span class="material-symbols-outlined">view_module</span>Modules</a>
+        <a class="sidebar-link" href="workspace.html"><span class="material-symbols-outlined">language</span>Workspace</a>
+        <a class="sidebar-link" href="analytics.html"><span class="material-symbols-outlined">insights</span>Analytics</a>
+        <a class="sidebar-link" href="archive.html"><span class="material-symbols-outlined">archive</span>Archive</a>
+      </div>
+      <div class="mt-auto p-4 border-t border-outline-variant">
+        <button class="w-full btn btn-primary"><span class="material-symbols-outlined text-[18px]">play_arrow</span>RUN_TESTS</button>
+      </div>
+    </aside>
+
+    <!-- Main Canvas -->
+    <main class="flex-1 overflow-y-auto p-gutter md:p-margin-desktop bg-background">
+      <!-- Page Header -->
+      <header class="mb-8 flex flex-col md:flex-row md:justify-between md:items-end">
+        <div>
+          <h1 class="headline-xl-mobile md:headline-xl text-on-surface mb-2">Curriculum</h1>
+          <p class="body-md text-on-surface-variant">Master core concepts through systematic exploration.</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex items-center space-x-2">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+            <input class="input pl-10 pr-4 py-2 w-full md:w-64" placeholder="Search modules..." type="text" aria-label="Search modules">
+          </div>
+          <select class="input py-2 appearance-none cursor-pointer">
+            <option value="all">All Categories</option>
+            <option value="data-structures">Data Structures</option>
+            <option value="algorithms">Algorithms</option>
+            <option value="system-design">System Design</option>
+          </select>
+          <div class="input p-2 flex items-center justify-center cursor-pointer hover:bg-surface-variant transition-colors">
+            <span class="material-symbols-outlined text-on-surface">tune</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Mastery Progress Chart -->
+      <section class="mb-8 card flex flex-col md:flex-row gap-8 items-center">
+        <div class="flex-1 w-full">
+          <h3 class="headline-lg text-on-surface mb-4">Mastery Progress</h3>
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between label-sm mb-1"><span class="text-on-surface">Data Structures</span><span class="text-primary">85%</span></div>
+              <div class="progress-bar"><div class="progress-fill primary" style="width:85%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between label-sm mb-1"><span class="text-on-surface">Algorithms</span><span class="text-tertiary">42%</span></div>
+              <div class="progress-bar"><div class="progress-fill tertiary" style="width:42%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between label-sm mb-1"><span class="text-on-surface">Memory Management</span><span class="text-secondary">100%</span></div>
+              <div class="progress-bar"><div class="progress-fill secondary" style="width:100%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="w-full md:w-1/3 flex flex-col items-center justify-center bg-surface-container-lowest p-6 rounded-lg border border-outline-variant">
+          <div class="relative w-32 h-32 flex items-center justify-center mb-4">
+            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--surface-variant)" stroke-width="3"></path>
+              <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--primary)" stroke-dasharray="68, 100" stroke-width="3"></path>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="headline-xl text-on-surface">68</span>
+              <span class="label-sm text-on-surface-variant">LEVEL</span>
+            </div>
+          </div>
+          <p class="text-on-surface-variant text-center text-sm">Advanced Path</p>
+        </div>
+      </section>
+
+      <!-- Hero: Animated Gradient + Radar + Tagline -->
+      <section class="mb-12 relative overflow-hidden rounded-xl" style="min-height:340px">
+        <div class="hero-gradient absolute inset-0 z-0"></div>
+        <div class="hero-glow-orb absolute -top-20 -right-20 w-80 h-80 bg-primary opacity-[0.08] rounded-full blur-[120px]"></div>
+        <div class="hero-glow-orb absolute -bottom-20 -left-20 w-60 h-60 bg-secondary opacity-[0.06] rounded-full blur-[100px]"></div>
+        <div class="relative z-10 flex flex-col md:flex-row items-center gap-6 p-6 md:p-8">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="material-symbols-outlined text-tertiary filled text-lg">auto_awesome</span>
+              <span class="label-sm text-tertiary uppercase tracking-widest">Differential Learning Engine</span>
+            </div>
+            <h1 class="headline-xl text-on-surface mb-3 leading-tight">Learn code the way<br/>AI <span class="text-primary">traces</span> it.</h1>
+            <p class="text-on-surface-variant max-w-xl mb-6 text-sm leading-relaxed">
+              Socratica compares your execution traces against oracle paths —
+              detecting divergences, measuring convergence, and mentoring you
+              through the gap. No fluff. Just differential precision.
+            </p>
+            <div class="flex flex-wrap gap-3 items-center">
+              <a href="workspace.html" class="btn btn-primary"><span class="material-symbols-outlined text-[18px]">play_arrow</span>START TRACING</a>
+              <a href="trajectory-view.html" class="btn btn-secondary"><span class="material-symbols-outlined text-[18px]">account_tree</span>VIEW TRAJECTORY</a>
+              <span class="code-md text-outline flex items-center gap-1 text-xs"><span class="material-symbols-outlined text-[14px]">schedule</span> Session active</span>
+            </div>
+          </div>
+          <div class="w-full md:w-auto shrink-0 flex items-center justify-center" style="min-width:240px">
+            <div id="radar-preview" style="width:240px;height:240px"></div>
+          </div>
+        </div>
+      </section>
+
+      <style>
+        @keyframes heroGradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .hero-gradient {
+          background: linear-gradient(-45deg, rgba(79,70,229,0.08), rgba(186,206,153,0.04), rgba(11,19,38,1), rgba(79,70,229,0.06));
+          background-size: 400% 400%;
+          animation: heroGradient 12s ease infinite;
+        }
+        @keyframes orbFloat {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(30px, -20px) scale(1.05); }
+          66% { transform: translate(-20px, 10px) scale(0.95); }
+        }
+        .hero-glow-orb {
+          animation: orbFloat 8s ease-in-out infinite;
+        }
+      </style>
+
+      <!-- Dashboard Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left: Core Modules -->
+        <div class="lg:col-span-2 space-y-6">
+          <h3 class="headline-lg text-on-surface mb-4">Core Modules</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Module 1 -->
+            <div class="card card-hoverable flex flex-col h-full group relative overflow-hidden">
+              <div class="flex justify-between items-start mb-4">
+                <div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant">
+                  <span class="material-symbols-outlined text-primary">linear_scale</span>
+                </div>
+                <span class="badge badge-secondary">Beginner</span>
+              </div>
+              <h4 class="headline-lg text-on-surface mb-2">Linked Lists</h4>
+              <p class="text-on-surface-variant text-sm flex-1 mb-6">Understand fundamental sequential data storage, pointer manipulation, and dynamic memory allocation.</p>
+              <div class="progress-bar mb-3"><div class="progress-fill secondary" style="width:100%"></div></div>
+              <div class="flex justify-between items-center mt-auto">
+                <span class="code-md text-secondary text-xs">100% Complete</span>
+                <button class="text-primary label-sm uppercase hover:text-primary-fixed transition-colors">REVIEW</button>
+              </div>
+            </div>
+            <!-- Module 2 -->
+            <div class="card card-hoverable flex flex-col h-full group relative overflow-hidden">
+              <div class="absolute -right-10 -top-10 w-32 h-32 bg-primary opacity-5 rounded-full blur-2xl group-hover:opacity-10 transition-opacity"></div>
+              <div class="flex justify-between items-start mb-4 relative z-10">
+                <div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant">
+                  <span class="material-symbols-outlined text-primary">all_inclusive</span>
+                </div>
+                <span class="badge badge-tertiary">Intermediate</span>
+              </div>
+              <h4 class="headline-lg text-on-surface mb-2 relative z-10">Recursion</h4>
+              <p class="text-on-surface-variant text-sm flex-1 mb-6 relative z-10">Master self-referential functions, base cases, and call stack management.</p>
+              <div class="progress-bar mb-3 relative z-10"><div class="progress-fill primary" style="width:65%"></div></div>
+              <div class="flex justify-between items-center mt-auto relative z-10">
+                <span class="code-md text-primary text-xs">65% Active</span>
+                <button class="bg-transparent border border-primary text-primary hover:bg-primary/10 label-sm py-1 px-3 rounded uppercase transition-colors">RESUME</button>
+              </div>
+            </div>
+            <!-- Module 3 -->
+            <div class="card flex flex-col h-full opacity-75">
+              <div class="flex justify-between items-start mb-4">
+                <div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant">
+                  <span class="material-symbols-outlined text-outline">memory</span>
+                </div>
+                <span class="badge badge-error">Advanced</span>
+              </div>
+              <h4 class="headline-lg text-on-surface mb-2">Dynamic Programming</h4>
+              <p class="text-on-surface-variant text-sm flex-1 mb-6">Optimize complex recursive problems using memoization and tabulation strategies.</p>
+              <div class="progress-bar mb-3"><div class="progress-fill outline" style="width:0%"></div></div>
+              <div class="flex justify-between items-center mt-auto">
+                <span class="code-md text-outline text-xs">Locked</span>
+                <span class="material-symbols-outlined text-outline text-sm">lock</span>
+              </div>
+            </div>
+            <!-- Module 4 -->
+            <div class="card flex flex-col h-full opacity-75">
+              <div class="flex justify-between items-start mb-4">
+                <div class="bg-surface-container-lowest p-2 rounded-lg border border-outline-variant">
+                  <span class="material-symbols-outlined text-outline">account_tree</span>
+                </div>
+                <span class="badge badge-error">Advanced</span>
+              </div>
+              <h4 class="headline-lg text-on-surface mb-2">Trees &amp; Graphs</h4>
+              <p class="text-on-surface-variant text-sm flex-1 mb-6">Non-linear data structures, traversal algorithms (BFS/DFS), and balancing techniques.</p>
+              <div class="progress-bar mb-3"><div class="progress-fill outline" style="width:0%"></div></div>
+              <div class="flex justify-between items-center mt-auto">
+                <span class="code-md text-outline text-xs">Locked</span>
+                <span class="material-symbols-outlined text-outline text-sm">lock</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Recent Activity -->
+        <div class="space-y-6">
+          <h3 class="headline-lg text-on-surface mb-4">Recent Activity</h3>
+          <div class="card-low rounded-xl p-5">
+            <div class="space-y-0">
+              <!-- Activity 1 -->
+              <div class="timeline-item">
+                <div class="timeline-dot secondary"></div>
+                <div class="code-md text-secondary text-xs mb-1">2 hours ago</div>
+                <h5 class="body-md font-semibold text-on-surface mb-1">Trajectory Convergence</h5>
+                <p class="text-on-surface-variant text-xs mb-3">Successfully implemented Fibonacci sequence using memoization.</p>
+                <div class="bg-surface-container-lowest p-3 rounded border border-outline-variant code-md text-[11px] overflow-x-auto">
+                  <pre><code><span class="syntax-keyword">if</span> (memo.find(n) != memo.end()) <span class="syntax-keyword">return</span> memo[n];</code></pre>
+                </div>
+              </div>
+              <!-- Activity 2 -->
+              <div class="timeline-item">
+                <div class="timeline-dot tertiary"></div>
+                <div class="code-md text-tertiary text-xs mb-1">Yesterday</div>
+                <h5 class="body-md font-semibold text-on-surface mb-1">Divergence Detected</h5>
+                <p class="text-on-surface-variant text-xs">AI flagged inefficient memory usage in Recursive attempt #3.</p>
+              </div>
+              <!-- Activity 3 -->
+              <div class="timeline-item">
+                <div class="timeline-dot secondary"></div>
+                <div class="code-md text-secondary text-xs mb-1">3 days ago</div>
+                <h5 class="body-md font-semibold text-on-surface mb-1">Module Completed</h5>
+                <p class="text-on-surface-variant text-xs">Finished 'Linked Lists' core module.</p>
+              </div>
+              <!-- Activity 4 -->
+              <div class="timeline-item">
+                <div class="timeline-dot primary"></div>
+                <div class="code-md text-primary text-xs mb-1">Last Week</div>
+                <h5 class="body-md font-semibold text-on-surface mb-1">Trajectory Complete</h5>
+                <div class="bg-surface-container-lowest border border-outline-variant rounded p-3 mt-2 flex items-center gap-3">
+                  <span class="material-symbols-outlined text-secondary">check_circle</span>
+                  <div>
+                    <p class="text-on-surface text-xs">Memory Basics Path Cleared</p>
+                    <p class="label-xs text-on-surface-variant">All objectives met efficiently.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/socratic-engine.js"></script>
+  <script src="js/skill-radar.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.SkillRadar) {
+        var preview = document.getElementById('radar-preview');
+        if (preview) SkillRadar.render(preview);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "userns-remap": "default",
+  "no-new-privileges": true,
+  "live-restore": true,
+  "max-concurrent-downloads": 3,
+  "default-ulimit": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 65535,
+      "Soft": 65535
+    },
+    "nproc": {
+      "Name": "nproc",
+      "Hard": 4096,
+      "Soft": 4096
+    }
+  },
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}

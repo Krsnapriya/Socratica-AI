@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Extensions</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"outline-variant":"#464555","on-surface-variant":"#c7c4d8","on-secondary":"#26350f","inverse-on-surface":"#283044","background":"#0b1326","on-tertiary-fixed-variant":"#653e00","on-background":"#dae2fd","inverse-primary":"#4d44e3","secondary-fixed-dim":"#bace99","on-secondary-container":"#acbf8c","error-container":"#93000a","on-primary-fixed":"#0f0069","surface-container-lowest":"#060e20","primary-fixed":"#e2dfff","primary":"#c3c0ff","on-primary":"#1d00a5","surface-container-high":"#222a3d","on-tertiary":"#472a00","outline":"#918fa1","on-tertiary-container":"#ffd4a4","on-secondary-fixed-variant":"#3c4c24","tertiary-container":"#885500","surface-container-highest":"#2d3449","on-error":"#690005","surface-variant":"#2d3449","secondary":"#bace99","surface-tint":"#c3c0ff","on-primary-container":"#dad7ff","on-primary-fixed-variant":"#3323cc","primary-fixed-dim":"#c3c0ff","on-tertiary-fixed":"#2a1700","surface":"#0b1326","on-surface":"#dae2fd","on-secondary-fixed":"#121f00","on-error-container":"#ffdad6","surface-dim":"#0b1326","secondary-container":"#3e4e26","inverse-surface":"#dae2fd","primary-container":"#4f46e5","tertiary-fixed":"#ffddb8","surface-container":"#171f33","tertiary-fixed-dim":"#ffb95f","surface-container-low":"#131b2e","error":"#ffb4ab","secondary-fixed":"#d6eab4","tertiary":"#ffb95f","surface-bright":"#31394d"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{"margin-desktop":"32px","base":"4px","margin-mobile":"16px","gutter":"16px","max-width":"1440px"},fontFamily:{"body-md":["Inter"],"label-sm":["JetBrains Mono"],"headline-lg":["Inter"],"headline-xl-mobile":["Inter"],"headline-xl":["Inter"],"code-md":["JetBrains Mono"]},fontSize:{"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]}}}}</script>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link active" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+  <div class="flex flex-1 pt-16 h-screen overflow-hidden">
+    <nav class="bg-surface-container-low flex flex-col items-center py-base fixed left-0 top-16 bottom-0 z-40 w-16 border-r border-outline-variant justify-between" aria-label="Workspace navigation">
+      <div class="flex flex-col items-center w-full gap-2 mt-4">
+        <a class="w-12 h-12 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-highest" href="workspace.html" title="Explorer"><span class="material-symbols-outlined">folder_open</span></a>
+        <a class="w-12 h-12 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-highest" href="workspace-search.html" title="Search"><span class="material-symbols-outlined">search</span></a>
+        <a class="w-12 h-12 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-highest" href="workspace-debug.html" title="Debug"><span class="material-symbols-outlined">bug_report</span></a>
+        <a class="w-12 h-12 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-highest" href="workspace-source-control.html" title="Source Control"><span class="material-symbols-outlined">account_tree</span></a>
+        <a class="w-12 h-12 flex items-center justify-center rounded-r-lg -ml-[2px] text-primary bg-primary-container/10 border-l-2 border-primary" href="workspace-extensions.html" title="Extensions"><span class="material-symbols-outlined">extension</span></a>
+      </div>
+    </nav>
+    <main class="ml-16 flex flex-1 overflow-hidden bg-background">
+      <div class="w-full lg:w-3/5 flex flex-col h-full border-r border-outline-variant bg-background">
+        <div class="p-gutter border-b border-outline-variant bg-surface-container-lowest sticky top-0 z-10 flex flex-col gap-4">
+          <div class="headline-lg text-on-surface">Extensions</div>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+            <input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-4 py-2 code-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all" placeholder="Search Marketplace..." type="text" aria-label="Search Marketplace">
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-gutter pb-24">
+          <div class="mb-8">
+            <h2 class="label-sm text-on-surface-variant uppercase tracking-wider mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-sm">stars</span> Recommended for You</h2>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col gap-3 transition-all cursor-pointer hover:border-primary hover:bg-surface-container">
+                <div class="flex gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-primary text-2xl">magic_button</span></div>
+                  <div class="flex-1">
+                    <h3 class="body-md font-semibold text-on-surface leading-tight">Socratic Autocomplete</h3>
+                    <p class="label-sm text-outline mt-1 truncate">Context-aware multi-line suggestions.</p>
+                    <div class="flex gap-2 mt-2 items-center"><span class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">download</span> 124k</span><span class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-tertiary">star</span> 4.9</span></div>
+                  </div>
+                </div>
+                <div class="mt-auto pt-2 flex justify-end"><button class="btn btn-primary btn-sm">Install</button></div>
+              </div>
+              <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-4 flex flex-col gap-3 transition-all cursor-pointer hover:border-primary hover:bg-surface-container">
+                <div class="flex gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-tertiary text-2xl">timeline</span></div>
+                  <div class="flex-1">
+                    <h3 class="body-md font-semibold text-on-surface leading-tight">Trajectory Tracer</h3>
+                    <p class="label-sm text-outline mt-1 truncate">Visualize logic paths in execution.</p>
+                    <div class="flex gap-2 mt-2 items-center"><span class="text-xs text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">download</span> 89k</span></div>
+                  </div>
+                </div>
+                <div class="mt-auto pt-2 flex justify-end"><button class="btn btn-primary btn-sm">Install</button></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-4"><h2 class="label-sm text-on-surface-variant uppercase tracking-wider">Installed</h2><span class="bg-surface-container-highest text-on-surface-variant text-xs px-2 py-0.5 rounded-full">4</span></div>
+            <div class="flex flex-col gap-2">
+              <div class="group flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-outline-variant hover:bg-surface-container-lowest transition-colors">
+                <div class="flex gap-3 items-center">
+                  <div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))"></div>
+                  <div><h4 class="body-md text-on-surface">Python Core Support</h4><p class="label-sm text-outline">Socratica Foundation</p></div>
+                </div>
+                <div class="flex items-center gap-4"><span class="code-md text-on-surface-variant">v2.4.1</span><button class="material-symbols-outlined text-outline hover:text-primary text-lg">settings</button></div>
+              </div>
+              <div class="group flex items-center justify-between p-3 rounded-lg border border-primary bg-primary/5 transition-colors cursor-pointer">
+                <div class="flex gap-3 items-center">
+                  <div class="w-8 h-8 rounded bg-secondary/10 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-secondary text-lg">code_blocks</span></div>
+                  <div><div class="flex items-center gap-2"><h4 class="body-md text-on-surface">Complexity Linter</h4><span class="badge badge-secondary">Active</span></div><p class="label-sm text-outline">Cyclomatic complexity alerts.</p></div>
+                </div>
+                <div class="flex items-center gap-4"><span class="code-md text-on-surface-variant">v1.1.0</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hidden lg:flex w-2/5 flex-col h-full bg-surface-container-lowest relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none"></div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="p-8 border-b border-outline-variant">
+            <div class="flex gap-6 items-start">
+              <div class="w-20 h-20 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0 border border-secondary/20" style="box-shadow:0 0 15px rgba(186,206,153,0.1)"><span class="material-symbols-outlined text-secondary text-4xl">code_blocks</span></div>
+              <div class="flex-1"><h2 class="headline-lg text-on-surface mb-1">Complexity Linter</h2><div class="flex items-center gap-2 mb-3"><span class="text-primary code-md">J. Aris</span><span class="text-outline-variant">&#8226;</span><span class="text-on-surface-variant label-sm">v1.1.0</span></div>
+                <p class="text-on-surface-variant text-sm leading-relaxed mb-4">Real-time cyclomatic complexity analysis inline. Identifies deeply nested loops and high-branching logic before they become technical debt.</p>
+                <div class="flex gap-3">
+                  <button class="bg-surface-variant text-on-surface hover:bg-surface-container-highest border border-outline-variant code-md px-4 py-2 rounded flex items-center gap-2 transition-colors"><span class="material-symbols-outlined text-[18px]">stop_circle</span> Disable</button>
+                  <button class="text-outline hover:text-error hover:bg-error/10 code-md px-3 py-2 rounded transition-colors">Uninstall</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex border-b border-outline-variant px-8 pt-4">
+            <button class="pb-2 border-b-2 border-primary text-primary label-sm mr-6 uppercase tracking-wider">Overview</button>
+            <button class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface label-sm mr-6 uppercase tracking-wider transition-colors">Permissions</button>
+            <button class="pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface label-sm uppercase tracking-wider transition-colors">Changelog</button>
+          </div>
+          <div class="p-8 space-y-8">
+            <section>
+              <h3 class="code-md text-on-surface mb-4 uppercase text-xs tracking-widest text-outline">Telemetry &amp; Impact</h3>
+              <div class="bg-background rounded-lg border border-outline-variant p-1 label-sm">
+                <div class="flex border-b border-outline-variant/50 last:border-0 hover:bg-surface-container-low transition-colors"><div class="w-1/2 p-3 text-on-surface-variant border-r border-outline-variant/50 flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-outline">speed</span>Indexing Delay</div><div class="w-1/2 p-3 text-secondary flex items-center justify-between"><span>+12ms</span><div class="w-16 h-1 bg-surface-variant rounded-full overflow-hidden"><div class="w-1/4 h-full bg-secondary"></div></div></div></div>
+                <div class="flex border-b border-outline-variant/50 last:border-0 hover:bg-surface-container-low transition-colors"><div class="w-1/2 p-3 text-on-surface-variant border-r border-outline-variant/50 flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-outline">memory</span>Memory Footprint</div><div class="w-1/2 p-3 text-on-surface flex items-center justify-between"><span>~45MB</span><div class="w-16 h-1 bg-surface-variant rounded-full overflow-hidden"><div class="w-1/2 h-full bg-primary/50"></div></div></div></div>
+                <div class="flex border-b border-outline-variant/50 last:border-0 hover:bg-surface-container-low transition-colors bg-tertiary/5"><div class="w-1/2 p-3 text-on-surface-variant border-r border-outline-variant/50 flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-tertiary">warning</span>AST Parsing</div><div class="w-1/2 p-3 text-tertiary flex items-center justify-between"><span>High Load on large files</span></div></div>
+              </div>
+            </section>
+            <section>
+              <h3 class="code-md text-on-surface mb-4 uppercase text-xs tracking-widest text-outline">Visual Demo</h3>
+              <div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden">
+                <div class="flex items-center px-3 py-2 border-b border-outline-variant/50 bg-surface-container-high"><div class="flex gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-outline-variant"></div><div class="w-2.5 h-2.5 rounded-full bg-outline-variant"></div><div class="w-2.5 h-2.5 rounded-full bg-outline-variant"></div></div><span class="ml-3 code-md text-[10px] text-outline">example_processor.py</span></div>
+                <div class="p-4 code-md text-sm leading-relaxed overflow-x-auto text-on-surface-variant"><pre><code><span class="syntax-keyword">def</span> <span class="syntax-function">process_data</span>(data):
+    <span class="syntax-comment"># Linter warning triggered below</span>
+    <span class="line-divergence" style="display:block">    for item in data:</span>
+    <span class="line-divergence" style="display:block">        if item.is_valid():</span>
+    <span class="line-divergence" style="display:block">            for sub in item.children:</span>
+    <span class="line-divergence" style="display:block">                if sub.type == "complex":</span>
+                    handle(sub)
+    <span class="text-tertiary text-xs mt-2 block">&#x21b3; [Complexity: 4] Consider refactoring nested logic.</span></code></pre></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  lint-server:
+    name: Lint Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: node -c server.js
+      - run: node -c routes/admin.js
+      - run: node -c routes/auth.js
+      - run: node -c routes/submissions.js
+      - run: node -c routes/problems.js
+      - run: node -c routes/courses.js
+      - run: node -c routes/sessions.js
+      - run: node -c middleware/requireAuth.js
+      - run: node -c middleware/requireRole.js
+      - run: node -c middleware/requirePermission.js
+      - run: node -c middleware/tokenBlacklist.js
+      - run: node -c middleware/csrf.js
+      - run: node -c middleware/validate.js
+      - run: node -c middleware/rateLimiter.js
+      - run: node -c middleware/submissionLock.js
+      - run: node -c models/Submission.js
+      - run: node -c models/Session.js
+      - run: node -c models/User.js
+      - run: node -c models/Enrollment.js
+      - run: node -c models/Problem.js
+      - run: node -c models/AuditLog.js
+      - run: node -c models/Permission.js
+      - run: node -c models/Course.js
+      - run: node -c models/Module.js
+      - run: node -c sandbox/runInContainer.js
+      - run: node -c sandbox/languageConfigs.js
+      - run: node -c sandbox/problemDrivers.js
+      - run: node -c sandbox/compileErrorHandler.js
+      - run: node -c ai/llmClient.js
+      - run: node -c ai/socraticPrompt.js
+      - run: node -c tracer/traceAligner.js
+      - run: node -c tracer/tier2Differential.js
+
+  lint-client:
+    name: Lint Client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
+  build-client:
+    name: Build Client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: client/dist/
+
+  test-server:
+    name: Test Server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm test -- --forceExit
+        env:
+          MONGODB_URI: mongodb://localhost:27017/socratica-test
+          REDIS_URI: redis://localhost:6379
+          JWT_SECRET: test-secret-key-for-ci-pipeline
+
+  docker-sandbox:
+    name: Build Sandbox Images
+    runs-on: ubuntu-latest
+    needs: [lint-server, lint-client, build-client]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --profile build build
+      - run: echo "Sandbox images built successfully"
+
+  docker-deploy:
+    name: Build & Push Production Images
+    runs-on: ubuntu-latest
+    needs: [docker-sandbox, test-server]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker compose build
+      - run: |
+          docker tag socratica-frontend ghcr.io/${{ github.repository }}/frontend:latest
+          docker tag socratica-gateway ghcr.io/${{ github.repository }}/gateway:latest
+          docker push ghcr.io/${{ github.repository }}/frontend:latest
+          docker push ghcr.io/${{ github.repository }}/gateway:latest

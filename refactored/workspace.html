@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Problem Workspace</title>
+  <meta name="description" content="Write, trace, and get Socratic AI feedback on your code submissions.">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-fixed-dim":"#bace99","surface-bright":"#31394d","outline":"#918fa1","inverse-primary":"#4d44e3","secondary-fixed":"#d6eab4","on-tertiary-container":"#ffd4a4","inverse-surface":"#dae2fd","surface-container-high":"#222a3d","on-surface":"#dae2fd","surface-container":"#171f33","tertiary-fixed-dim":"#ffb95f","surface-container-low":"#131b2e","tertiary":"#ffb95f","primary-fixed-dim":"#c3c0ff","on-primary-fixed":"#0f0069","error":"#ffb4ab","on-secondary":"#26350f","on-primary-container":"#dad7ff","tertiary-fixed":"#ffddb8","background":"#0b1326","on-tertiary-fixed-variant":"#653e00","surface":"#0b1326","secondary":"#bace99","on-surface-variant":"#c7c4d8","surface-container-lowest":"#060e20","on-error-container":"#ffdad6","primary":"#c3c0ff","on-secondary-container":"#acbf8c","primary-fixed":"#e2dfff","on-primary-fixed-variant":"#3323cc","on-primary":"#1d00a5","inverse-on-surface":"#283044","surface-container-highest":"#2d3449","secondary-container":"#3e4e26","on-secondary-fixed-variant":"#3c4c24","on-error":"#690005","surface-dim":"#0b1326","primary-container":"#4f46e5","outline-variant":"#464555","on-tertiary-fixed":"#2a1700","on-secondary-fixed":"#121f00","error-container":"#93000a","surface-tint":"#c3c0ff","on-tertiary":"#472a00","on-background":"#dae2fd","surface-variant":"#2d3449","tertiary-container":"#885500"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{gutter:"16px","max-width":"1440px","margin-desktop":"32px","margin-mobile":"16px","base":"4px"},fontFamily:{"headline-xl-mobile":["Inter"],"label-sm":["JetBrains Mono"],"headline-lg":["Inter"],"body-md":["Inter"],"code-md":["JetBrains Mono"],"headline-xl":["Inter"]},fontSize:{"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+
+  <style>
+    /* Monaco editor host */
+    #code-editor {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    /* Verdict chips */
+    .verdict-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:600; letter-spacing:.04em; }
+    .verdict-convergent { background:rgba(186,206,153,.15); color:#bace99; border:1px solid rgba(186,206,153,.3); }
+    .verdict-divergent  { background:rgba(255,180,171,.12); color:#ffb4ab; border:1px solid rgba(255,180,171,.25); }
+    .verdict-wrong_answer { background:rgba(255,185,95,.12); color:#ffb95f; border:1px solid rgba(255,185,95,.25); }
+    .verdict-timeout    { background:rgba(255,180,171,.12); color:#ffb4ab; border:1px solid rgba(255,180,171,.25); }
+    .verdict-compile_error { background:rgba(255,180,171,.12); color:#ffb4ab; border:1px solid rgba(255,180,171,.25); }
+    .verdict-runtime_error { background:rgba(255,180,171,.12); color:#ffb4ab; border:1px solid rgba(255,180,171,.25); }
+
+    /* AI hint block */
+    #ai-hint-block {
+      background: linear-gradient(135deg, rgba(79,70,229,.15), rgba(195,192,255,.05));
+      border: 1px solid rgba(195,192,255,.2);
+      border-radius: 8px;
+      padding: 12px 14px;
+      animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+    /* Pulsing submit button during loading */
+    @keyframes pulse-border { 0%,100%{ box-shadow:0 0 0 0 rgba(195,192,255,.4); } 50%{ box-shadow:0 0 0 6px rgba(195,192,255,0); } }
+    .submitting { animation: pulse-border 1s infinite; }
+
+    /* Step diff highlight */
+    .step-diff-row { padding: 4px 8px; border-radius:4px; font-size:12px; }
+    .step-diff-row.student { background:rgba(255,180,171,.1); }
+    .step-diff-row.oracle  { background:rgba(186,206,153,.1); }
+
+    /* Problem selector */
+    #problem-select, #lang-select {
+      background: var(--surface-container-highest, #2d3449);
+      border: 1px solid var(--outline-variant, #464555);
+      border-radius: 6px;
+      color: var(--on-surface, #dae2fd);
+      font-size:12px;
+      padding: 4px 8px;
+      outline:none;
+      cursor:pointer;
+    }
+    #problem-select:focus, #lang-select:focus { border-color: var(--primary, #c3c0ff); }
+
+    /* Scrollable output */
+    #output-panel { white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col">
+  <!-- ── Nav ───────────────────────────────────────────────────────────────── -->
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link active" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <!-- Round counter -->
+        <span class="label-sm text-on-surface-variant hidden md:block">Session: <span id="round-counter" class="text-primary font-bold">—</span></span>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main ──────────────────────────────────────────────────────────────── -->
+  <main class="flex flex-1 mt-16 overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="bg-surface-container-low h-full w-16 md:w-52 flex flex-col border-r border-outline-variant flex-shrink-0">
+      <div class="flex flex-col py-4 w-full h-full">
+        <nav class="flex flex-col w-full px-2 gap-1 mb-4 border-b border-outline-variant pb-4">
+          <a class="flex items-center gap-3 px-3 py-2 bg-primary-container/20 text-primary rounded-lg transition-all" href="workspace.html">
+            <span class="material-symbols-outlined text-[20px]">code</span>
+            <span class="hidden md:inline label-sm font-semibold">Workspace</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface rounded-lg transition-all" href="trajectory-view.html">
+            <span class="material-symbols-outlined text-[20px]">account_tree</span>
+            <span class="hidden md:inline label-sm">Trajectory</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface rounded-lg transition-all" href="analytics.html">
+            <span class="material-symbols-outlined text-[20px]">insights</span>
+            <span class="hidden md:inline label-sm">Analytics</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-variant hover:text-on-surface rounded-lg transition-all" href="settings.html">
+            <span class="material-symbols-outlined text-[20px]">settings</span>
+            <span class="hidden md:inline label-sm">Settings</span>
+          </a>
+        </nav>
+
+        <!-- Problem list -->
+        <div class="hidden md:flex flex-col flex-1 px-2 overflow-y-auto w-full">
+          <div class="flex items-center gap-1 py-1 px-2 mb-1">
+            <span class="label-sm text-on-surface font-bold uppercase tracking-wider">Problems</span>
+          </div>
+          <div id="problem-list-sidebar" class="flex flex-col gap-0.5">
+            <!-- populated by JS -->
+            <div class="label-sm text-outline py-2 px-2">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content columns -->
+    <div class="flex flex-1 overflow-x-auto">
+
+      <!-- ── Problem panel ─────────────────────────────────────────────────── -->
+      <section class="w-[24%] min-w-[260px] border-r border-outline-variant bg-surface-container flex flex-col">
+        <div class="h-10 border-b border-outline-variant flex items-center px-4 bg-surface-container-low shrink-0 gap-2">
+          <span class="label-sm text-on-surface uppercase tracking-wider font-bold">Problem</span>
+          <!-- Mobile problem picker -->
+          <select id="problem-select" class="md:hidden ml-auto" aria-label="Select problem">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-5">
+          <!-- Loading skeleton -->
+          <div id="problem-loading" class="space-y-3">
+            <div class="h-4 bg-surface-variant rounded animate-pulse w-1/3"></div>
+            <div class="h-6 bg-surface-variant rounded animate-pulse w-3/4"></div>
+            <div class="h-3 bg-surface-variant rounded animate-pulse"></div>
+            <div class="h-3 bg-surface-variant rounded animate-pulse w-5/6"></div>
+          </div>
+
+          <!-- Problem content -->
+          <div id="problem-content" class="hidden space-y-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="p-difficulty" class="badge">—</span>
+              <span id="p-category" class="badge badge-primary">—</span>
+              <div id="p-tags" class="flex flex-wrap gap-1"></div>
+            </div>
+            <h1 id="p-title" class="headline-lg text-on-surface">—</h1>
+            <p id="p-description" class="text-on-surface-variant leading-relaxed text-sm"></p>
+
+            <!-- Session stats -->
+            <div class="border-t border-outline-variant pt-3 space-y-1" id="session-stats" style="display:none">
+              <div class="flex items-center gap-2">
+                <span id="tier-badge" class="tier-badge tier-1">Tier 1</span>
+                <span class="code-md text-on-surface-variant text-xs" id="tier-label">—</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="session-round-badge" class="badge badge-secondary">Round 1</span>
+                <span id="verdict-badge" class="verdict-chip">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Code editor ───────────────────────────────────────────────────── -->
+      <section class="flex-1 flex flex-col min-w-[380px] border-r border-outline-variant bg-surface-container-lowest relative">
+        <!-- Tab bar / selectors -->
+        <div class="h-10 border-b border-outline-variant flex items-center justify-between bg-surface-container-low shrink-0 px-2">
+          <div class="flex items-center h-full gap-1">
+            <!-- Language selector -->
+            <select id="lang-select" aria-label="Select language">
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="cpp">C++</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 text-on-surface-variant text-[11px]">
+            <span class="material-symbols-outlined text-[14px] text-secondary">security</span>
+            <span class="hidden sm:inline">Sandbox · 256MB · no-network</span>
+          </div>
+        </div>
+
+        <!-- Editor area -->
+        <div class="flex flex-1 overflow-hidden">
+          <div
+            id="code-editor"
+            class="flex-1"
+            aria-label="Code editor"
+            role="textbox"
+          ></div>
+        </div>
+      </section>
+
+      <!-- ── Output / AI panel ─────────────────────────────────────────────── -->
+      <section class="w-[30%] min-w-[300px] bg-surface-container flex flex-col">
+        <!-- Panel header -->
+        <div class="h-10 border-b border-outline-variant flex items-center px-2 bg-surface-container-low shrink-0 justify-between">
+          <div class="flex items-center h-full gap-1">
+            <button id="tab-output"  class="px-3 py-1 label-sm text-xs text-primary border-b-2 border-primary h-full uppercase tracking-wider font-bold"   onclick="switchTab('output')">Output</button>
+            <button id="tab-trace"   class="px-3 py-1 label-sm text-xs text-on-surface-variant hover:text-on-surface h-full uppercase tracking-wider transition-colors" onclick="switchTab('trace')">Trace</button>
+            <button id="tab-history" class="px-3 py-1 label-sm text-xs text-on-surface-variant hover:text-on-surface h-full uppercase tracking-wider transition-colors" onclick="switchTab('history')">History</button>
+          </div>
+          <div class="flex items-center gap-2 text-on-surface-variant">
+            <button class="material-symbols-outlined text-[16px] hover:text-error" aria-label="Clear output" onclick="clearOutput()">delete</button>
+          </div>
+        </div>
+
+        <!-- Tab: Output -->
+        <div id="panel-output" class="flex-1 overflow-y-auto p-3 code-md text-on-surface-variant bg-surface-container-lowest m-3 rounded border border-outline-variant shadow-inner">
+          <div id="output-panel">
+            <span class="text-outline">Ready. Select a problem and click Submit.</span>
+          </div>
+        </div>
+
+        <!-- Tab: Trace (divergence details) -->
+        <div id="panel-trace" class="hidden flex-1 overflow-y-auto p-3 space-y-3">
+          <div class="label-sm text-on-surface uppercase tracking-wider font-bold mb-2">Step Divergence</div>
+          <div id="trace-content" class="text-outline text-sm">No trace data yet. Submit your code first.</div>
+        </div>
+
+        <!-- Tab: History -->
+        <div id="panel-history" class="hidden flex-1 overflow-y-auto p-3">
+          <div class="label-sm text-on-surface uppercase tracking-wider font-bold mb-2">Session History</div>
+          <div id="history-content" class="text-outline text-sm">No submissions yet.</div>
+        </div>
+
+        <!-- AI Hint block (always visible below tabs) -->
+        <div id="ai-hint-wrapper" class="hidden px-3 pb-2">
+          <div id="ai-hint-block">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-[16px] text-primary">psychology</span>
+              <span class="label-sm text-primary font-bold uppercase tracking-wider">Socratic Mentor</span>
+            </div>
+            <p id="ai-hint-text" class="text-on-surface text-sm leading-relaxed"></p>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="p-3 border-t border-outline-variant bg-surface-container-low shrink-0 flex flex-col gap-2">
+          <div class="flex gap-2 w-full">
+            <button id="btn-run"
+              class="flex-1 bg-surface-variant text-on-surface label-sm py-2 rounded shadow-sm hover:bg-surface-bright transition-colors flex items-center justify-center gap-2 border border-outline-variant uppercase tracking-wider font-bold"
+              onclick="runCode()">
+              <span class="material-symbols-outlined text-[18px]">play_arrow</span>Run
+            </button>
+            <button id="btn-submit"
+              class="flex-1 bg-primary text-on-primary label-sm py-2 rounded shadow-sm hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2 font-bold uppercase tracking-wider"
+              onclick="submitCode()">
+              <span class="material-symbols-outlined text-[18px]">cloud_upload</span>Submit
+            </button>
+          </div>
+          <button id="btn-hint"
+            class="hidden w-full bg-primary-container/20 text-primary hover:bg-primary-container/30 label-sm py-2 rounded flex items-center justify-center gap-2 transition-colors border border-primary/20 text-xs"
+            onclick="requestNewHint()">
+            <span class="material-symbols-outlined text-[16px]">live_help</span>Ask for another hint (Round <span id="next-round-num">2</span>)
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/loader.min.js"></script>
+  <script>
+    window.MonacoEnvironment = {
+      getWorkerUrl: function () {
+        const proxy = "self.MonacoEnvironment={baseUrl:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/'};importScripts('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs/base/worker/workerMain.js');";
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(proxy);
+      }
+    };
+  </script>
+  <script src="js/common.js"></script>
+  <script>
+  // ╔═══════════════════════════════════════════════════════════════════╗
+  // ║           Workspace Controller — Socratica AI                    ║
+  // ╚═══════════════════════════════════════════════════════════════════╝
+  (function () {
+    'use strict';
+
+    const API = '';           // empty → relative URLs (nginx proxy handles /api/*)
+    const DEFAULT_USER = 'dev-user';
+    const DEFAULT_PROBLEM = 'two-sum';
+
+    // ── State ─────────────────────────────────────────────────────────
+    let problems     = [];
+    let currentProblem = null;
+    let currentLang  = 'python';
+    let sessionId    = null;
+    let round        = 1;
+    let lastResult   = null;
+    let editor       = null;
+    let pendingCode  = '';
+    let monacoReady  = null;
+
+    // ── DOM refs ──────────────────────────────────────────────────────
+    const problemSelect      = document.getElementById('problem-select');
+    const langSelect         = document.getElementById('lang-select');
+    const problemLoading     = document.getElementById('problem-loading');
+    const problemContent     = document.getElementById('problem-content');
+    const outputPanel        = document.getElementById('output-panel');
+    const traceContent       = document.getElementById('trace-content');
+    const historyContent     = document.getElementById('history-content');
+    const aiHintWrapper      = document.getElementById('ai-hint-wrapper');
+    const aiHintText         = document.getElementById('ai-hint-text');
+    const roundCounter       = document.getElementById('round-counter');
+    const sessionStats       = document.getElementById('session-stats');
+    const btnSubmit          = document.getElementById('btn-submit');
+    const btnRun             = document.getElementById('btn-run');
+    const btnHint            = document.getElementById('btn-hint');
+    const nextRoundNum       = document.getElementById('next-round-num');
+    const sidebarList        = document.getElementById('problem-list-sidebar');
+
+    function getEditorValue() {
+      return editor ? editor.getValue() : pendingCode;
+    }
+
+    function setEditorValue(code) {
+      pendingCode = code;
+      if (editor) {
+        editor.setValue(code);
+      }
+    }
+
+    function initEditor() {
+      if (!window.require) {
+        monacoReady = Promise.reject(new Error('Monaco loader unavailable'));
+        return monacoReady;
+      }
+
+      monacoReady = new Promise((resolve, reject) => {
+        window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.0/min/vs' } });
+        window.require(['vs/editor/editor.main'], function () {
+          try {
+            editor = monaco.editor.create(document.getElementById('code-editor'), {
+              value: '',
+              language: currentLang,
+              theme: 'vs-dark',
+              automaticLayout: true,
+              minimap: { enabled: false },
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 14,
+              lineHeight: 24,
+              tabSize: 2,
+              renderLineHighlight: 'all',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+            });
+            if (pendingCode) {
+              editor.setValue(pendingCode);
+            }
+            editor.onDidChangeModelContent(() => {
+              pendingCode = editor.getValue();
+            });
+            resolve(editor);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+
+      return monacoReady;
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────
+    window.switchTab = function(tab) {
+      ['output','trace','history'].forEach(t => {
+        document.getElementById('panel-' + t).classList.add('hidden');
+        document.getElementById('tab-' + t).classList.remove('text-primary','border-b-2','border-primary','font-bold');
+        document.getElementById('tab-' + t).classList.add('text-on-surface-variant');
+      });
+      document.getElementById('panel-' + tab).classList.remove('hidden');
+      document.getElementById('tab-' + tab).classList.add('text-primary','border-b-2','border-primary','font-bold');
+      document.getElementById('tab-' + tab).classList.remove('text-on-surface-variant');
+    };
+
+    window.clearOutput = function() {
+      outputPanel.innerHTML = '<span class="text-outline">Cleared.</span>';
+      traceContent.textContent = 'No trace data.';
+      historyContent.textContent = 'No submissions yet.';
+      aiHintWrapper.classList.add('hidden');
+      sessionStats.style.display = 'none';
+    };
+
+    // ── Load problem list ─────────────────────────────────────────────
+    async function loadProblems() {
+      try {
+        const res = await fetch(API + '/api/problems');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        problems = await res.json();
+      } catch (err) {
+        console.error('[workspace] loadProblems:', err);
+        problems = [];
+      }
+      renderProblemList();
+      // Select from URL param or default
+      const urlProblem = new URLSearchParams(location.search).get('problem') || DEFAULT_PROBLEM;
+      const found = problems.find(p => p.problemId === urlProblem) || problems[0];
+      if (found) selectProblem(found.problemId);
+    }
+
+    function renderProblemList() {
+      // Mobile select
+      problemSelect.innerHTML = problems.map(p =>
+        `<option value="${p.problemId}">${p.title}</option>`
+      ).join('');
+      problemSelect.onchange = () => selectProblem(problemSelect.value);
+
+      // Sidebar
+      sidebarList.innerHTML = '';
+      const diffColor = { Easy: 'text-secondary', Medium: 'text-tertiary', Hard: 'text-error' };
+      problems.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-surface-variant transition-colors';
+        el.dataset.problemId = p.problemId;
+        el.innerHTML = `
+          <span class="label-sm text-on-surface truncate">${p.title}</span>
+          <span class="label-sm ${diffColor[p.difficulty] || 'text-outline'} text-[10px] ml-1 shrink-0">${p.difficulty || ''}</span>
+        `;
+        el.onclick = () => selectProblem(p.problemId);
+        sidebarList.appendChild(el);
+      });
+    }
+
+    // ── Select & load a problem ───────────────────────────────────────
+    async function selectProblem(problemId) {
+      // Reset session on problem change
+      if (currentProblem && currentProblem.problemId !== problemId) {
+        sessionId = null;
+        round = 1;
+        aiHintWrapper.classList.add('hidden');
+        sessionStats.style.display = 'none';
+      }
+
+      // Update sidebar highlight
+      document.querySelectorAll('#problem-list-sidebar [data-problem-id]').forEach(el => {
+        el.classList.toggle('bg-primary-container/10', el.dataset.problemId === problemId);
+        el.classList.toggle('text-primary', el.dataset.problemId === problemId);
+      });
+
+      // Show loading
+      problemLoading.classList.remove('hidden');
+      problemContent.classList.add('hidden');
+
+      try {
+        const res = await fetch(API + '/api/problems/' + problemId);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        currentProblem = await res.json();
+        renderProblem();
+        await loadTemplate();
+      } catch (err) {
+        outputPanel.innerHTML = `<span class="text-error">Failed to load problem: ${err.message}</span>`;
+        problemLoading.classList.add('hidden');
+      }
+    }
+
+    function renderProblem() {
+      const p = currentProblem;
+      document.getElementById('p-title').textContent = p.title;
+      document.getElementById('p-description').textContent = p.description;
+
+      const diffEl = document.getElementById('p-difficulty');
+      diffEl.textContent = p.difficulty || '—';
+      diffEl.className = 'badge ' + (p.difficulty === 'Easy' ? 'badge-secondary' : p.difficulty === 'Hard' ? 'badge-error' : 'badge-primary');
+
+      document.getElementById('p-category').textContent = p.category || '—';
+
+      const tagsEl = document.getElementById('p-tags');
+      tagsEl.innerHTML = (p.tags || []).map(t =>
+        `<span class="badge badge-primary text-[10px]">${t}</span>`
+      ).join('');
+
+      problemLoading.classList.add('hidden');
+      problemContent.classList.remove('hidden');
+    }
+
+    // ── Load starter code template ────────────────────────────────────
+    async function loadTemplate() {
+      if (!currentProblem) return;
+      try {
+        const res = await fetch(`${API}/api/problems/${currentProblem.problemId}/template?lang=${currentLang}`);
+        const { code } = await res.json();
+        setEditorValue(code || `# ${currentProblem.title}\n# Language: ${currentLang}\n`);
+      } catch {
+        setEditorValue(`# ${currentProblem.title}\n# Write your ${currentLang} solution here\n`);
+      }
+    }
+
+    // ── Language selector ─────────────────────────────────────────────
+    langSelect.onchange = function() {
+      currentLang = this.value;
+      if (editor) {
+        monaco.editor.setModelLanguage(editor.getModel(), currentLang);
+      }
+      loadTemplate();
+    };
+
+    // ── Run (same as submit for now — backend decides tier) ───────────
+    window.runCode = function() { submitCode(true); };
+
+    // ── Submit code ───────────────────────────────────────────────────
+    window.submitCode = async function(isRun = false) {
+      if (!currentProblem) { alert('Please select a problem first.'); return; }
+      const code = getEditorValue().trim();
+      if (!code) { alert('Write some code first!'); return; }
+
+      // UI: loading state
+      btnSubmit.disabled = true;
+      btnRun.disabled    = true;
+      btnSubmit.classList.add('submitting');
+      switchTab('output');
+      outputPanel.innerHTML = `
+        <div class="flex items-center gap-2 text-primary">
+          <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+          Running in sandbox…
+        </div>`;
+
+      try {
+        const body = {
+          student_code: code,
+          problem_id:   currentProblem.problemId,
+          user_id:      DEFAULT_USER,
+          language:     currentLang,
+          session_id:   sessionId,
+          round:        round,
+        };
+
+        const res = await fetch(API + '/api/trace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+
+        lastResult = data;
+        // Persist session
+        if (data.sessionId) {
+          sessionId = data.sessionId;
+          round     = (data.round || round) + 1;
+          try { localStorage.setItem('socratica-last-session-id', sessionId); } catch (e) {}
+          try { localStorage.setItem('socratica-last-user-id', DEFAULT_USER); } catch (e) {}
+          try { localStorage.setItem('socratica-last-problem-id', currentProblem.problemId); } catch (e) {}
+        }
+
+        renderResult(data);
+      } catch (err) {
+        outputPanel.innerHTML = `<span class="text-error">Error: ${err.message}</span>`;
+      } finally {
+        btnSubmit.disabled = false;
+        btnRun.disabled    = false;
+        btnSubmit.classList.remove('submitting');
+      }
+    };
+
+    // ── Render result ─────────────────────────────────────────────────
+    function renderResult(d) {
+      const verdict = d.verdict || 'unknown';
+      const tierNum = d.tier || 2;
+
+      // ── Output tab
+      let html = '';
+
+      // Verdict line
+      const verdictLabel = {
+        convergent:    '✓ Convergent — matches oracle output',
+        divergent:     '✗ Divergent — step-level mismatch detected',
+        wrong_answer:  '✗ Wrong Answer — output doesn\'t match',
+        timeout:       '⏱ Time Limit Exceeded',
+        compile_error: '✗ Compile Error',
+        runtime_error: '✗ Runtime Error',
+      }[verdict] || verdict;
+
+      html += `<div class="mb-3"><span class="verdict-chip verdict-${verdict}">${verdictLabel}</span></div>`;
+
+      // Compile / runtime error detail
+      if (d.compileError) html += `<div class="text-error mt-2 text-sm">${escapeHtml(d.compileError)}</div>`;
+      if (d.runtimeError) html += `<div class="text-error mt-2 text-sm">${escapeHtml(d.runtimeError)}</div>`;
+
+      // Telemetry
+      if (d.studentStdout !== undefined) {
+        html += `
+          <div class="mt-3 space-y-2">
+            <div class="flex gap-4 text-xs">
+              <span class="text-on-surface-variant">Steps: <b class="text-on-surface">${d.studentSteps}</b> vs oracle <b class="text-secondary">${d.oracleSteps}</b></span>
+              <span class="text-on-surface-variant">Time: <b class="text-on-surface">${d.studentElapsedMs}ms</b></span>
+            </div>`;
+
+        if (d.studentStdout) {
+          html += `<div class="mt-2"><span class="text-outline text-xs uppercase">Your Output:</span>
+            <pre class="text-on-surface text-xs mt-1 overflow-x-auto">${escapeHtml(d.studentStdout.substring(0,500))}</pre></div>`;
+        }
+        if (verdict !== 'convergent' && d.oracleStdout) {
+          html += `<div class="mt-2"><span class="text-outline text-xs uppercase">Expected:</span>
+            <pre class="text-secondary text-xs mt-1 overflow-x-auto">${escapeHtml(d.oracleStdout.substring(0,500))}</pre></div>`;
+        }
+        html += `</div>`;
+      }
+
+      // Tier badge
+      html += `<div class="mt-3 flex items-center gap-2 border-t border-outline-variant pt-2">
+        <span class="tier-badge tier-${tierNum}">Tier ${tierNum}</span>
+        <span class="text-xs text-on-surface-variant">${tierNum === 1 ? 'Step-level trace active (Python)' : 'Outcome-level comparison'}</span>
+      </div>`;
+
+      outputPanel.innerHTML = html;
+
+      // ── Trace tab
+      renderTrace(d);
+
+      // ── Session stats in problem panel
+      sessionStats.style.display = '';
+      document.getElementById('tier-badge').textContent  = 'Tier ' + tierNum;
+      document.getElementById('tier-badge').className    = `tier-badge tier-${tierNum}`;
+      document.getElementById('tier-label').textContent  = tierNum === 1 ? 'Step-level trace' : 'Output comparison';
+      document.getElementById('session-round-badge').textContent = `Round ${d.round || round - 1}`;
+      const vb = document.getElementById('verdict-badge');
+      vb.textContent = verdict;
+      vb.className   = `verdict-chip verdict-${verdict}`;
+
+      // Nav counter
+      roundCounter.textContent = `R${d.round || round - 1}`;
+
+      // ── AI hint
+      if (d.aiHint) {
+        aiHintText.textContent = d.aiHint;
+        aiHintWrapper.classList.remove('hidden');
+      } else {
+        aiHintWrapper.classList.add('hidden');
+      }
+
+      // ── "Ask another hint" button
+      if (verdict !== 'convergent') {
+        btnHint.classList.remove('hidden');
+        nextRoundNum.textContent = round;
+      } else {
+        btnHint.classList.add('hidden');
+      }
+    }
+
+    function renderTrace(d) {
+      if (!d.divergenceStep) {
+        traceContent.innerHTML = verdict === 'convergent'
+          ? '<span class="text-secondary">✓ No divergence — execution paths match.</span>'
+          : '<span class="text-outline">No step-level trace data (Tier 2 — outcome comparison only).</span>';
+        return;
+      }
+
+      let html = `<div class="text-error font-bold mb-2 text-sm">
+        Divergence at step ${d.divergenceStep}${d.divergenceLineno ? ` (line ${d.divergenceLineno})` : ''}
+      </div>`;
+
+      if (d.studentLocals) {
+        html += `<div class="step-diff-row student mb-1">
+          <span class="text-error text-xs font-bold">Your locals:</span>
+          <pre class="text-on-surface text-xs mt-1">${escapeHtml(JSON.stringify(d.studentLocals, null, 2))}</pre>
+        </div>`;
+      }
+      if (d.oracleLocals) {
+        html += `<div class="step-diff-row oracle">
+          <span class="text-secondary text-xs font-bold">Oracle locals:</span>
+          <pre class="text-secondary text-xs mt-1">${escapeHtml(JSON.stringify(d.oracleLocals, null, 2))}</pre>
+        </div>`;
+      }
+
+      traceContent.innerHTML = html;
+    }
+
+    // ── Request new hint (resubmit same code, increments round) ──────
+    window.requestNewHint = async function() {
+      await submitCode();
+    };
+
+    // ── History ────────────────────────────────────────────────────────
+    async function loadHistory() {
+      if (!sessionId) return;
+      try {
+        const res = await fetch(`${API}/api/sessions/${sessionId}`);
+        const rounds = await res.json();
+        historyContent.innerHTML = rounds.map(r => `
+          <div class="flex items-center justify-between py-1 border-b border-outline-variant/30 text-xs">
+            <span class="text-on-surface-variant">Round ${r.round}</span>
+            <span class="verdict-chip verdict-${r.verdict}">${r.verdict}</span>
+            <span class="text-outline">${new Date(r.createdAt).toLocaleTimeString()}</span>
+          </div>`).join('');
+      } catch { /* silent */ }
+    }
+
+    // Reload history when switching tab
+    document.getElementById('tab-history').addEventListener('click', loadHistory);
+
+    // ── Utility ───────────────────────────────────────────────────────
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────
+    initEditor().catch((err) => {
+      outputPanel.innerHTML = `<span class="text-error">Editor failed to load: ${err.message}</span>`;
+    });
+    loadProblems();
+  })();
+  </script>
+</body>
+</html>

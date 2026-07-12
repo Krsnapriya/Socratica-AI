@@ -1,0 +1,24 @@
+{
+  "name": "socratica",
+  "version": "1.0.0",
+  "description": "> **A formative-feedback online judge using differential execution tracing and a Socratic AI layer.** > Built as a college major project by **Krishnapriya Koppolu**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Krsnapriya/Socratica-AI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Krsnapriya/Socratica-AI/issues"
+  },
+  "homepage": "https://github.com/Krsnapriya/Socratica-AI#readme",
+  "dependencies": {
+    "mongoose": "^9.7.3"
+  }
+}

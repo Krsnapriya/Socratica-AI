@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Analytics</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <style>.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);grid-template-rows:repeat(6,1fr);gap:4px}</style>
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-background":"#dae2fd","background":"#0b1326","surface-container-high":"#222a3d","on-tertiary-fixed-variant":"#653e00","on-primary-fixed":"#0f0069","surface-variant":"#2d3449","surface-container-lowest":"#060e20","on-primary-fixed-variant":"#3323cc","tertiary-fixed":"#ffddb8","on-surface-variant":"#c7c4d8","outline-variant":"#464555","inverse-on-surface":"#283044","surface-container":"#171f33","secondary-fixed":"#d6eab4","primary":"#c3c0ff","outline":"#918fa1","secondary-fixed-dim":"#bace99","surface-dim":"#0b1326","surface":"#0b1326","on-secondary":"#26350f","surface-bright":"#31394d","primary-fixed-dim":"#c3c0ff","on-error":"#690005","surface-tint":"#c3c0ff","secondary-container":"#3e4e26","on-primary-container":"#dad7ff","inverse-surface":"#dae2fd","error-container":"#93000a","surface-container-highest":"#2d3449","tertiary-fixed-dim":"#ffb95f","on-tertiary-container":"#ffd4a4","surface-container-low":"#131b2e","on-surface":"#dae2fd","on-secondary-container":"#acbf8c","on-tertiary-fixed":"#2a1700","inverse-primary":"#4d44e3","tertiary-container":"#885500","on-primary":"#1d00a5","secondary":"#bace99","on-secondary-fixed":"#121f00","error":"#ffb4ab","primary-fixed":"#e2dfff","on-error-container":"#ffdad6","tertiary":"#ffb95f","primary-container":"#4f46e5","on-tertiary":"#472a00","on-secondary-fixed-variant":"#3c4c24"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{"max-width":"1440px","base":"4px","margin-mobile":"16px","gutter":"16px","margin-desktop":"32px"},fontFamily:{"label-sm":["JetBrains Mono"],"body-md":["Inter"],"headline-xl-mobile":["Inter"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"headline-xl":["Inter"]},fontSize:{"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+  <div class="flex flex-1 overflow-hidden">
+    <aside class="hidden md:flex bg-surface-container text-primary label-sm border-r border-outline-variant w-64 flex-col h-full py-6 px-4 gap-2 shrink-0">
+      <div class="p-6 border-b border-outline-variant">
+        <div class="headline-lg text-primary mb-1">Project Alpha</div>
+        <div class="label-sm text-on-surface-variant">Analytics Dashboard</div>
+      </div>
+      <a class="sidebar-link" href="index.html"><span class="material-symbols-outlined">dashboard</span>Dashboard</a>
+      <a class="sidebar-link" href="modules.html"><span class="material-symbols-outlined">extension</span>Modules</a>
+      <a class="sidebar-link" href="trajectory-history.html"><span class="material-symbols-outlined">history</span>History</a>
+      <a class="sidebar-link active" href="analytics.html"><span class="material-symbols-outlined filled">insights</span>Analytics</a>
+      <a class="sidebar-link" href="archive.html"><span class="material-symbols-outlined">archive</span>Archive</a>
+    </aside>
+    <main class="flex-1 overflow-y-auto bg-background p-margin-mobile md:p-margin-desktop">
+      <div class="max-w-max-width mx-auto flex flex-col gap-6">
+        <header class="flex flex-col gap-2 mb-4">
+          <h1 class="headline-xl-mobile md:headline-xl text-on-surface">Performance Analytics</h1>
+          <p class="text-on-surface-variant code-md">SYS.OP.TELEMETRY :: Cognitive Growth Metrics</p>
+        </header>
+        <!-- KPI Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="card-low p-6 flex flex-col justify-between">
+            <div class="flex justify-between items-start"><span class="label-sm text-on-surface-variant uppercase">Cognitive Load</span><span class="material-symbols-outlined text-primary">memory</span></div>
+            <div class="mt-4"><span class="headline-xl text-on-surface block">84%</span><span class="text-secondary text-sm mt-1 flex items-center gap-1"><span class="material-symbols-outlined text-sm">trending_up</span> +2.4% Optimal</span></div>
+          </div>
+          <div class="card-low p-6 flex flex-col justify-between">
+            <div class="flex justify-between items-start"><span class="label-sm text-on-surface-variant uppercase">Pattern Recognition</span><span class="material-symbols-outlined text-tertiary">schema</span></div>
+            <div class="mt-4"><span class="headline-xl text-on-surface block">91.2<span class="text-lg text-on-surface-variant">/100</span></span><span class="text-secondary text-sm mt-1 flex items-center gap-1"><span class="material-symbols-outlined text-sm">trending_up</span> Standard Deviation</span></div>
+          </div>
+          <div class="card-low p-6 flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:border-primary transition-colors">
+            <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex justify-between items-start relative z-10"><span class="label-sm text-on-surface-variant uppercase">Synthesis Rate</span><span class="material-symbols-outlined text-primary">merge_type</span></div>
+            <div class="mt-4 relative z-10"><span class="headline-xl text-on-surface block">High</span><button class="mt-2 text-primary code-md hover:underline">VIEW_DETAILS()</button></div>
+          </div>
+        </div>
+        <!-- Skill Mastery Radar -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8 card-low p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="headline-lg text-on-surface">Module Focus: Core Data Structures</h3>
+              <div class="flex gap-2 bg-surface-variant rounded-full p-1">
+                <button class="px-3 py-1 rounded-full bg-primary-container text-on-primary-container label-sm">Curr</button>
+                <button class="px-3 py-1 rounded-full text-on-surface-variant hover:text-on-surface label-sm transition-colors">Prev</button>
+              </div>
+            </div>
+            <div class="flex-1 bg-surface-container-lowest rounded-lg border border-outline-variant/50 flex items-center justify-center min-h-[420px] p-4" id="skill-radar-container">
+              <div class="text-on-surface-variant text-sm" id="radar-loading">Initializing radar...</div>
+            </div>
+          </div>
+          <!-- Recent Milestones -->
+          <div class="lg:col-span-4 card-low p-6 flex flex-col h-full max-h-[500px]">
+            <h3 class="headline-lg text-on-surface mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-primary">flag</span> Recent Milestones</h3>
+            <div class="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin">
+              <div class="timeline-item"><div class="timeline-dot secondary"></div><span class="text-on-surface-variant label-sm block mb-1">T-Minus 02:45:11</span><h4 class="text-on-surface font-medium mb-1">Module V Completion</h4><p class="text-on-surface-variant text-sm code-md opacity-80">SUCCESS_RATE: 98%</p></div>
+              <div class="timeline-item"><div class="timeline-dot tertiary"></div><span class="text-on-surface-variant label-sm block mb-1">T-Minus 14:20:00</span><h4 class="text-on-surface font-medium mb-1">Divergence Detected</h4><p class="text-on-surface-variant text-sm code-md opacity-80">Path: Abstract Logic</p></div>
+              <div class="timeline-item"><div class="timeline-dot primary"></div><span class="text-on-surface-variant label-sm block mb-1">T-Minus 48:00:00</span><h4 class="text-on-surface font-medium mb-1">Convergence Achieved</h4><p class="text-on-surface-variant text-sm code-md opacity-80">Heuristic Engine Sync</p></div>
+            </div>
+          </div>
+        </div>
+        <!-- Complexity Heatmap -->
+        <div class="card-low p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="headline-lg text-on-surface">Complexity Heatmap</h3>
+            <button class="text-primary hover:text-primary-container transition-colors flex items-center gap-1 label-sm uppercase">Export <span class="material-symbols-outlined text-sm">download</span></button>
+          </div>
+          <div class="h-48 bg-surface-container-lowest rounded-lg border border-outline-variant/50 relative overflow-hidden">
+            <div class="absolute inset-0 p-4 flex flex-col">
+              <div class="flex-1 flex gap-1">
+                <div class="w-4 flex items-center justify-center"><span class="label-xs text-on-surface-variant uppercase -rotate-90 whitespace-nowrap">Problem Complexity</span></div>
+                <div class="flex-1 heatmap-grid" role="img" aria-label="Complexity heatmap showing 144 data points across 24 sessions and 6 complexity levels">
+                  <div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div>
+                  <div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div>
+                  <div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div>
+                  <div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div>
+                  <div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/40 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/60 rounded-sm"></div><div class="bg-primary/20 rounded-sm"></div><div class="bg-primary/10 rounded-sm"></div><div class="bg-primary/5 rounded-sm"></div><div class="bg-primary/30 rounded-sm"></div>
+                </div>
+              </div>
+              <div class="mt-2 flex justify-between items-center">
+                <span class="label-xs text-on-surface-variant uppercase">Time (Sessions)</span>
+                <div class="flex items-center gap-2 text-on-surface-variant code-md text-xs"><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-surface-container-lowest border border-outline-variant"></span> Low</span><div class="w-16 h-2 rounded-full" style="background:linear-gradient(to right, rgba(195,192,255,0.1), var(--primary))"></div><span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-primary"></span> High</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="js/common.js"></script>
+  <script src="js/socratic-engine.js"></script>
+  <script src="js/skill-radar.js"></script>
+  <script>
+    try {
+      var container = document.getElementById('skill-radar-container');
+      var loading = document.getElementById('radar-loading');
+      var timeout = setTimeout(function() {
+        if (loading) loading.textContent = 'Radar timed out — check console.';
+      }, 5000);
+      if (container && window.SkillRadar) {
+        SkillRadar.render(container);
+        clearTimeout(timeout);
+        if (loading) loading.style.display = 'none';
+      }
+      if (container && window.SkillRadar) window.addEventListener('skill-filter-changed', function () { SkillRadar.render(container); });
+    } catch(e) { console.error('Radar init failed:', e); }
+  </script>
+</body>
+</html>

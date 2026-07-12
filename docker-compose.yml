@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+  # ── Frontend (Nginx static + API proxy) ─────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    image: socratica/frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Gateway (Express orchestrator) ──────────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    image: socratica/gateway:latest
+    user: root
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      MONGO_URI: "mongodb://mongo:27017/socratica"
+      REDIS_URL: "redis://redis:6379"
+      SANDBOX_IMAGE: "socratica/sandbox:latest"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      JWT_SECRET: "${JWT_SECRET}"
+    depends_on:
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── MongoDB ──────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    # No host port binding in production — only reachable within Docker network
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    # No host port binding in production — only reachable within Docker network
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # ── Sandbox builders (run: docker compose --profile build build)
+  sandbox-python:
+    profiles: ["build"]
+    build:
+      context: .
+      dockerfile: docker/python.Dockerfile
+    image: socratica/sandbox-python:latest
+
+  sandbox-cpp:
+    profiles: ["build"]
+    build:
+      context: .
+      dockerfile: docker/cpp.Dockerfile
+    image: socratica/sandbox-cpp:latest
+
+  sandbox-javascript:
+    profiles: ["build"]
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    image: socratica/sandbox-javascript:latest
+
+volumes:
+  mongo-data:
+  redis-data:

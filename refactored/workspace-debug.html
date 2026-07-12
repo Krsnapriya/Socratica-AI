@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Workspace Debug</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"outline-variant":"#464555","on-surface-variant":"#c7c4d8","on-secondary":"#26350f","inverse-on-surface":"#283044","background":"#0b1326","on-tertiary-fixed-variant":"#653e00","on-background":"#dae2fd","inverse-primary":"#4d44e3","secondary-fixed-dim":"#bace99","on-secondary-container":"#acbf8c","error-container":"#93000a","on-primary-fixed":"#0f0069","surface-container-lowest":"#060e20","primary-fixed":"#e2dfff","primary":"#c3c0ff","on-primary":"#1d00a5","surface-container-high":"#222a3d","on-tertiary":"#472a00","outline":"#918fa1","on-tertiary-container":"#ffd4a4","on-secondary-fixed-variant":"#3c4c24","tertiary-container":"#885500","surface-container-highest":"#2d3449","on-error":"#690005","surface-variant":"#2d3449","secondary":"#bace99","surface-tint":"#c3c0ff","on-primary-container":"#dad7ff","on-primary-fixed-variant":"#3323cc","primary-fixed-dim":"#c3c0ff","on-tertiary-fixed":"#2a1700","surface":"#0b1326","on-surface":"#dae2fd","on-secondary-fixed":"#121f00","on-error-container":"#ffdad6","surface-dim":"#0b1326","secondary-container":"#3e4e26","inverse-surface":"#dae2fd","primary-container":"#4f46e5","tertiary-fixed":"#ffddb8","surface-container":"#171f33","tertiary-fixed-dim":"#ffb95f","surface-container-low":"#131b2e","error":"#ffb4ab","secondary-fixed":"#d6eab4","tertiary":"#ffb95f","surface-bright":"#31394d"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{"margin-desktop":"32px","base":"4px","margin-mobile":"16px","gutter":"16px","max-width":"1440px"},fontFamily:{"body-md":["Inter"],"label-sm":["JetBrains Mono"],"headline-lg":["Inter"],"headline-xl-mobile":["Inter"],"headline-xl":["Inter"],"code-md":["JetBrains Mono"]},fontSize:{"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]}}}}</script>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col">
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link active" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+  <div class="flex flex-1 pt-16 h-full w-full">
+    <aside class="flex flex-col items-center py-base fixed left-0 top-16 bottom-0 z-40 bg-surface-container-low border-r border-outline-variant w-16" aria-label="Workspace navigation">
+      <div class="flex flex-col w-full gap-2 mt-4">
+        <a class="w-12 h-12 flex items-center justify-center mx-auto rounded-lg text-on-surface-variant hover:bg-surface-container-highest cursor-pointer" href="workspace.html" title="Explorer"><span class="material-symbols-outlined text-xl">folder_open</span></a>
+        <a class="w-12 h-12 flex items-center justify-center mx-auto rounded-lg text-on-surface-variant hover:bg-surface-container-highest cursor-pointer" href="workspace-search.html" title="Search"><span class="material-symbols-outlined text-xl">search</span></a>
+        <a class="w-12 h-12 flex items-center justify-center mx-auto rounded-lg text-primary bg-primary-container/10 border-l-2 border-primary cursor-pointer" href="workspace-debug.html" title="Debug"><span class="material-symbols-outlined text-xl">bug_report</span></a>
+        <a class="w-12 h-12 flex items-center justify-center mx-auto rounded-lg text-on-surface-variant hover:bg-surface-container-highest cursor-pointer" href="workspace-source-control.html" title="Source Control"><span class="material-symbols-outlined text-xl">account_tree</span></a>
+        <a class="w-12 h-12 flex items-center justify-center mx-auto rounded-lg text-on-surface-variant hover:bg-surface-container-highest cursor-pointer" href="workspace-extensions.html" title="Extensions"><span class="material-symbols-outlined text-xl">extension</span></a>
+      </div>
+    </aside>
+    <main class="flex-1 ml-16 flex h-full bg-surface-dim overflow-hidden">
+      <div class="w-72 bg-surface flex flex-col border-r border-outline-variant shrink-0">
+        <div class="p-3 border-b border-outline-variant bg-surface-container-lowest flex justify-between items-center">
+          <h2 class="label-sm text-on-surface uppercase tracking-wider">Run and Debug</h2>
+          <div class="flex gap-2"><button class="material-symbols-outlined text-on-surface-variant hover:text-primary text-lg" aria-label="Continue">play_arrow</button><button class="material-symbols-outlined text-primary text-lg" aria-label="Pause">pause</button><button class="material-symbols-outlined text-error text-lg" aria-label="Stop">stop</button></div>
+        </div>
+        <div class="flex-1 overflow-y-auto code-md select-none">
+          <div class="border-b border-outline-variant">
+            <div class="flex items-center gap-1 p-1.5 hover:bg-surface-container-highest cursor-pointer bg-surface-container-low text-on-surface"><span class="material-symbols-outlined text-sm">expand_more</span><span class="label-sm font-bold">Variables</span></div>
+            <div class="pl-4 py-1 flex flex-col gap-1 text-on-surface-variant">
+              <div class="flex items-center gap-1 hover:bg-surface-container-highest cursor-pointer px-1"><span class="material-symbols-outlined text-sm">expand_more</span><span>Local</span></div>
+              <div class="pl-5 flex flex-col gap-0.5">
+                <div class="flex items-start gap-2 hover:bg-surface-container-highest cursor-pointer px-1"><span class="text-primary">user_input</span><span class="text-outline-variant">:</span><span class="text-secondary truncate">"SELECT * FROM users"</span></div>
+                <div class="flex items-start gap-2 hover:bg-surface-container-highest cursor-pointer px-1"><span class="text-primary">db_conn</span><span class="text-outline-variant">:</span><span class="text-tertiary">Object { ... }</span></div>
+                <div class="flex items-start gap-2 bg-error-container/20 px-1 border-l-2 border-error"><span class="text-primary">query_result</span><span class="text-outline-variant">:</span><span class="text-error">NoneType</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="border-b border-outline-variant">
+            <div class="flex items-center justify-between p-1.5 hover:bg-surface-container-highest cursor-pointer bg-surface-container-low text-on-surface">
+              <div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">expand_more</span><span class="label-sm font-bold">Watch</span></div>
+              <span class="material-symbols-outlined text-sm text-on-surface-variant hover:text-primary">add</span>
+            </div>
+            <div class="pl-6 py-1 flex flex-col gap-1 text-on-surface-variant">
+              <div class="flex items-start gap-2 hover:bg-surface-container-highest cursor-pointer px-1"><span class="text-primary">len(user_input)</span><span class="text-outline-variant">:</span><span class="text-tertiary">21</span></div>
+              <div class="flex items-start gap-2 hover:bg-surface-container-highest cursor-pointer px-1"><span class="text-primary">is_authorized</span><span class="text-outline-variant">:</span><span class="text-secondary">True</span></div>
+            </div>
+          </div>
+          <div class="border-b border-outline-variant">
+            <div class="flex items-center gap-1 p-1.5 hover:bg-surface-container-highest cursor-pointer bg-surface-container-low text-on-surface"><span class="material-symbols-outlined text-sm">expand_more</span><span class="label-sm font-bold">Call Stack</span></div>
+            <div class="pl-6 py-1 flex flex-col gap-1 text-on-surface-variant text-xs">
+              <div class="flex items-center gap-2 bg-primary-container/20 text-on-surface px-1 py-0.5 rounded cursor-pointer"><span class="material-symbols-outlined text-xs text-secondary">play_arrow</span><span class="truncate">execute_query <span class="text-outline-variant">database.py:142</span></span></div>
+              <div class="flex items-center gap-2 hover:bg-surface-container-highest px-1 py-0.5 rounded cursor-pointer pl-6"><span class="truncate">handle_request <span class="text-outline-variant">server.py:88</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 flex flex-col min-w-0 bg-surface-container-lowest">
+        <div class="flex items-center border-b border-outline-variant bg-surface h-10 overflow-x-auto label-sm select-none">
+          <div class="flex items-center gap-2 px-4 h-full bg-surface-container-lowest border-t-2 border-primary text-primary cursor-pointer border-r border-outline-variant">
+            <span class="material-symbols-outlined text-sm">description</span>database.py
+          </div>
+        </div>
+        <div class="flex-1 relative flex overflow-hidden bg-surface-container-lowest code-md">
+          <div class="w-12 py-4 flex flex-col items-end pr-3 text-outline-variant select-none bg-surface-container-lowest border-r border-outline-variant/30">
+            <span>140</span><span>141</span><div class="w-full flex justify-end items-center relative text-primary"><div class="w-2 h-2 rounded-full bg-error absolute left-2 top-1.5"></div>142</div><span>143</span><span>144</span><span>145</span><span>146</span><span>147</span>
+          </div>
+          <div class="flex-1 py-4 px-4 overflow-auto text-on-surface whitespace-pre">
+<span class="syntax-keyword">def</span> <span class="syntax-function">execute_query</span>(query_string, db_conn):
+    <span class="syntax-comment"># Ensure connection is active</span>
+    <span class="syntax-keyword">if not</span> db_conn.is_active():
+        db_conn.connect()
+    <span class="syntax-keyword">try</span>:
+        <span class="line-highlight" style="background:rgba(79,70,229,0.1);border-left:2px solid var(--primary);display:inline-block;width:100%">        query_result = db_conn.execute(query_string)</span>
+        <span class="syntax-keyword">return</span> query_result.fetch_all()
+    <span class="syntax-keyword">except</span> Exception <span class="syntax-keyword">as</span> e:
+        logger.error(f"Query failed: {e}")
+        <span class="syntax-keyword">raise</span> DatabaseError("Execution aborted")
+          </div>
+          <div class="absolute top-32 left-40 z-20 w-[420px] card-high border border-outline shadow-2xl rounded-lg overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-label="Socratic AI Insight" style="box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+            <div class="flex items-center justify-between p-3 border-b border-outline-variant" style="background:linear-gradient(to right, rgba(79,70,229,0.2), transparent)">
+              <div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary-container filled">smart_toy</span><span class="label-sm font-bold text-on-surface">Socratic AI Insight</span></div>
+              <button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface text-sm" aria-label="Close insight">close</button>
+            </div>
+            <div class="p-4 flex flex-col gap-3 text-sm text-on-surface-variant">
+              <p>The variable <code class="code-md text-primary bg-surface-container-lowest px-1 rounded">query_result</code> is evaluating to <code class="code-md text-error bg-error-container/20 px-1 rounded border border-error/30">NoneType</code>. This occurs because <code class="code-md text-on-surface">db_conn.execute()</code> may return asynchronously.</p>
+              <div class="bg-surface-container-lowest p-3 rounded border border-outline-variant/50 code-md text-xs text-on-surface">
+                <span class="syntax-comment"># Suggested modification</span><br>
+                <span class="syntax-keyword">await</span> db_conn.execute(query_string)<br>
+                query_result = <span class="syntax-keyword">await</span> db_conn.fetch_all()
+              </div>
+              <div class="flex justify-end gap-2 mt-2">
+                <button class="btn btn-sm btn-ghost border-secondary/30 text-secondary">Ignore</button>
+                <button class="btn btn-sm btn-primary flex items-center gap-1"><span class="material-symbols-outlined text-sm">auto_fix_high</span> Apply Fix</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="h-64 border-t border-outline-variant bg-surface flex flex-col shrink-0">
+          <div class="flex items-center px-4 h-10 border-b border-outline-variant bg-surface-container-low label-sm select-none gap-6 uppercase tracking-wider">
+            <div class="text-on-surface-variant hover:text-on-surface cursor-pointer">Terminal</div>
+            <div class="text-primary border-b-2 border-primary h-full flex items-center pt-0.5">Debug Console</div>
+            <div class="text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center gap-1">Problems <span class="bg-error text-on-error px-1.5 rounded-full text-[10px]">1</span></div>
+          </div>
+          <div class="flex-1 p-3 overflow-y-auto code-md bg-surface-container-lowest">
+            <div class="text-on-surface-variant opacity-75 mb-2">Connecting to debug adapter...</div>
+            <div class="text-on-surface-variant opacity-75 mb-2">Debugger attached.</div>
+            <div class="text-secondary mb-1">INFO: Preparing query execution context</div>
+            <div class="text-error mt-2 flex items-start gap-2">
+              <span class="material-symbols-outlined text-sm mt-0.5">error</span>
+              <div>Exception has occurred: AttributeError<br>'NoneType' object has no attribute 'fetch_all'<br>File "/workspace/src/database.py", line 143, in execute_query<br>return query_result.fetch_all()</div>
+            </div>
+            <div class="flex items-center mt-4"><span class="text-primary mr-2">&#10095;</span><input class="bg-transparent border-none outline-none text-on-surface flex-1 focus:ring-0 p-0 code-md" placeholder="Evaluate expression..." type="text"></div>
+          </div>
+        </div>
+      </div>
+      <div class="w-80 bg-surface-container-low border-l border-outline-variant flex flex-col shrink-0">
+        <div class="p-3 border-b border-outline-variant flex justify-between items-center bg-surface">
+          <h2 class="label-sm text-on-surface uppercase tracking-wider">Live Telemetry</h2>
+          <button class="material-symbols-outlined text-on-surface-variant text-sm hover:text-primary" aria-label="More options">more_vert</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+          <div class="flex flex-col gap-2">
+            <div class="flex justify-between items-center label-sm text-on-surface-variant text-xs"><span>Memory Usage</span><span class="text-primary">142 MB</span></div>
+            <div class="h-24 bg-surface-container-lowest rounded border border-outline-variant relative overflow-hidden flex items-end px-1 pb-1 gap-0.5">
+              <div class="w-full bg-primary/20 h-[30%] rounded-t-sm"></div>
+              <div class="w-full bg-primary/20 h-[35%] rounded-t-sm"></div>
+              <div class="w-full bg-primary/30 h-[40%] rounded-t-sm"></div>
+              <div class="w-full bg-primary/40 h-[60%] rounded-t-sm"></div>
+              <div class="w-full bg-primary/50 h-[85%] rounded-t-sm"></div>
+              <div class="w-full bg-error-container/80 h-[95%] rounded-t-sm border-t-2 border-error"></div>
+            </div>
+          </div>
+          <div class="flex flex-col gap-3">
+            <h3 class="label-sm text-on-surface-variant text-xs uppercase tracking-wider border-b border-outline-variant/50 pb-1">Event Log</h3>
+            <div class="flex flex-col gap-2 code-md text-[11px]">
+              <div class="flex items-start gap-2 bg-surface p-2 rounded border border-outline-variant/30">
+                <div class="w-2 h-2 rounded-full bg-secondary mt-1 shrink-0"></div>
+                <div class="flex flex-col"><span class="text-on-surface font-bold">HTTP GET /api/v1/users</span><span class="text-on-surface-variant opacity-70">24ms &#8226; 200 OK</span></div>
+              </div>
+              <div class="flex items-start gap-2 bg-error-container/10 p-2 rounded border border-error/30 relative overflow-hidden">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+                <div class="w-2 h-2 rounded-full bg-error mt-1 shrink-0 ml-1"></div>
+                <div class="flex flex-col ml-1"><span class="text-error font-bold">Exception: NoneType</span><span class="text-on-surface-variant opacity-70 truncate w-40">database.py:143 execute_query</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="js/common.js"></script>
+</body>
+</html>

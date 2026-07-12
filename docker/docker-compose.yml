@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/socratica
+      - REDIS_URL=redis://redis:6379
+      - SANDBOX_IMAGE=socratica/sandbox:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  sandbox-builder:
+    profiles: ["build"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.sandbox
+    image: socratica/sandbox:latest
+
+volumes:
+  mongo_data:
+  redis_data:

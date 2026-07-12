@@ -1,0 +1,18 @@
+FROM docker:24-cli AS docker-cli
+FROM node:20-alpine
+
+COPY --from=docker-cli /usr/local/bin/docker /usr/bin/docker
+
+WORKDIR /app
+
+COPY deployment/package*.json ./
+RUN npm install --omit=dev
+
+COPY deployment/express-gateway.js ./server.js
+COPY refactored ./refactored
+
+RUN chown -R node:node /app
+USER node
+
+EXPOSE 3000
+CMD ["node", "server.js"]

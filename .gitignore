@@ -1,0 +1,21 @@
+.DS_Store
+node_modules/
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+*.log
+client/dist/
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+.env
+.env.local
+node_modules/
+.vercel
+.env*
+.vercel.bak

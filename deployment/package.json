@@ -1,0 +1,22 @@
+{
+  "name": "socratica-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express gateway for Socratica AI sandbox orchestration",
+  "main": "express-gateway.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0",
+    "axios": "^1.6.0",
+    "ioredis": "^5.3.0",
+    "dockerode": "^4.0.0",
+    "@google/generative-ai": "^0.10.0",
+    "cookie-parser": "^1.4.6",
+    "zod": "^3.22.0",
+    "jsonwebtoken": "^9.0.0",
+    "express-rate-limit": "^7.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

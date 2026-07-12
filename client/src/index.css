@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design System - Socratica Dark */
+
+@layer base {
+  :root {
+    --background: #0b1326;
+    --on-background: #dae2fd;
+    --surface: #0b1326;
+    --on-surface: #dae2fd;
+    --surface-dim: #0b1326;
+    --surface-bright: #31394d;
+    --surface-container-lowest: #060e20;
+    --surface-container-low: #131b2e;
+    --surface-container: #171f33;
+    --surface-container-high: #222a3d;
+    --surface-container-highest: #2d3449;
+    --surface-variant: #2d3449;
+    --on-surface-variant: #c7c4d8;
+    --inverse-surface: #dae2fd;
+    --inverse-on-surface: #283044;
+    --outline: #918fa1;
+    --outline-variant: #464555;
+    --primary: #c3c0ff;
+    --on-primary: #1d00a5;
+    --primary-container: #4f46e5;
+    --on-primary-container: #dad7ff;
+    --inverse-primary: #4d44e3;
+    --secondary: #bace99;
+    --on-secondary: #26350f;
+    --tertiary: #ffb95f;
+    --on-tertiary: #472a00;
+    --error: #ffb4ab;
+    --on-error: #690005;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--on-background);
+    @apply font-sans antialiased min-h-screen m-0;
+  }
+
+  a {
+    @apply no-underline text-inherit;
+  }
+
+  /* Focus rings globally */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+  :focus:not(:focus-visible) {
+    @apply outline-none;
+  }
+}
+
+@layer components {
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: var(--surface-container-lowest);
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--surface-container-highest);
+    @apply rounded;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--outline-variant);
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    @apply w-1 h-1;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--outline-variant);
+    @apply rounded-sm;
+  }
+
+  /* Animations */
+  .page-enter {
+    animation: pageFadeIn 0.35s ease-out both;
+  }
+  @keyframes pageFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Shared Component Classes */
+  .card {
+    background-color: var(--surface-container);
+    border: 1px solid var(--outline-variant);
+    @apply rounded-xl p-5 transition-all duration-200;
+  }
+  .card-low {
+    background-color: var(--surface-container-low);
+    border: 1px solid var(--outline-variant);
+    @apply rounded-xl p-5;
+  }
+  .card-lowest {
+    background-color: var(--surface-container-lowest);
+    border: 1px solid var(--outline-variant);
+    @apply rounded-xl p-5;
+  }
+  .card-high {
+    background-color: var(--surface-container-high);
+    border: 1px solid var(--outline-variant);
+    @apply rounded-xl p-5;
+  }
+
+  .nav-link {
+    @apply font-sans text-base font-normal cursor-pointer transition-colors duration-150;
+    color: var(--on-surface-variant);
+  }
+  .nav-link:hover { color: var(--primary); }
+  .nav-link.active {
+    color: var(--primary);
+    @apply font-semibold border-b-2 border-primary;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 py-3 px-4 rounded-lg transition-all duration-200 font-mono text-xs cursor-pointer;
+    color: var(--on-surface-variant);
+  }
+  .sidebar-link:hover {
+    background-color: var(--surface-container-highest);
+    color: var(--on-surface);
+  }
+  .sidebar-link.active {
+    background-color: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+
+  /* Syntax Highlighting */
+  .syntax-keyword { color: var(--primary); }
+  .syntax-string  { color: var(--secondary); }
+  .syntax-comment { color: var(--outline); @apply italic; }
+  .syntax-function { color: var(--tertiary); }
+
+  /* Glass panel */
+  .glass-panel {
+    background: linear-gradient(145deg, rgba(23, 31, 51, 0.6) 0%, rgba(19, 27, 46, 0.4) 100%);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--outline-variant);
+    @apply rounded-xl;
+  }
+
+  /* Skeleton pulse */
+  .skeleton {
+    background-color: var(--surface-container-high);
+    @apply rounded animate-pulse;
+  }
+
+  /* Verdict colors */
+  .verdict-pass    { color: var(--secondary); }
+  .verdict-fail    { color: var(--error); }
+  .verdict-timeout { color: var(--tertiary); }
+  .verdict-compile { color: var(--error); }
+}

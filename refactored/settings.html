@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Settings</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-background":"#dae2fd","background":"#0b1326","surface-container-high":"#222a3d","on-tertiary-fixed-variant":"#653e00","on-primary-fixed":"#0f0069","surface-variant":"#2d3449","surface-container-lowest":"#060e20","on-primary-fixed-variant":"#3323cc","tertiary-fixed":"#ffddb8","on-surface-variant":"#c7c4d8","outline-variant":"#464555","inverse-on-surface":"#283044","surface-container":"#171f33","secondary-fixed":"#d6eab4","primary":"#c3c0ff","outline":"#918fa1","secondary-fixed-dim":"#bace99","surface-dim":"#0b1326","surface":"#0b1326","on-secondary":"#26350f","surface-bright":"#31394d","primary-fixed-dim":"#c3c0ff","on-error":"#690005","surface-tint":"#c3c0ff","secondary-container":"#3e4e26","on-primary-container":"#dad7ff","inverse-surface":"#dae2fd","error-container":"#93000a","surface-container-highest":"#2d3449","tertiary-fixed-dim":"#ffb95f","on-tertiary-container":"#ffd4a4","surface-container-low":"#131b2e","on-surface":"#dae2fd","on-secondary-container":"#acbf8c","on-tertiary-fixed":"#2a1700","inverse-primary":"#4d44e3","tertiary-container":"#885500","on-primary":"#1d00a5","secondary":"#bace99","on-secondary-fixed":"#121f00","error":"#ffb4ab","primary-fixed":"#e2dfff","on-error-container":"#ffdad6","tertiary":"#ffb95f","primary-container":"#4f46e5","on-tertiary":"#472a00","on-secondary-fixed-variant":"#3c4c24"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{"max-width":"1440px","base":"4px","margin-mobile":"16px","gutter":"16px","margin-desktop":"32px"},fontFamily:{"label-sm":["JetBrains Mono"],"body-md":["Inter"],"headline-xl-mobile":["Inter"],"headline-lg":["Inter"],"code-md":["JetBrains Mono"],"headline-xl":["Inter"]},fontSize:{"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+</head>
+<body class="min-h-screen flex flex-col">
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link" href="workspace.html">Workspace</a>
+          <a class="nav-link" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link active" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+  <div class="flex flex-1 pt-16">
+    <aside class="w-64 bg-surface-container border-r border-outline-variant flex flex-col h-[calc(100vh-64px)] py-6 px-4 gap-2 fixed left-0 overflow-y-auto">
+      <div class="mb-6 px-4"><h2 class="headline-lg text-primary">Preferences</h2><p class="label-sm text-on-surface-variant mt-1 uppercase tracking-wider">System Configuration</p></div>
+      <nav class="flex flex-col gap-1 label-sm">
+        <a class="sidebar-link active" href="#profile"><span class="material-symbols-outlined">person</span>User Identity</a>
+        <a class="sidebar-link" href="#ide"><span class="material-symbols-outlined">terminal</span>IDE Preferences</a>
+        <a class="sidebar-link" href="#api"><span class="material-symbols-outlined">key</span>API Keys</a>
+        <a class="sidebar-link" href="#billing"><span class="material-symbols-outlined">credit_card</span>Plan &amp; Billing</a>
+      </nav>
+    </aside>
+    <main class="flex-1 ml-64 p-margin-desktop bg-background overflow-y-auto h-[calc(100vh-64px)]">
+      <div class="max-w-4xl mx-auto space-y-8">
+        <header class="border-b border-outline-variant pb-6 mb-8">
+          <h1 class="headline-xl text-on-surface">Settings</h1>
+          <p class="text-on-surface-variant mt-2">Manage your Socratica AI environment and identity.</p>
+        </header>
+        <section class="card-low p-6" id="profile">
+          <h2 class="headline-lg text-primary mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-primary">person</span> User Identity</h2>
+          <div class="flex gap-8 flex-col md:flex-row">
+            <div class="flex flex-col items-center gap-4">
+              <div class="w-24 h-24 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden relative group cursor-pointer" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))">
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-on-surface">photo_camera</span></div>
+              </div>
+              <button class="code-md text-secondary border border-secondary px-3 py-1 rounded hover:bg-secondary hover:text-on-secondary transition-colors">UPLOAD_AVATAR</button>
+            </div>
+            <div class="flex-1 space-y-4">
+              <div><label class="block label-sm text-on-surface-variant mb-1">Display Name</label><input class="input w-full" type="text" value="Dr. E. Turing"></div>
+              <div><label class="block label-sm text-on-surface-variant mb-1">Email Address</label><input class="input w-full opacity-70 cursor-not-allowed" type="email" value="alan@socratica.ai" disabled></div>
+              <div><label class="block label-sm text-on-surface-variant mb-1">Bio</label><textarea class="input w-full resize-none" rows="3">Computational theorist specializing in recursive neural structures.</textarea></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-low p-6" id="ide">
+          <h2 class="headline-lg text-primary mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-primary">terminal</span> IDE Preferences</h2>
+          <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block label-sm text-on-surface-variant mb-2">Default Language</label>
+                <select class="input w-full">
+                  <option>Python 3.10</option>
+                  <option>C++20</option>
+                  <option>Rust 2024</option>
+                  <option>Go 1.22</option>
+                </select>
+              </div>
+              <div>
+                <label class="block label-sm text-on-surface-variant mb-2">Tab Size</label>
+                <select class="input w-full">
+                  <option>2 spaces</option>
+                  <option selected>4 spaces</option>
+                  <option>8 spaces</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="block label-sm text-on-surface-variant mb-2">Theme</label>
+                <select class="input w-full">
+                  <option selected>Socratica Dark</option>
+                  <option>Monokai Pro</option>
+                  <option>One Dark Pro</option>
+                  <option>Catppuccin</option>
+                </select>
+              </div>
+              <div>
+                <label class="block label-sm text-on-surface-variant mb-2">Font Size</label>
+                <select class="input w-full">
+                  <option>12px</option>
+                  <option selected>14px</option>
+                  <option>16px</option>
+                  <option>18px</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 pt-4 border-t border-outline-variant/50">
+              <button class="w-10 h-6 rounded-full bg-primary relative transition-colors"><span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform transform translate-x-4"></span></button>
+              <span class="text-sm text-on-surface-variant">Enable telemetry overlay (Ctrl+Shift+T)</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button class="w-10 h-6 rounded-full bg-surface-container-higher relative transition-colors"><span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow"></span></button>
+              <span class="text-sm text-on-surface-variant">Strict mode — block resubmit on divergence</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card-low p-6" id="api">
+          <h2 class="headline-lg text-primary mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-primary">key</span> API Keys</h2>
+          <div class="space-y-4">
+            <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-4 flex items-center justify-between">
+              <div>
+                <span class="text-on-surface text-sm font-medium">Socratica Inference API</span>
+                <div class="code-md text-on-surface-variant text-xs mt-1">sk-prod-••••••••••••••••4f3a</div>
+              </div>
+              <button class="label-sm text-secondary hover:text-primary transition-colors uppercase">Rotate</button>
+            </div>
+            <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-4 flex items-center justify-between">
+              <div>
+                <span class="text-on-surface text-sm font-medium">GitHub PAT</span>
+                <div class="code-md text-on-surface-variant text-xs mt-1">ghp_••••••••••••••••a1b2</div>
+              </div>
+              <button class="label-sm text-secondary hover:text-primary transition-colors uppercase">Rotate</button>
+            </div>
+            <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-4 flex items-center justify-between opacity-60">
+              <div>
+                <span class="text-on-surface text-sm font-medium">OpenAI</span>
+                <div class="code-md text-on-surface-variant text-xs mt-1">Not configured</div>
+              </div>
+              <button class="label-sm text-primary hover:text-secondary transition-colors uppercase">Connect</button>
+            </div>
+            <button class="w-full py-2 border border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-primary hover:border-primary transition-all label-sm uppercase">+ Add API Key</button>
+          </div>
+        </section>
+
+        <section class="card-low p-6" id="billing">
+          <h2 class="headline-lg text-primary mb-6 flex items-center gap-2"><span class="material-symbols-outlined text-primary">credit_card</span> Plan &amp; Billing</h2>
+          <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-5 text-center">
+                <span class="label-sm text-on-surface-variant uppercase">Free</span>
+                <div class="headline-xl text-on-surface mt-2">$0</div>
+                <span class="code-md text-on-surface-variant text-xs">/month</span>
+                <ul class="mt-4 space-y-2 text-xs text-on-surface-variant">
+                  <li>100 traces / month</li>
+                  <li>1 concurrent workspace</li>
+                  <li>Basic telemetry</li>
+                </ul>
+              </div>
+              <div class="bg-surface-container-lowest rounded-lg border-2 border-primary p-5 text-center relative">
+                <span class="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-3 py-0.5 rounded-full label-xs">CURRENT</span>
+                <span class="label-sm text-primary uppercase">Pro</span>
+                <div class="headline-xl text-on-surface mt-2">$29</div>
+                <span class="code-md text-on-surface-variant text-xs">/month</span>
+                <ul class="mt-4 space-y-2 text-xs text-on-surface-variant">
+                  <li>Unlimited traces</li>
+                  <li>10 concurrent workspaces</li>
+                  <li>Full telemetry + radar</li>
+                  <li>Priority mentor hints</li>
+                </ul>
+              </div>
+              <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-5 text-center opacity-70">
+                <span class="label-sm text-on-surface-variant uppercase">Enterprise</span>
+                <div class="headline-xl text-on-surface mt-2">$99</div>
+                <span class="code-md text-on-surface-variant text-xs">/month</span>
+                <ul class="mt-4 space-y-2 text-xs text-on-surface-variant">
+                  <li>Everything in Pro</li>
+                  <li>Self-hosted engine</li>
+                  <li>Custom integrations</li>
+                  <li>SSO / SAML</li>
+                </ul>
+              </div>
+            </div>
+            <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-4 flex justify-between items-center">
+              <div>
+                <span class="text-on-surface text-sm font-medium">Current billing period</span>
+                <div class="code-md text-on-surface-variant text-xs mt-1">Jun 1 – Jun 30, 2026 — $29.00</div>
+              </div>
+              <button class="btn btn-secondary uppercase label-sm">Manage</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="flex justify-end gap-4 pt-6 mt-8 border-t border-outline-variant">
+          <button class="btn btn-secondary border-secondary text-secondary">DISCARD_CHANGES</button>
+          <button class="btn btn-primary">SAVE_CONFIGURATION</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Socratica AI — Trajectory View</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+  <link href="css/design-system.css" rel="stylesheet">
+  <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-fixed-dim":"#bace99","surface-bright":"#31394d","outline":"#918fa1","inverse-primary":"#4d44e3","secondary-fixed":"#d6eab4","on-tertiary-container":"#ffd4a4","inverse-surface":"#dae2fd","surface-container-high":"#222a3d","on-surface":"#dae2fd","surface-container":"#171f33","tertiary-fixed-dim":"#ffb95f","surface-container-low":"#131b2e","tertiary":"#ffb95f","primary-fixed-dim":"#c3c0ff","on-primary-fixed":"#0f0069","error":"#ffb4ab","on-secondary":"#26350f","on-primary-container":"#dad7ff","tertiary-fixed":"#ffddb8","background":"#0b1326","on-tertiary-fixed-variant":"#653e00","surface":"#0b1326","secondary":"#bace99","on-surface-variant":"#c7c4d8","surface-container-lowest":"#060e20","on-error-container":"#ffdad6","primary":"#c3c0ff","on-secondary-container":"#acbf8c","primary-fixed":"#e2dfff","on-primary-fixed-variant":"#3323cc","on-primary":"#1d00a5","inverse-on-surface":"#283044","surface-container-highest":"#2d3449","secondary-container":"#3e4e26","on-secondary-fixed-variant":"#3c4c24","on-error":"#690005","surface-dim":"#0b1326","primary-container":"#4f46e5","outline-variant":"#464555","on-tertiary-fixed":"#2a1700","on-secondary-fixed":"#121f00","error-container":"#93000a","surface-tint":"#c3c0ff","on-tertiary":"#472a00","on-background":"#dae2fd","surface-variant":"#2d3449","tertiary-container":"#885500"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},spacing:{gutter:"16px","max-width":"1440px","margin-desktop":"32px","margin-mobile":"16px","base":"4px"},fontFamily:{"headline-xl-mobile":["Inter"],"label-sm":["JetBrains Mono"],"headline-lg":["Inter"],"body-md":["Inter"],"code-md":["JetBrains Mono"],"headline-xl":["Inter"]},fontSize:{"headline-xl-mobile":["32px",{"lineHeight":"40px","fontWeight":"700"}],"label-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"500"}],"headline-lg":["24px",{"lineHeight":"32px","fontWeight":"600"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"code-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"headline-xl":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+  <nav class="bg-surface border-b border-outline-variant fixed top-0 w-full z-50 h-16">
+    <div class="flex justify-between items-center px-margin-desktop h-full max-w-max-width mx-auto">
+      <div class="flex items-center gap-8">
+        <span class="headline-lg text-primary">Socratica AI</span>
+        <div class="hidden md:flex gap-6 items-center">
+          <a class="nav-link" href="index.html">Curriculum</a>
+          <a class="nav-link" href="workspace.html">Workspace</a>
+          <a class="nav-link active" href="trajectory-view.html">Trajectory</a>
+          <a class="nav-link" href="settings.html">Settings</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="label-sm uppercase tracking-wider bg-surface-container-low px-3 py-1 rounded border border-outline-variant text-on-surface-variant" data-problem-badge>Latest session</span>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Notifications">notifications</button>
+        <button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" aria-label="Help">help_outline</button>
+        <div class="w-8 h-8 rounded-full border border-outline-variant" style="background:linear-gradient(135deg,var(--primary),var(--primary-container))" aria-hidden="true"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="flex flex-1 pt-16 h-screen overflow-hidden">
+    <aside class="hidden md:flex bg-surface-container-low w-64 flex-col border-r border-outline-variant shrink-0">
+      <div class="p-6 border-b border-outline-variant">
+        <div class="headline-lg text-primary mb-1">Project Alpha</div>
+        <div class="label-sm text-on-surface-variant">C++ Environment</div>
+      </div>
+      <div class="flex flex-col py-4 px-2 gap-1 overflow-y-auto flex-1">
+        <a class="sidebar-link" href="trajectory-history.html"><span class="material-symbols-outlined">history</span>History</a>
+        <a class="sidebar-link active" href="trajectory-view.html"><span class="material-symbols-outlined filled">timeline</span>Trajectory</a>
+        <a class="sidebar-link" href="analytics.html"><span class="material-symbols-outlined">insights</span>Analytics</a>
+        <a class="sidebar-link" href="workspace-debug.html"><span class="material-symbols-outlined">bug_report</span>Debug</a>
+      </div>
+      <div class="p-4 border-t border-outline-variant">
+        <button class="w-full btn btn-primary uppercase font-bold tracking-wider" onclick="window.location.href='workspace.html'">
+          <span class="material-symbols-outlined text-[18px]">play_arrow</span> RUN_TESTS
+        </button>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden max-w-max-width mx-auto p-gutter gap-4 w-full">
+      <!-- Convergence Timeline (spec §3.5) -->
+      <section class="card-low rounded-lg p-4 shrink-0">
+        <h2 class="label-sm text-on-surface-variant mb-3 uppercase tracking-wider flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px]">timeline</span>
+          Convergence Timeline
+          <span class="tier-badge tier-1 ml-auto" data-tier-badge>Tier 1</span>
+        </h2>
+        <div data-timeline-container><div class="text-on-surface-variant text-sm text-center py-4">Loading trajectory data...</div></div>
+      </section>
+
+      <div class="flex flex-1 gap-4 overflow-hidden min-h-0">
+        <!-- Left: Code + Playback -->
+        <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+          <div id="trajectory-detail" class="flex-1 bg-surface-container-lowest rounded-lg border border-outline-variant flex flex-col overflow-hidden relative">
+            <div class="h-10 bg-surface-container border-b border-outline-variant flex items-center px-4 justify-between shrink-0">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-on-surface-variant">code</span>
+                <span class="label-sm text-on-surface">solution.py</span>
+              </div>
+              <span class="label-xs text-outline px-2 py-0.5 rounded border border-outline-variant">Python 3.10</span>
+            </div>
+            <div class="flex-1 overflow-auto code-md py-4 text-on-surface-variant select-text">
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">1</div><div class="code-content"><span class="syntax-comment"># Definition for singly-linked list.</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">2</div><div class="code-content"><span class="syntax-comment"># class ListNode:</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">3</div><div class="code-content"><span class="syntax-comment">#     def __init__(self, val=0, next=None):</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">4</div><div class="code-content"><span class="syntax-comment">#         self.val = val</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">5</div><div class="code-content"><span class="syntax-comment">#         self.next = next</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">6</div><div class="code-content"></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">7</div><div class="code-content"><span class="syntax-keyword">class</span> Solution:</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">8</div><div class="code-content"> <span class="syntax-keyword">def</span> <span class="syntax-function">reverseList</span>(self, head: Optional[ListNode]) -&gt; Optional[ListNode]:</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">9</div><div class="code-content">        prev = <span class="syntax-keyword">None</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">10</div><div class="code-content">        curr = head</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">11</div><div class="code-content"> </div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">12</div><div class="code-content"> <span class="syntax-comment"># Traverse the list and reverse links</span></div></div>
+              <div class="code-line line-highlight"><div class="editor-line-numbers" style="color:var(--primary)">13</div><div class="code-content"> <span class="syntax-keyword">while</span> curr.next <span class="syntax-keyword">is not None</span>:</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">14</div><div class="code-content">            nxt = curr.next</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">15</div><div class="code-content">            curr.next = prev</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">16</div><div class="code-content">            prev = curr</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">17</div><div class="code-content">            curr = nxt</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">18</div><div class="code-content"> </div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">19</div><div class="code-content"> <span class="syntax-comment"># Final step adjustment</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">20</div><div class="code-content"> <span class="syntax-keyword">if</span> curr:</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">21</div><div class="code-content">            curr.next = prev</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">22</div><div class="code-content">            prev = curr</div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">23</div><div class="code-content"> </div></div>
+              <div class="code-line line-divergence"><div class="editor-line-numbers" style="color:var(--tertiary)">24</div><div class="code-content">        curr = <span class="syntax-keyword">None</span></div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">25</div><div class="code-content"> </div></div>
+              <div class="code-line"><div class="editor-line-numbers text-outline-variant">26</div><div class="code-content"> <span class="syntax-keyword">return</span> prev</div></div>
+            </div>
+          </div>
+          <!-- Playback controls -->
+          <div class="card-low rounded-lg p-3 flex flex-col gap-2 shrink-0">
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-1">
+                <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface" aria-label="Skip to previous step"><span class="material-symbols-outlined text-[20px]">skip_previous</span></button>
+                <button class="w-10 h-10 flex items-center justify-center rounded-full bg-primary-container text-on-primary-container hover:bg-primary transition-colors shadow-sm" aria-label="Play trace"><span class="material-symbols-outlined text-[24px]">play_arrow</span></button>
+                <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface" aria-label="Skip to next step"><span class="material-symbols-outlined text-[20px]">skip_next</span></button>
+              </div>
+              <div class="flex items-center gap-2 ml-4">
+                <button class="label-xs text-on-surface-variant hover:text-primary px-2 py-1 rounded border border-outline-variant bg-surface-container" aria-label="Set playback speed to 1x">1x</button>
+                <button class="label-xs text-primary px-2 py-1 rounded border border-primary bg-primary/10" aria-label="Set playback speed to 2x">2x</button>
+              </div>
+              <div class="flex-1"></div>
+              <div class="flex gap-4 text-xs label-sm text-outline">
+              <span data-step-count>Step —/—</span>
+              <span class="text-tertiary" data-divergence-label>Analyzing execution...</span>
+              </div>
+            </div>
+            <div class="w-full flex items-center gap-2">
+              <span class="label-xs text-outline w-4 text-right" aria-hidden="true">0</span>
+              <div class="relative flex-1 h-3 flex items-center cursor-pointer group" role="slider" tabindex="0" aria-valuenow="0" aria-valuemin="0" aria-valuemax="156" aria-label="Trace playback position">
+                <div class="absolute h-1.5 w-full bg-surface-container-highest rounded-full"></div>
+                <div class="absolute h-1.5 w-[10%] bg-primary rounded-full" style="width:0%"></div>
+                <div class="absolute left-0 w-3 h-3 rounded-full bg-white shadow-md -translate-x-1/2 z-10"></div>
+              </div>
+              <span class="label-xs text-outline w-6 text-left" aria-hidden="true">156</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Analysis + Hint -->
+        <div class="w-[45%] flex flex-col gap-4 overflow-hidden">
+          <!-- Analysis / Divergence Panel (spec §3.2/3.5) -->
+          <div id="trajectory-insight" class="flex-1 card-low rounded-lg flex flex-col overflow-hidden relative">
+            <div class="h-10 bg-surface-container border-b border-outline-variant flex items-center px-4 justify-between shrink-0">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px] text-tertiary">speed</span>
+                <span class="label-sm text-tertiary uppercase tracking-wide font-bold">Tier 2: Outcome-Level Differential</span>
+              </div>
+              <button class="label-xs text-on-surface-variant hover:text-primary px-2 py-1 rounded border border-outline-variant flex items-center gap-1 transition-colors" id="switch-tier-btn">
+                <span class="material-symbols-outlined text-[12px]">swap_horiz</span> Switch to Tier <span>2</span>
+              </button>
+            </div>
+            <div class="flex-1 p-6 overflow-auto" data-divergence-panel><div class="text-on-surface-variant text-sm text-center py-8">No divergence data yet. Solve a problem to see analysis.</div></div>
+          </div>
+
+          <!-- Sandbox Security Badge -->
+          <div class="bg-background rounded-lg px-4 py-2 flex items-center gap-3 text-xs text-on-surface-variant border border-outline-variant/50 shrink-0">
+            <span class="material-symbols-outlined text-[14px] text-secondary">security</span>
+            <span>Sandbox: Network-isolated &middot; 256MB RAM &middot; Non-root &middot; 2s CPU cap</span>
+          </div>
+
+          <!-- Mentor Hint (spec §3.4) -->
+          <div class="mentor-hint shrink-0" data-mentor-hint style="display:none"></div>
+
+          <!-- Action -->
+          <div class="shrink-0">
+            <button class="w-full btn btn-primary py-3" onclick="SocraticEngine && SocraticEngine.simulateResubmit(); SocraticEngine && SocraticEngine.notify();">
+              <span class="material-symbols-outlined text-[18px]">play_arrow</span> RESUBMIT
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const API = '';
+      const timelineContainer = document.querySelector('[data-timeline-container]');
+      const problemBadge = document.querySelector('[data-problem-badge]');
+      const tierBadge = document.querySelector('[data-tier-badge]');
+      const detailPane = document.getElementById('trajectory-detail');
+      const insightPane = document.getElementById('trajectory-insight');
+
+      let rounds = [];
+      let selectedRoundIndex = 0;
+      let problemTitle = 'Latest session';
+
+      function getSessionId() {
+        try {
+          return new URLSearchParams(location.search).get('session')
+            || localStorage.getItem('socratica-last-session-id')
+            || '';
+        } catch (err) {
+          return '';
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function formatTime(value) {
+        if (!value) return 'Unknown';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === undefined || bytes === null) return '—';
+        if (bytes < 1024) return bytes + 'B';
+        if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + 'KB';
+        return Math.round(bytes / (1024 * 1024)) + 'MB';
+      }
+
+      function verdictClass(verdict) {
+        return {
+          convergent: 'text-secondary',
+          divergent: 'text-tertiary',
+          wrong_answer: 'text-error',
+          timeout: 'text-error',
+          compile_error: 'text-error',
+          runtime_error: 'text-error',
+        }[verdict] || 'text-on-surface-variant';
+      }
+
+      function verdictLabel(verdict) {
+        return {
+          convergent: 'Convergent',
+          divergent: 'Divergent',
+          wrong_answer: 'Wrong answer',
+          timeout: 'Timeout',
+          compile_error: 'Compile error',
+          runtime_error: 'Runtime error',
+        }[verdict] || verdict || 'Pending';
+      }
+
+      function renderTimeline() {
+        timelineContainer.innerHTML = rounds.map((round, index) => {
+          const active = index === selectedRoundIndex;
+          return `
+            <button class="w-full text-left rounded-lg border ${active ? 'border-primary bg-primary-container/10' : 'border-outline-variant bg-surface-container'} p-3 transition-colors hover:border-primary/70" data-round-index="${index}">
+              <div class="flex items-center justify-between gap-3 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="tier-badge tier-${round.tier || 2}">Tier ${round.tier || 2}</span>
+                  <span class="label-sm ${verdictClass(round.verdict)}">${escapeHtml(verdictLabel(round.verdict))}</span>
+                </div>
+                <span class="label-sm text-on-surface-variant">Round ${round.round || index + 1}</span>
+              </div>
+              <div class="code-md text-on-surface truncate">${escapeHtml(problemTitle)}</div>
+              <div class="mt-2 flex items-center gap-4 label-sm text-on-surface-variant">
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span>${round.studentTelemetry?.elapsed_ms ?? '—'}ms</span>
+                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">memory</span>${formatBytes(round.studentTelemetry?.max_memory_bytes)}</span>
+              </div>
+            </button>`;
+        }).join('');
+
+        timelineContainer.querySelectorAll('[data-round-index]').forEach((button) => {
+          button.addEventListener('click', () => {
+            selectedRoundIndex = Number(button.dataset.roundIndex);
+            renderAll();
+          });
+        });
+      }
+
+      function renderDetail() {
+        const round = rounds[selectedRoundIndex];
+        if (!round) {
+          detailPane.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-8">No round selected.</div>';
+          return;
+        }
+
+        const student = round.studentTelemetry || {};
+        const oracle = round.oracleTelemetry || {};
+        const hasTrace = Boolean(round.divergenceStep);
+        detailPane.innerHTML = `
+          <div class="space-y-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="tier-badge tier-${round.tier || 2}">Tier ${round.tier || 2}</span>
+              <span class="verdict-chip verdict-${round.verdict || 'unknown'}">${escapeHtml(verdictLabel(round.verdict))}</span>
+              <span class="label-sm text-on-surface-variant">${formatTime(round.createdAt)}</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-3">
+              <div class="rounded border border-outline-variant bg-surface-container p-3">
+                <div class="label-sm text-on-surface-variant uppercase tracking-wider">Steps</div>
+                <div class="headline-lg text-on-surface">${student.steps ?? '—'} / ${oracle.steps ?? '—'}</div>
+              </div>
+              <div class="rounded border border-outline-variant bg-surface-container p-3">
+                <div class="label-sm text-on-surface-variant uppercase tracking-wider">Runtime</div>
+                <div class="headline-lg text-on-surface">${student.elapsed_ms ?? '—'}ms</div>
+              </div>
+              <div class="rounded border border-outline-variant bg-surface-container p-3">
+                <div class="label-sm text-on-surface-variant uppercase tracking-wider">Memory</div>
+                <div class="headline-lg text-on-surface">${formatBytes(student.max_memory_bytes)}</div>
+              </div>
+            </div>
+            <div class="rounded border border-outline-variant bg-surface-container-low p-3">
+              <div class="label-sm text-on-surface-variant uppercase tracking-wider mb-2">Trace</div>
+              ${hasTrace
+                ? `<div class="text-error text-sm font-bold mb-2">Divergence at step ${round.divergenceStep}${round.divergenceLineno ? ` (line ${round.divergenceLineno})` : ''}</div>
+                   <div class="grid gap-3 md:grid-cols-2">
+                     <div class="rounded border border-error/30 bg-error/10 p-3">
+                       <div class="label-sm text-error uppercase tracking-wider mb-2">Student locals</div>
+                       <pre class="code-md text-xs text-on-surface whitespace-pre-wrap">${escapeHtml(JSON.stringify(round.studentLocals || {}, null, 2))}</pre>
+                     </div>
+                     <div class="rounded border border-secondary/30 bg-secondary/10 p-3">
+                       <div class="label-sm text-secondary uppercase tracking-wider mb-2">Oracle locals</div>
+                       <pre class="code-md text-xs text-on-surface whitespace-pre-wrap">${escapeHtml(JSON.stringify(round.oracleLocals || {}, null, 2))}</pre>
+                     </div>
+                   </div>`
+                : '<div class="text-on-surface-variant text-sm">No step-level divergence recorded for this round.</div>'}
+            </div>
+          </div>`;
+      }
+
+      function renderInsight() {
+        const round = rounds[selectedRoundIndex];
+        if (!round) {
+          insightPane.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-4">No submission selected.</div>';
+          return;
+        }
+
+        const history = rounds.map((entry) => `
+          <div class="relative pl-4 pb-4 border-l border-outline-variant/60 last:pb-0">
+            <div class="absolute -left-[0.42rem] top-1 h-2.5 w-2.5 rounded-full ${entry.verdict === 'convergent' ? 'bg-secondary' : 'bg-tertiary'}"></div>
+            <div class="label-sm text-on-surface">Round ${entry.round}</div>
+            <div class="code-md text-xs text-on-surface-variant">${escapeHtml(verdictLabel(entry.verdict))} · ${formatTime(entry.createdAt)}</div>
+          </div>`).join('');
+
+        insightPane.innerHTML = `
+          <div class="card-high rounded-xl border border-outline-variant p-4 relative shadow-lg shadow-black/20">
+            <div class="absolute -top-3 -right-3 w-8 h-8 bg-surface-container rounded-full flex items-center justify-center border border-outline-variant z-10">
+              <span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+            </div>
+            <h3 class="body-md font-bold text-on-surface mb-2">${escapeHtml(problemTitle)}</h3>
+            <p class="text-on-surface-variant text-sm mb-4">${escapeHtml(round.aiHint || 'No hint generated yet for this round.')}</p>
+            <div class="bg-background rounded p-3 code-md text-xs border border-outline-variant/50">
+              <span class="text-secondary block mb-1">Session summary</span>
+              <span class="text-on-surface-variant block">Rounds recorded: ${rounds.length}</span>
+              <span class="text-on-surface-variant block">Latest verdict: ${escapeHtml(verdictLabel(rounds[rounds.length - 1]?.verdict))}</span>
+            </div>
+          </div>
+          <div>
+            <h3 class="label-sm text-outline uppercase tracking-widest mb-4 pl-1">Execution History</h3>
+            <div class="space-y-2">${history}</div>
+          </div>`;
+      }
+
+      function renderAll() {
+        renderTimeline();
+        renderDetail();
+        renderInsight();
+        const current = rounds[selectedRoundIndex];
+        tierBadge.textContent = `Tier ${current?.tier || 2}`;
+        tierBadge.className = `tier-badge tier-${current?.tier || 2}`;
+      }
+
+      async function loadSession() {
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          timelineContainer.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-4">No saved session yet. Submit code in Workspace to populate this view.</div>';
+          detailPane.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-8">No session selected.</div>';
+          insightPane.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-4">No session selected.</div>';
+          return;
+        }
+
+        const roundsRes = await fetch(`${API}/api/sessions/${sessionId}`);
+        if (!roundsRes.ok) throw new Error('HTTP ' + roundsRes.status);
+        rounds = await roundsRes.json();
+        if (!Array.isArray(rounds) || !rounds.length) {
+          timelineContainer.innerHTML = '<div class="text-on-surface-variant text-sm text-center py-4">No rounds were recorded for this session.</div>';
+          return;
+        }
+
+        const problemRes = await fetch(`${API}/api/problems/${rounds[0].problemId}`);
+        if (problemRes.ok) {
+          const problem = await problemRes.json();
+          problemTitle = problem.title || rounds[0].problemId;
+        } else {
+          problemTitle = rounds[0].problemId;
+        }
+
+        if (problemBadge) problemBadge.textContent = problemTitle;
+        selectedRoundIndex = Math.max(0, rounds.length - 1);
+        renderAll();
+      }
+
+      loadSession().catch((err) => {
+        console.error('[trajectory]', err);
+        timelineContainer.innerHTML = '<div class="text-error text-sm text-center py-4">Failed to load trajectory data.</div>';
+        detailPane.innerHTML = '<div class="text-error text-sm text-center py-8">' + escapeHtml(err.message) + '</div>';
+        insightPane.innerHTML = '<div class="text-error text-sm text-center py-4">Unable to render real session data.</div>';
+      });
+    })();
+  </script>
+</body>
+</html>
