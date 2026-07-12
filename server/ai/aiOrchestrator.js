@@ -14,8 +14,7 @@ const MODEL = process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct";
 
 const TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
-const MAX_TOKENS = 4096;
-const REASONING_BUDGET = 4096;
+const MAX_TOKENS = 16384;
 
 let client = null;
 

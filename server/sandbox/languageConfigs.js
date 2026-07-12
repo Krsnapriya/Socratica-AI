@@ -1,9 +1,3 @@
-/**
- * Socratica AI — Sandbox Language Configurations
- * Spec §3.2 & Section 6
- * Single source of truth for per-language sandbox limits and commands.
- */
-
 const LANGUAGE_CONFIGS = {
   python: {
     ext: '.py',
@@ -13,7 +7,7 @@ const LANGUAGE_CONFIGS = {
     timeoutMs: 8000,
     compileTimeoutMs: 0,
     compile: null,
-    run: 'python3 {file}'
+    run: 'python3 {file}',
   },
   cpp: {
     ext: '.cpp',
@@ -23,7 +17,7 @@ const LANGUAGE_CONFIGS = {
     timeoutMs: 12000,
     compileTimeoutMs: 15000,
     compile: 'g++ -std=c++17 -O2 -pipe -s {file} -o {bin}',
-    run: './{bin}'
+    run: './{bin}',
   },
   javascript: {
     ext: '.js',
@@ -33,17 +27,15 @@ const LANGUAGE_CONFIGS = {
     timeoutMs: 8000,
     compileTimeoutMs: 0,
     compile: null,
-    run: 'node {file}'
-  }
+    run: 'node {file}',
+  },
 };
 
 const SUPPORTED_LANGUAGES = Object.keys(LANGUAGE_CONFIGS);
 
 function getDockerRunArgs(lang) {
   const cfg = LANGUAGE_CONFIGS[lang];
-  if (!cfg) {
-    throw new Error(`Unknown language: ${lang}`);
-  }
+  if (!cfg) throw new Error(`Unknown language: ${lang}`);
   return {
     image: cfg.image,
     memory: `${cfg.memoryMb}m`,

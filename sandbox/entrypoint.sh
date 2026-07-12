@@ -72,9 +72,12 @@ run_one() {
 
     # ── Python: use tracer.py for step-level telemetry ──────────────────────
     python)
-      python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
+      local python_timeout_sec=$(( (TIMEOUT_MS + 999) / 1000 ))
+      timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
       rc=$?
-      if [[ $rc -ne 0 ]] || [[ ! -s "$out_file" ]]; then
+      if [[ $rc -eq 124 ]]; then
+        printf '{"version":1,"error":"timeout","steps":0,"elapsed_ms":%d,"snapshots":[],"stdout":""}' "$((TIMEOUT_MS))" > "$out_file"
+      elif [[ $rc -ne 0 ]] || [[ ! -s "$out_file" ]]; then
         local err; err=$(json_escape "$(cat "$stderr_file" 2>/dev/null | head -5)")
         printf '{"version":1,"error":"runtime_error","stderr":"%s","steps":0,"elapsed_ms":0,"snapshots":[],"stdout":""}' "$err" > "$out_file"
       fi

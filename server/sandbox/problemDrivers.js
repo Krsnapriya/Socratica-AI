@@ -1,70 +1,123 @@
-/**
- * Socratica AI — Problem Test Drivers
- * Injects validation/drivers to execute student code and compare against oracle.
- */
-
 const PROBLEM_DRIVERS = {
   "two-sum": {
-    python: `\nprint(two_sum([2,7,11,15], 9))\nprint(two_sum([3,2,4], 6))\nprint(two_sum([3,3], 6))\n`,
-    javascript: `\nconsole.log(twoSum([2,7,11,15],9).join(','));\nconsole.log(twoSum([3,2,4],6).join(','));\nconsole.log(twoSum([3,3],6).join(','));\n`,
-    cpp: `\nint main() {\n  int a[]={2,7,11,15}; std::vector<int> va(a,a+4); auto r=twoSum(va,9); std::cout<<r[0]<<","<<r[1]<<"\\n";\n  int b[]={3,2,4}; std::vector<int> vb(b,b+3); r=twoSum(vb,6); std::cout<<r[0]<<","<<r[1]<<"\\n";\n  int c[]={3,3}; std::vector<int> vc(c,c+2); r=twoSum(vc,6); std::cout<<r[0]<<","<<r[1]<<"\\n";\n}\n`,
+    python: `r = two_sum([2,7,11,15], 9); print(r[0], r[1])
+r = two_sum([3,2,4], 6); print(r[0], r[1])
+r = two_sum([3,3], 6); print(r[0], r[1])`,
+    javascript: `let r = twoSum([2,7,11,15], 9); console.log(r[0], r[1]);
+r = twoSum([3,2,4], 6); console.log(r[0], r[1]);
+r = twoSum([3,3], 6); console.log(r[0], r[1]);`,
+    cpp: `vector<int> a={2,7,11,15}; auto r=twoSum(a,9); cout<<r[0]<<" "<<r[1]<<endl;
+vector<int> b={3,2,4}; r=twoSum(b,6); cout<<r[0]<<" "<<r[1]<<endl;
+vector<int> c={3,3}; r=twoSum(c,6); cout<<r[0]<<" "<<r[1]<<endl;`,
   },
   "fibonacci": {
-    python: `\nprint(fib(0))\nprint(fib(1))\nprint(fib(10))\n`,
-    javascript: `\nconsole.log(fib(0));\nconsole.log(fib(1));\nconsole.log(fib(10));\n`,
-    cpp: `\nint main() { std::cout<<fib(0)<<"\\n"<<fib(1)<<"\\n"<<fib(10)<<"\\n"; }\n`,
-  },
-  "palindrome": {
-    python: `\nprint(is_palindrome("A man, a plan, a canal: Panama"))\nprint(is_palindrome("race a car"))\nprint(is_palindrome(" "))\n`,
-    javascript: `\nconsole.log(isPalindrome("A man, a plan, a canal: Panama"));\nconsole.log(isPalindrome("race a car"));\nconsole.log(isPalindrome(" "));\n`,
-    cpp: `\nint main() { std::cout<<isPalindrome("A man, a plan, a canal: Panama")<<"\\n"<<isPalindrome("race a car")<<"\\n"<<isPalindrome(" ")<<"\\n"; }\n`,
-  },
-  "reverse-string": {
-    python: `\nprint(reverse_string("hello"))\nprint(reverse_string("Hannah"))\nprint(reverse_string(""))\n`,
-    javascript: `\nconsole.log(reverseString("hello"));\nconsole.log(reverseString("Hannah"));\nconsole.log(reverseString(""));\n`,
-    cpp: `\nint main() { std::cout<<reverseString("hello")<<"\\n"<<reverseString("Hannah")<<"\\n"<<reverseString("")<<"\\n"; }\n`,
-  },
-  "max-subarray": {
-    python: `\nprint(max_subarray([-2,1,-3,4,-1,2,1,-5,4]))\nprint(max_subarray([1]))\nprint(max_subarray([5,4,-1,7,8]))\n`,
-    javascript: `\nconsole.log(maxSubarray([-2,1,-3,4,-1,2,1,-5,4]));\nconsole.log(maxSubarray([1]));\nconsole.log(maxSubarray([5,4,-1,7,8]));\n`,
-    cpp: `\nint main() { std::vector<int> a={-2,1,-3,4,-1,2,1,-5,4}; std::cout<<maxSubarray(a)<<"\\n"; std::vector<int> b={1}; std::cout<<maxSubarray(b)<<"\\n"; std::vector<int> c={5,4,-1,7,8}; std::cout<<maxSubarray(c)<<"\\n"; }\n`,
-  },
-  "contains-duplicate": {
-    python: `\nprint(contains_duplicate([1,2,3,1]))\nprint(contains_duplicate([1,2,3,4]))\nprint(contains_duplicate([1,1,1,3,3,4,3,2,4,2]))\n`,
-    javascript: `\nconsole.log(containsDuplicate([1,2,3,1]));\nconsole.log(containsDuplicate([1,2,3,4]));\nconsole.log(containsDuplicate([1,1,1,3,3,4,3,2,4,2]));\n`,
-    cpp: `\nint main() { std::vector<int> a={1,2,3,1}; std::cout<<containsDuplicate(a)<<"\\n"; std::vector<int> b={1,2,3,4}; std::cout<<containsDuplicate(b)<<"\\n"; std::vector<int> c={1,1,1,3,3,4,3,2,4,2}; std::cout<<containsDuplicate(c)<<"\\n"; }\n`,
-  },
-  "bubble-sort": {
-    python: `\nprint(bubble_sort([64,34,25,12,22,11,90]))\nprint(bubble_sort([5,1,4,2,8]))\nprint(bubble_sort([1]))\n`,
-    javascript: `\nconsole.log(bubbleSort([64,34,25,12,22,11,90]).join(','));\nconsole.log(bubbleSort([5,1,4,2,8]).join(','));\nconsole.log(bubbleSort([1]).join(','));\n`,
-    cpp: `\nint main() { for(auto v: bubbleSort({64,34,25,12,22,11,90})) std::cout<<v<<" "; std::cout<<"\\n"; for(auto v: bubbleSort({5,1,4,2,8})) std::cout<<v<<" "; std::cout<<"\\n"; for(auto v: bubbleSort({1})) std::cout<<v<<" "; std::cout<<"\\n"; }\n`,
-  },
-  "binary-search": {
-    python: `\nprint(binary_search([-1,0,3,5,9,12], 9))\nprint(binary_search([-1,0,3,5,9,12], 2))\nprint(binary_search([5], 5))\n`,
-    javascript: `\nconsole.log(binarySearch([-1,0,3,5,9,12], 9));\nconsole.log(binarySearch([-1,0,3,5,9,12], 2));\nconsole.log(binarySearch([5], 5));\n`,
-    cpp: `\nint main() { std::vector<int> a={-1,0,3,5,9,12}; std::cout<<binarySearch(a,9)<<"\\n"<<binarySearch(a,2)<<"\\n"; std::vector<int> b={5}; std::cout<<binarySearch(b,5)<<"\\n"; }\n`,
+    python: `for n in [0,1,2,3,4,5,10,15,20,30]: print(fib(n))`,
+    javascript: `[0,1,2,3,4,5,10,15,20,30].forEach(n => console.log(fib(n)));`,
+    cpp: `for(int n:{0,1,2,3,4,5,10,15,20,30}) cout<<fib(n)<<endl;`,
   },
   "valid-parentheses": {
-    python: `\nprint(is_valid("()"))\nprint(is_valid("()[]{}"))\nprint(is_valid("(]"))\n`,
-    javascript: `\nconsole.log(isValid("()"));\nconsole.log(isValid("()[]{}"));\nconsole.log(isValid("(]"));\n`,
-    cpp: `\nint main() { std::cout<<isValid("()")<<"\\n"<<isValid("()[]{}")<<"\\n"<<isValid("(]")<<"\\n"; }\n`,
+    python: `for s in ["()","()[]{}","(]","([)]","{[]}", "{","}","(((((((()","(((())))","[({})]","[(])",""]:
+    print("true" if is_valid(s) else "false")`,
+    javascript: `["()","()[]{}","(]","([)]","{[]}", "{","}","(((((((()","(((())))","[({})]","[(])", ""].forEach(s => console.log(isValid(s) ? 'true' : 'false'));`,
+    cpp: `vector<string> tests = {"()","()[]{}","(]","([)]","{[]}", "{","}","(((((((()","(((())))","[({})]","[(])"};
+for (auto& t : tests) cout << (isValid(t)?"true":"false") << endl;`,
+  },
+  "binary-search": {
+    python: `print(binary_search([-1,0,3,5,9,12], 9))
+print(binary_search([-1,0,3,5,9,12], 2))
+print(binary_search([5], 5))`,
+    javascript: `console.log(binarySearch([-1,0,3,5,9,12], 9));
+console.log(binarySearch([-1,0,3,5,9,12], 2));
+console.log(binarySearch([5], 5));`,
+    cpp: `vector<int> a={-1,0,3,5,9,12};
+cout<<binarySearch(a,9)<<endl;
+cout<<binarySearch(a,2)<<endl;
+vector<int> b={5};
+cout<<binarySearch(b,5)<<endl;`,
+  },
+  "reverse-linked-list": {
+    python: `for vals in [[1,2,3,4,5],[1,2],[42],[],[0],[-1,-2,-3],[5,4,3,2,1],[1,1,1,1],[-5000,5000],[3,7,0,-4,12]]:
+    r = reverse_list(vals)
+    print(*r)`,
+    javascript: `[[1,2,3,4,5],[1,2],[42],[],[0],[-1,-2,-3],[5,4,3,2,1],[1,1,1,1],[-5000,5000],[3,7,0,-4,12]].forEach(a => console.log(reverseList(a).join(' ')));`,
+    cpp: `vector<vector<int>> tests = {{1,2,3,4,5},{1,2},{42},{},{0},{-1,-2,-3},{5,4,3,2,1},{1,1,1,1},{-5000,5000},{3,7,0,-4,12}};
+for (auto& v : tests) {
+    auto r = reverseList(v);
+    for (int i=0;i<(int)r.size();i++){if(i)cout<<" ";cout<<r[i];}
+    cout<<endl;
+}`,
+  },
+  "valid-palindrome": {
+    python: `for s in ["A man, a plan, a canal: Panama","race a car"," ","0P","a","ab",".,","Aba","Never odd or even","12321","12345",""]:
+    print("true" if is_palindrome(s) else "false")`,
+    javascript: `["A man, a plan, a canal: Panama","race a car"," ","0P","a","ab",".,","Aba","Never odd or even","12321","12345", ""].forEach(s => console.log(isPalindrome(s) ? 'true' : 'false'));`,
+    cpp: `vector<string> tests = {"A man, a plan, a canal: Panama","race a car"," ","0P","a","ab",".,","Aba","Never odd or even","12321","12345"};
+for (auto& t : tests) cout << (isPalindrome(t)?"true":"false") << endl;`,
+  },
+  "reverse-string": {
+    python: `for s in ["hello","Hannah","","123456789","a b c","!!@@##","abcdefghijklmnopqrstuvwxyz","   "]:
+    print(reverse_string(s))`,
+    javascript: `["hello","Hannah","","123456789","a b c","!!@@##","abcdefghijklmnopqrstuvwxyz","   "].forEach(s => console.log(reverseString(s)));`,
+    cpp: `vector<string> tests = {"hello","Hannah","","123456789","a b c","!!@@##","abcdefghijklmnopqrstuvwxyz","   "};
+for (auto& t : tests) cout << reverseString(t) << endl;`,
+  },
+  "max-subarray": {
+    python: `for nums in [[-2,1,-3,4,-1,2,1,-5,4],[1],[5,4,-1,7,8],[-1],[-2,-3,-1],[1,2,3,4],[-2,1,-3,4,-1,2],[-1,-2,-3,-4,-5,-6,-7,-8,-9,-10],[0,0,0],[10,-2,-3,5,-1,8,-5],[-10000],[10000]]:
+    print(max_subarray(nums))`,
+    javascript: `[[-2,1,-3,4,-1,2,1,-5,4],[1],[5,4,-1,7,8],[-1],[-2,-3,-1],[1,2,3,4],[-2,1,-3,4,-1,2],[-1,-2,-3,-4,-5,-6,-7,-8,-9,-10],[0,0,0],[10,-2,-3,5,-1,8,-5],[-10000],[10000]].forEach(a => console.log(maxSubArray(a)));`,
+    cpp: `vector<vector<int>> tests = {{-2,1,-3,4,-1,2,1,-5,4},{1},{5,4,-1,7,8},{-1},{-2,-3,-1},{1,2,3,4},{-2,1,-3,4,-1,2},{-1,-2,-3,-4,-5,-6,-7,-8,-9,-10},{0,0,0},{10,-2,-3,5,-1,8,-5},{-10000},{10000}};
+for (auto& nums : tests) {
+    int best = nums[0], cur = nums[0];
+    for (int i=1;i<(int)nums.size();i++) { cur = max(nums[i], cur+nums[i]); best = max(best, cur); }
+    cout << best << endl;
+}`,
+  },
+  "contains-duplicate": {
+    python: `for nums in [[1,2,3,1],[1,2,3,4],[1],[10,10,10,10,10,10,10,10,10,10],[-1,-2,-3],[100,200,300,200,400],[0,0,0,0,0,0],[1000000000,-1000000000,0],[42,42]]:
+    print("true" if contains_duplicate(nums) else "false")`,
+    javascript: `[[1,2,3,1],[1,2,3,4],[1],[10,10,10,10,10,10,10,10,10,10],[-1,-2,-3],[100,200,300,200,400],[0,0,0,0,0,0],[1000000000,-1000000000,0],[42,42]].forEach(a => console.log(containsDuplicate(a) ? 'true' : 'false'));`,
+    cpp: `vector<vector<int>> tests = {{1,2,3,1},{1,2,3,4},{1},{10,10,10,10,10,10,10,10,10,10},{-1,-2,-3},{100,200,300,200,400},{0,0,0,0,0,0},{1000000000,-1000000000,0},{42,42}};
+for (auto& a : tests) cout << (containsDuplicate(a)?"true":"false") << endl;`,
+  },
+  "bubble-sort": {
+    python: `for nums in [[64,34,25,12,22],[5,1,4,2,8],[1],[-5,-10,0,3,8,-1],[100,-100],[0,0,0,-1,-1,5,5]]:
+    bubble_sort(nums)
+    print(*nums)`,
+    javascript: `[[64,34,25,12,22],[5,1,4,2,8],[1],[-5,-10,0,3,8,-1],[100,-100],[0,0,0,-1,-1,5,5]].forEach(a => { bubbleSort(a); console.log(a.join(' ')); });`,
+    cpp: `vector<vector<int>> tests = {{64,34,25,12,22},{5,1,4,2,8},{1},{-5,-10,0,3,8,-1},{100,-100},{0,0,0,-1,-1,5,5}};
+for (auto& a : tests) {
+    bubbleSort(a);
+    for(int i=0;i<(int)a.size();i++){if(i)cout<<" ";cout<<a[i];}
+    cout<<endl;
+}`,
   },
   "climbing-stairs": {
-    python: `\nprint(climb_stairs(2))\nprint(climb_stairs(3))\nprint(climb_stairs(5))\n`,
-    javascript: `\nconsole.log(climbStairs(2));\nconsole.log(climbStairs(3));\nconsole.log(climbStairs(5));\n`,
-    cpp: `\nint main() { std::cout<<climbStairs(2)<<"\\n"<<climbStairs(3)<<"\\n"<<climbStairs(5)<<"\\n"; }\n`,
+    python: `for n in [1,2,3,4,5,6,10,15,20,45]:
+    print(climb_stairs(n))`,
+    javascript: `[1,2,3,4,5,6,10,15,20,45].forEach(n => console.log(climbStairs(n)));`,
+    cpp: `for (int n : {1,2,3,4,5,6,10,15,20,45}) cout<<climbStairs(n)<<endl;`,
   },
   "best-time-to-buy-and-sell-stock": {
-    python: `\nprint(max_profit([7,1,5,3,6,4]))\nprint(max_profit([7,6,4,3,1]))\nprint(max_profit([1,2]))\n`,
-    javascript: `\nconsole.log(maxProfit([7,1,5,3,6,4]));\nconsole.log(maxProfit([7,6,4,3,1]));\nconsole.log(maxProfit([1,2]));\n`,
-    cpp: `\nint main() { std::vector<int> a={7,1,5,3,6,4}; std::cout<<maxProfit(a)<<"\\n"; std::vector<int> b={7,6,4,3,1}; std::cout<<maxProfit(b)<<"\\n"; std::vector<int> c={1,2}; std::cout<<maxProfit(c)<<"\\n"; }\n`,
+    python: `for prices in [[7,1,5,3,6,4],[7,6,4,3,1],[1,2],[7,2,4,1,11,7,5,3],[3,3,3,3],[1,2,3],[3,2,1],[10000,1,2,3,4,5,6,7,8,9],[9,8,7,6,5,4],[0,0,0,0,0,0]]:
+    print(max_profit(prices))`,
+    javascript: `[[7,1,5,3,6,4],[7,6,4,3,1],[1,2],[7,2,4,1,11,7,5,3],[3,3,3,3],[1,2,3],[3,2,1],[10000,1,2,3,4,5,6,7,8,9],[9,8,7,6,5,4],[0,0,0,0,0,0]].forEach(a => console.log(maxProfit(a)));`,
+    cpp: `vector<vector<int>> tests = {{7,1,5,3,6,4},{7,6,4,3,1},{1,2},{7,2,4,1,11,7,5,3},{3,3,3,3},{1,2,3},{3,2,1},{10000,1,2,3,4,5,6,7,8,9},{9,8,7,6,5,4},{0,0,0,0,0,0}};
+for (auto& prices : tests) cout << max_profit(prices) << endl;`,
   },
   "longest-common-prefix": {
-    python: `\nprint(longest_common_prefix(["flower", "flow", "flight"]))\nprint(longest_common_prefix(["dog", "racecar", "car"]))\nprint(longest_common_prefix(["interspecies", "interstellar", "interstate"]))\n`,
-    javascript: `\nconsole.log(longestCommonPrefix(["flower", "flow", "flight"]));\nconsole.log(longestCommonPrefix(["dog", "racecar", "car"]));\nconsole.log(longestCommonPrefix(["interspecies", "interstellar", "interstate"]));\n`,
-    cpp: `\nint main() { std::vector<std::string> a={"flower","flow","flight"}; std::cout<<longestCommonPrefix(a)<<"\\n"; std::vector<std::string> b={"dog","racecar","car"}; std::cout<<longestCommonPrefix(b)<<"\\n"; std::vector<std::string> c={"interspecies","interstellar","interstate"}; std::cout<<longestCommonPrefix(c)<<"\\n"; }\n`,
+    python: `for strs in [["flower","flow","flight"],["dog","racecar","car"],["hello"],["same","same","same"],["a","abc"],["abc","abcde"],["abcdef","abc","abcdefg"],["","a"],["abcd","abc","abc"],["a","aa"]]:
+    print(longest_common_prefix(strs))`,
+    javascript: `[["flower","flow","flight"],["dog","racecar","car"],["hello"],["same","same","same"],["a","abc"],["abc","abcde"],["abcdef","abc","abcdefg"],["","a"],["abcd","abc","abc"],["a","aa"]].forEach(a => console.log(longestCommonPrefix(a)));`,
+    cpp: `vector<vector<string>> tests = {{"flower","flow","flight"},{"dog","racecar","car"},{"hello"},{"same","same","same"},{"a","abc"},{"abc","abcde"},{"abcdef","abc","abcdefg"},{"","a"},{"abcd","abc","abc"},{"a","aa"}};
+for (auto& strs : tests) cout << longestCommonPrefix(strs) << endl;`,
   },
 };
+
+const IO_INDICATORS = ['sys.stdin', 'readline', 'cin >>', 'process.stdin', 'getline', 'std::cin'];
+
+function hasIOWrapper(code) {
+  return IO_INDICATORS.some(ind => code.includes(ind));
+}
 
 function injectDriver(code, problemId, language) {
   const drivers = PROBLEM_DRIVERS[problemId];
@@ -73,14 +126,24 @@ function injectDriver(code, problemId, language) {
   if (!driver) return code;
 
   if (language === "cpp") {
-    return "#include <iostream>\n" + code + driver;
+    const hasInclude = code.includes("#include");
+    const hasMain = code.includes("int main");
+    let result = "";
+    if (!hasInclude) result += "#include <bits/stdc++.h>\nusing namespace std;\n";
+    result += code;
+    if (!hasMain) {
+      result += "\nint main() {\n" + driver + "\n}\n";
+    } else {
+      result += "\n" + driver + "\n";
+    }
+    return result;
   }
 
-  // Don't inject if student already has calls (heuristic)
-  if (language === "python" && code.includes("print(") && code.length > 100) {
+  if (hasIOWrapper(code)) {
     return code;
   }
-  return code + driver;
+
+  return code + "\n" + driver + "\n";
 }
 
 module.exports = { injectDriver, PROBLEM_DRIVERS };

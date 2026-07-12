@@ -31,9 +31,10 @@ function demuxDockerStream(buffer) {
 }
 
 async function runInContainer({ studentCode, oracleCode, problemId, language }) {
-  if (!docker) {
-    throw new Error("system_judge_error");
-  }
+  if (!docker) throw new Error("system_judge_error");
+  if (!studentCode || studentCode.trim().length === 0) throw new Error("Empty submission rejected");
+  if (!oracleCode) throw new Error("Missing oracle solution");
+
   const dockerArgs = getDockerRunArgs(language);
   const studentCodeWithDriver = injectDriver(studentCode, problemId, language);
 
@@ -64,9 +65,7 @@ async function runInContainer({ studentCode, oracleCode, problemId, language }) 
         ReadonlyRootfs: true,
         SecurityOpt: ["no-new-privileges:true"],
         CapDrop: ["ALL"],
-        Tmpfs: {
-          "/tmp": "rw,exec,nosuid,size=64m"
-        },
+        Tmpfs: { "/tmp": "rw,exec,nosuid,size=64m" },
         OomKillDisable: false,
       },
       User: "1000:1000",
@@ -93,19 +92,13 @@ async function runInContainer({ studentCode, oracleCode, problemId, language }) 
 
     return parsed;
   } catch (err) {
-    if (err.message === "container_timeout") {
-      throw new Error("container_timeout");
-    }
-    // Map container daemon/engine failures to a dedicated system_judge_error code
-    console.error("[runInContainer] Docker/Daemon exception encountered:", err);
+    if (err.message === "container_timeout") throw new Error("container_timeout");
+    if (err.message === "Empty submission rejected") throw err;
+    console.error("[runInContainer] Docker exception:", err);
     throw new Error("system_judge_error");
   } finally {
     if (container) {
-      try {
-        await container.remove({ force: true });
-      } catch (err) {
-        console.error("[runInContainer] Cleanup error:", err.message);
-      }
+      try { await container.remove({ force: true }); } catch (_) {}
     }
   }
 }

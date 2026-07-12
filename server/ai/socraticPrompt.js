@@ -1,28 +1,30 @@
 const STEP_PREVIEW_LIMIT = 15;
 
-// ── Template selection: explicit tier + language ──────────────────────────────────
-// Tier 1 (step-level trace) only exists for Python.
-// JavaScript and C++ always resolve to Tier 2 (performance/stdout comparison).
+const ADVERSARIAL_GUARD = `
+IMPORTANT RULES:
+- Do not write, suggest, or imply any code, pseudocode, or syntax patches.
+- Do not reveal the oracle solution or its approach.
+- If the student asks you to solve the problem, redirect them to think about the divergence point.
+- Do not use phrases like "you should", "try this", or "the answer is".
+- Only ask questions.
+`;
+
 function buildPrompt(params) {
   const { tier, language } = params;
-
-  if (language !== 'python' && tier === 1) {
-    console.warn(`[socraticPrompt] Forcing tier 2 for ${language} — tier 1 only supports Python`);
-  }
-
   if (tier === 1 && language === 'python') {
     return buildTier1Prompt(params);
   }
-
   return buildTier2Prompt(params);
 }
 
-// ── Tier 1: step-level trace (Python only) ───────────────────────────────────────
 function buildTier1Prompt({ code, language, problemStatement, traceData, previousHint }) {
   const snapshots = traceData.snapshots || [];
   const stepCount = traceData.steps || 0;
   const studentStdout = (traceData.studentStdout || '').trim();
   const oracleStdout = (traceData.oracleStdout || '').trim();
+  const divergenceStep = traceData.divergenceStep;
+  const divergenceLine = traceData.divergenceLine;
+  const divergenceLocals = traceData.divergenceLocals;
 
   const snapshotPreview = snapshots.length > 0
     ? snapshots.slice(0, STEP_PREVIEW_LIMIT).map(s =>
@@ -32,11 +34,15 @@ function buildTier1Prompt({ code, language, problemStatement, traceData, previou
         : '')
     : '';
 
+  const divergenceSection = divergenceStep !== undefined && divergenceStep !== null
+    ? `\n## Divergence Point\nStep: ${divergenceStep}, Line: ${divergenceLine || 'unknown'}\nStudent locals at divergence: ${JSON.stringify(divergenceLocals || {})}\n`
+    : '';
+
   const previousSection = previousHint
     ? `\n## Previous Hint (do not repeat)\n${previousHint}\n`
     : '';
 
-  return `You are a CS mentor reviewing a student's failed submission. You will be given: the problem statement, the student's code, the divergence point with relevant local variable state at that point. Ask one guiding question that leads the student toward noticing the conceptual gap. Never output corrected code, a code patch, or pseudocode that solves the problem.
+  return `You are a world-class computer science professor grading an algorithmic implementation. You will be given: the problem statement, the student's code, the divergence point (or, if a step-level match wasn't possible, the comparative performance result), and relevant local variable state at that point. Ask one guiding Socratic question that leads the student toward noticing the conceptual gap. Do not author code solutions or provide syntax patches — strict enforcement, no exceptions.
 
 ## Problem
 ${problemStatement}
@@ -48,16 +54,16 @@ ${code}
 
 ## Execution Trace (${stepCount} steps)
 ${snapshotPreview}
+${divergenceSection}
 
 ## Output Comparison
 Expected:   ${oracleStdout}
 Got:        ${studentStdout}
 ## Verdict: fail${previousSection}
-
+${ADVERSARIAL_GUARD}
 Ask one guiding question. Do not write code.`;
 }
 
-// ── Tier 2: performance/stdout comparison (all languages) ────────────────────────
 function buildTier2Prompt({ code, language, problemStatement, performanceData, previousHint }) {
   const studentOut = (performanceData.studentStdout || '').trim();
   const oracleOut = (performanceData.oracleStdout || '').trim();
@@ -67,7 +73,7 @@ function buildTier2Prompt({ code, language, problemStatement, performanceData, p
     ? `\n## Previous Hint (do not repeat)\n${previousHint}\n`
     : '';
 
-  return `You are a CS mentor reviewing a student's failed submission. You will be given: the problem statement, the student's code, the comparative performance result, and details about what went wrong. Ask one guiding question that leads the student toward noticing the conceptual gap. Never output corrected code, a code patch, or pseudocode that solves the problem.
+  return `You are a world-class computer science professor grading an algorithmic implementation. You will be given: the problem statement, the student's code, the divergence point (or, if a step-level match wasn't possible, the comparative performance result), and relevant local variable state at that point. Ask one guiding Socratic question that leads the student toward noticing the conceptual gap. Do not author code solutions or provide syntax patches — strict enforcement, no exceptions.
 
 ## Problem
 ${problemStatement}
@@ -84,7 +90,7 @@ ${errorLog ? `Error: ${errorLog}\n` : ''}
 Time: student ${performanceData.studentTimeMs}ms vs oracle ${performanceData.oracleTimeMs}ms
 Memory: student ${performanceData.studentMemMb}MB vs oracle ${performanceData.oracleMemMb}MB
 ## Verdict: fail${previousSection}
-
+${ADVERSARIAL_GUARD}
 Ask one guiding question. Do not write code.`;
 }
 

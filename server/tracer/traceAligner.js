@@ -1,6 +1,40 @@
 const { comparePerformance } = require('./tier2Differential');
 
 const STEP_CAP = 5000;
+const VALUE_PREVIEW_LIMIT = 20;
+const STEP_COUNT_TOLERANCE_RATIO = 0.15;
+const STEP_COUNT_MIN_RATIO = 0.1;
+const STEP_COUNT_MAX_RATIO = 10;
+
+function truncateValue(val) {
+  if (val === null || val === undefined) return val;
+  if (typeof val === 'string') return val.length > 200 ? val.slice(0, 200) + '...' : val;
+  if (typeof val === 'number' || typeof val === 'boolean') return val;
+  if (Array.isArray(val)) {
+    const preview = val.slice(0, VALUE_PREVIEW_LIMIT).map(truncateValue);
+    return val.length > VALUE_PREVIEW_LIMIT
+      ? [...preview, `... (${val.length} total)`]
+      : preview;
+  }
+  if (typeof val === 'object') {
+    const keys = Object.keys(val);
+    const truncated = {};
+    for (const k of keys.slice(0, VALUE_PREVIEW_LIMIT)) {
+      truncated[k] = truncateValue(val[k]);
+    }
+    if (keys.length > VALUE_PREVIEW_LIMIT) truncated['...'] = `${keys.length} keys total`;
+    return truncated;
+  }
+  return val;
+}
+
+function truncateSnapshots(snapshots) {
+  if (!Array.isArray(snapshots)) return snapshots;
+  return snapshots.map(s => ({
+    ...s,
+    locals: s.locals ? truncateValue(s.locals) : {},
+  }));
+}
 
 function extractSteps(telemetry) {
   if (!telemetry || !Array.isArray(telemetry.snapshots)) return [];
@@ -8,8 +42,20 @@ function extractSteps(telemetry) {
     step: s.step,
     line: s.lineno,
     function: s.function,
-    locals: s.locals || {},
+    locals: s.locals ? truncateValue(s.locals) : {},
   }));
+}
+
+function stepCountWithinTolerance(studentSteps, oracleSteps) {
+  const sCount = studentSteps.length;
+  const oCount = oracleSteps.length;
+  if (oCount === 0) return false;
+  const ratio = sCount / oCount;
+  if (ratio >= STEP_COUNT_MIN_RATIO && ratio <= STEP_COUNT_MAX_RATIO) {
+    if (ratio >= 1 - STEP_COUNT_TOLERANCE_RATIO && ratio <= 1 + STEP_COUNT_TOLERANCE_RATIO) return true;
+    return true;
+  }
+  return false;
 }
 
 function alignTraces(studentTelemetry, oracleTelemetry) {
@@ -40,16 +86,25 @@ function alignTraces(studentTelemetry, oracleTelemetry) {
   };
 }
 
-function shouldPromoteToTier2(studentTelemetry, language) {
-  // Tier 1 (step-level trace alignment) only exists for Python.
-  // JavaScript and C++ always resolve to Tier 2 (performance/stdout comparison).
+function hasRecursionError(telemetry) {
+  if (!telemetry) return false;
+  if (telemetry.error && telemetry.error.includes('RecursionError')) return true;
+  if (telemetry.error && telemetry.error.includes('recursion_limit_exceeded')) return true;
+  return false;
+}
+
+function shouldPromoteToTier2(studentTelemetry, oracleTelemetry, language) {
   if (language === 'javascript') return true;
   if (language === 'cpp') return true;
-  if (language !== 'python') return true; // unknown language — safe fallback
-
-  // Python: promote to Tier 2 if trace is too long or errored
+  if (language !== 'python') return true;
+  if (hasRecursionError(studentTelemetry)) return true;
   if ((studentTelemetry.steps || 0) > STEP_CAP) return true;
   if (studentTelemetry.error) return true;
+
+  const studentSteps = extractSteps(studentTelemetry);
+  const oracleSteps = extractSteps(oracleTelemetry);
+  if (!stepCountWithinTolerance(studentSteps, oracleSteps)) return true;
+
   return false;
 }
 
@@ -68,6 +123,7 @@ function summarizeDiff(diff) {
       const ds = diff.studentSteps[diff.divergenceIndex];
       summary.divergenceLine = ds.line;
       summary.divergenceFunction = ds.function;
+      summary.divergenceLocals = ds.locals;
     }
   }
 
@@ -75,7 +131,7 @@ function summarizeDiff(diff) {
 }
 
 function analyzeTraces({ studentTelemetry, oracleTelemetry, language }) {
-  const promote = shouldPromoteToTier2(studentTelemetry, language);
+  const promote = shouldPromoteToTier2(studentTelemetry, oracleTelemetry, language);
 
   if (promote) {
     const perfDiff = comparePerformance(studentTelemetry, oracleTelemetry);
@@ -86,14 +142,12 @@ function analyzeTraces({ studentTelemetry, oracleTelemetry, language }) {
       divergenceStep: null,
       ...perfDiff,
     };
-
     return { diff, summary: summarizeDiff({ ...diff, tier: 2 }) };
   }
 
   const alignment = alignTraces(studentTelemetry, oracleTelemetry);
   const diff = { tier: 1, ...alignment };
-
   return { diff, summary: summarizeDiff({ ...diff, tier: 1 }) };
 }
 
-module.exports = { extractSteps, alignTraces, shouldPromoteToTier2, summarizeDiff, analyzeTraces };
+module.exports = { extractSteps, alignTraces, shouldPromoteToTier2, summarizeDiff, analyzeTraces, truncateSnapshots, truncateValue, hasRecursionError };

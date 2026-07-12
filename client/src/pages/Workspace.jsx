@@ -5,6 +5,7 @@ import { fetchProblems, fetchProblem, fetchTemplate, submitCode } from '../api/a
 import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import VerdictDisplay from '../components/ui/VerdictDisplay.jsx';
+import AIMentorPanel from '../components/AIMentorPanel.jsx';
 
 const WORKSPACE_NAV = [
   { to: '/workspace', icon: 'code', label: 'Workspace' },
@@ -29,6 +30,7 @@ export default function Workspace() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [outputError, setOutputError] = useState('');
+  const [rightTab, setRightTab] = useState('console');
 
   // 1. Fetch problem list
   useEffect(() => {
@@ -280,21 +282,40 @@ export default function Workspace() {
           </div>
         </section>
 
-        {/* Console / Output */}
+        {/* Right Panel — Console / AI Mentor */}
         <section
           className="w-[30%] min-w-[260px] flex flex-col"
           style={{ background: 'var(--surface-container-low)' }}
-          aria-label="Console output"
+          aria-label="Console and AI Mentor"
         >
-          <div className="h-10 border-b flex items-center justify-between px-4 shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
-            <span className="font-mono text-xs text-on-surface uppercase tracking-wider font-bold flex items-center gap-2">
-              <Icon name="terminal" size={16} />
+          {/* Tab header */}
+          <div className="h-10 border-b flex items-center shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
+            <button
+              onClick={() => setRightTab('console')}
+              className={`h-full px-4 font-mono text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-colors border-b-2 ${
+                rightTab === 'console'
+                  ? 'text-primary border-primary'
+                  : 'text-on-surface-variant border-transparent hover:text-on-surface'
+              }`}
+            >
+              <Icon name="terminal" size={14} />
               Console
-            </span>
-            {output && (
+            </button>
+            <button
+              onClick={() => setRightTab('mentor')}
+              className={`h-full px-4 font-mono text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-colors border-b-2 ${
+                rightTab === 'mentor'
+                  ? 'text-primary border-primary'
+                  : 'text-on-surface-variant border-transparent hover:text-on-surface'
+              }`}
+            >
+              <Icon name="auto_awesome" size={14} />
+              AI Mentor
+            </button>
+            {rightTab === 'console' && output && (
               <button
                 onClick={() => { setOutput(null); setOutputError(''); }}
-                className="font-mono text-[10px] text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider"
+                className="ml-auto mr-3 font-mono text-[10px] text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-wider"
                 aria-label="Clear output"
               >
                 Clear
@@ -302,37 +323,49 @@ export default function Workspace() {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 scrollbar-thin" role="log" aria-live="polite" aria-label="Execution output">
-            {submitting ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-on-surface-variant">
-                <div className="w-8 h-8 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
-                <span className="font-mono text-xs">Running in sandbox…</span>
+          {rightTab === 'console' ? (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 scrollbar-thin" role="log" aria-live="polite" aria-label="Execution output">
+                {submitting ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-on-surface-variant">
+                    <div className="w-8 h-8 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
+                    <span className="font-mono text-xs">Running in sandbox…</span>
+                  </div>
+                ) : output ? (
+                  <VerdictDisplay
+                    verdict={output.verdict}
+                    hint={output.hint}
+                    tier2Result={output.tier2Result}
+                    error={outputError}
+                  />
+                ) : outputError ? (
+                  <VerdictDisplay error={outputError} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-2 text-on-surface-variant">
+                    <Icon name="terminal" size={32} className="text-outline" />
+                    <span className="font-mono text-xs text-outline">Run or submit your code to see results.</span>
+                  </div>
+                )}
               </div>
-            ) : output ? (
-              <VerdictDisplay
-                verdict={output.verdict}
-                hint={output.hint}
-                tier2Result={output.tier2Result}
-                error={outputError}
+              <div className="p-3 border-t shrink-0 flex gap-2" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
+                <Button variant="secondary" className="flex-1" onClick={handleSubmit} disabled={submitting || !selectedProblemId}>
+                  {submitting ? 'Running…' : 'Run Code'}
+                </Button>
+                <Button variant="primary" className="flex-1" onClick={handleSubmit} disabled={submitting || !selectedProblemId}>
+                  {submitting ? 'Submitting…' : 'Submit'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 overflow-hidden">
+              <AIMentorPanel
+                code={code}
+                language={lang}
+                problemId={selectedProblemId}
+                problemDetail={problemDetail}
               />
-            ) : outputError ? (
-              <VerdictDisplay error={outputError} />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-2 text-on-surface-variant">
-                <Icon name="terminal" size={32} className="text-outline" />
-                <span className="font-mono text-xs text-outline">Run or submit your code to see results.</span>
-              </div>
-            )}
-          </div>
-
-          <div className="p-3 border-t shrink-0 flex gap-2" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
-            <Button variant="secondary" className="flex-1" onClick={handleSubmit} disabled={submitting || !selectedProblemId}>
-              {submitting ? 'Running…' : 'Run Code'}
-            </Button>
-            <Button variant="primary" className="flex-1" onClick={handleSubmit} disabled={submitting || !selectedProblemId}>
-              {submitting ? 'Submitting…' : 'Submit'}
-            </Button>
-          </div>
+            </div>
+          )}
         </section>
       </div>
     </div>

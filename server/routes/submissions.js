@@ -23,6 +23,15 @@ router.post("/", requireAuth, requireRole(["student", "instructor", "admin", "su
     return res.status(400).json({ error: "code, language, and problemId are required" });
   }
 
+  const trimmedCode = code.trim();
+  if (trimmedCode.length === 0) {
+    return res.status(400).json({ error: "Empty submission rejected. Please provide working code." });
+  }
+
+  if (trimmedCode.length < 10) {
+    return res.status(400).json({ error: "Submission too short. Please provide a complete solution." });
+  }
+
   const userId = req.userId;
   const sId = sessionId || crypto.randomUUID();
 
@@ -124,14 +133,14 @@ router.post("/", requireAuth, requireRole(["student", "instructor", "admin", "su
       });
       finalTier = summary.tier;
       if (summary.tier === 1) {
-        traceLog = student.snapshots || [];
+        traceLog = (await require('../tracer/traceAligner').truncateSnapshots(student.snapshots)) || [];
         divergenceStep = summary.divergenceStep;
       }
 
-      // Fetch previous hint so the AI doesn't repeat itself
-      const prevSubmission = await Submission.findOne({ sessionId: sId })
-        .sort({ round: -1 }).select('hint').lean();
-      const previousHint = prevSubmission?.hint || undefined;
+      // Fetch previous round's hint so the AI doesn't repeat itself
+      const previousHint = roundNum > 1
+        ? (await Submission.findOne({ sessionId: sId, round: roundNum - 1 }).select('hint').lean())?.hint || undefined
+        : undefined;
 
       const hintParams = {
         code, language, problemStatement: problem.statement,
@@ -146,6 +155,9 @@ router.post("/", requireAuth, requireRole(["student", "instructor", "admin", "su
             steps: student.steps || 0,
             studentStdout: student.stdout || '',
             oracleStdout: oracle.stdout || '',
+            divergenceStep: summary.divergenceStep,
+            divergenceLine: summary.divergenceLine,
+            divergenceLocals: summary.divergenceLocals,
           },
         });
       } else {

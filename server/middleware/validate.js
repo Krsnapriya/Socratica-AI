@@ -65,6 +65,7 @@ const schemas = {
   createModule: { title: "required", course: "required" },
   createPermission: { role: "required|in:super_admin,admin,instructor,student,guest", resource: "required", actions: "required" },
   createNotification: { title: "required", message: "required" },
+  submission: { code: "required", language: "required|in:python,cpp,javascript", problemId: "required" },
 };
 
 module.exports = { validate, schemas };

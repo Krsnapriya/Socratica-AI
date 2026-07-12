@@ -6,7 +6,6 @@ const MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-8b-instruct';
 const TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 1;
 const MAX_TOKENS = 16384;
-const REASONING_BUDGET = 16384;
 
 const CB_THRESHOLD = 5;
 const CB_RESET_MS = 30_000;
@@ -36,16 +35,39 @@ function canAttempt() {
   if (cbState === 'HALF_OPEN') return true;
   if (Date.now() - cbOpenedAt >= CB_RESET_MS) {
     cbState = 'HALF_OPEN';
-    console.info('[llmClient] Circuit breaker HALF_OPEN — probing');
     return true;
   }
   return false;
 }
 
 const CODE_BLOCK_RE = /```[\s\S]*?```/g;
+const CODE_LINE_RE = /^(def |class |function |const |let |var |import |from |#include|using |for |while |if |return )/m;
 
 function stripCodeBlocks(text) {
   return text.replace(CODE_BLOCK_RE, '').trim();
+}
+
+function sanitizeResponse(text) {
+  let cleaned = stripCodeBlocks(text);
+  cleaned = cleaned.replace(/`[^`]+`/g, '');
+  const lines = cleaned.split('\n');
+  const filtered = lines.filter(line => {
+    if (CODE_LINE_RE.test(line.trim())) return false;
+    if (line.trim().startsWith('>>>') || line.trim().startsWith('...')) return false;
+    return true;
+  });
+  return filtered.join('\n').trim();
+}
+
+function isAdversarialResponse(text) {
+  const lower = text.toLowerCase();
+  const signals = [
+    'here is the solution', 'here\'s the solution',
+    'the answer is', 'the fix is', 'try this code',
+    'def solve', 'def two_sum', 'function solve',
+    'solution:', 'answer:', 'fix:',
+  ];
+  return signals.some(s => lower.includes(s));
 }
 
 async function fetchWithRetry(url, options) {
@@ -80,12 +102,10 @@ async function fetchWithRetry(url, options) {
 
 async function callLLM(systemContent, userContent) {
   if (!API_KEY) {
-    console.warn('[llmClient] NVIDIA_API_KEY not set');
     return "The AI mentor is currently unavailable because the API key is not configured. Please contact your administrator.";
   }
 
   if (!canAttempt()) {
-    console.warn('[llmClient] Circuit breaker OPEN — skipping request');
     return "The AI mentor is temporarily unavailable due to high demand. Please try again shortly.";
   }
 
@@ -114,13 +134,16 @@ async function callLLM(systemContent, userContent) {
     if (!choice) throw new Error('Empty LLM response');
 
     let hint = choice.message?.content?.trim();
-    const reasoning = choice.message?.reasoning_content?.trim();
+    if (!hint) throw new Error('Empty LLM response (no content)');
 
-    if (!hint && !reasoning) throw new Error('Empty LLM response (no content or reasoning)');
-    if (!hint) hint = reasoning;
-
-    hint = stripCodeBlocks(hint);
-    if (hint.length < 10) throw new Error('Response too short after stripping');
+    hint = sanitizeResponse(hint);
+    if (isAdversarialResponse(hint)) {
+      console.warn('[llmClient] Adversarial response detected, using fallback hint');
+      hint = null;
+    }
+    if (!hint || hint.length < 10) {
+      hint = "Look at the difference between your output and the expected output. What might be causing this discrepancy? Walk through your logic step by step with a small example.";
+    }
 
     recordSuccess();
     return hint;
@@ -131,7 +154,9 @@ async function callLLM(systemContent, userContent) {
   }
 }
 
-const SYSTEM_SOCRATIC = 'You are a CS mentor reviewing a student\'s failed submission. You will be given: the problem statement, the student\'s code, the divergence point (or, if a step-level match wasn\'t possible, the comparative performance result), and relevant local variable state at that point. Ask one guiding question that leads the student toward noticing the conceptual gap. Never output corrected code, a code patch, or pseudocode that solves the problem.';
+const SYSTEM_SOCRATIC = 'You are a world-class computer science professor grading an algorithmic implementation. You will be given: the problem statement, the student\'s code, the divergence point (or, if a step-level match wasn\'t possible, the comparative performance result), and relevant local variable state at that point. Ask one guiding Socratic question that leads the student toward noticing the conceptual gap. Do not author code solutions or provide syntax patches — strict enforcement, no exceptions.';
+
+const SYSTEM_COMPILE = 'You are a world-class computer science professor reviewing a student\'s compile error. You will be given: the problem statement, the student\'s code, and the compiler error message. Ask one guiding Socratic question that helps the student understand what the error means and how to fix it. Do not write or suggest code. Strict enforcement — no code patches, no pseudocode, no syntax fixes.';
 
 async function generateSocraticHint({ code, language, problemStatement, verdict, tier, traceData, performanceData, previousHint }) {
   const prompt = buildPrompt({
@@ -142,10 +167,6 @@ async function generateSocraticHint({ code, language, problemStatement, verdict,
   });
   return callLLM(SYSTEM_SOCRATIC, prompt);
 }
-
-const SYSTEM_COMPILE = `You are a Socratic programming mentor. A student's code has a compile error.
-Never write code for the student. Explain what the error means and guide them toward fixing it with a question.
-Do not provide the corrected code. Keep your response to 2-3 sentences.`;
 
 async function generateCompileHint(code, language, problemStatement, compileError, verdict) {
   const prompt = `The student submitted the following ${language} code for the problem below and received a compile error.\n\nProblem:\n${problemStatement}\n\nCode:\n${code}\n\nCompile Error:\n${compileError}\n\nProvide a short Socratic hint (2-3 sentences) that helps the student understand and fix the compile error on their own. Do not write or suggest code.`;
