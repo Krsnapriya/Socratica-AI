@@ -39,7 +39,6 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-  const sessionId = useRef(localStorage.getItem('socratica-last-session-id') || undefined);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -84,14 +83,14 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
         language,
         ...context,
       };
+      const sid = localStorage.getItem('socratica-last-session-id') || undefined;
       const res = await aiChat({
         message: text.trim(),
-        sessionId: sessionId.current,
+        sessionId: sid,
         context: ctx,
         style: 'mentoring',
       });
       if (res.sessionId) {
-        sessionId.current = res.sessionId;
         localStorage.setItem('socratica-last-session-id', res.sessionId);
       }
       const aiMsg = { role: 'assistant', content: res.response || res.reply || 'No response.', ts: new Date().toISOString() };
@@ -147,7 +146,7 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
         setLoading(true);
         setMessages(prev => [...prev, { role: 'user', content: '[Reflect on Session]', ts: new Date().toISOString() }]);
         try {
-          const res = await aiReflect({ sessionId: sessionId.current, problemId });
+          const res = await aiReflect({ sessionId: localStorage.getItem('socratica-last-session-id'), problemId });
           setMessages(prev => [...prev, { role: 'assistant', content: res.reflection || res.insights || 'No reflection available yet.', ts: new Date().toISOString() }]);
         } catch (err) {
           setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);

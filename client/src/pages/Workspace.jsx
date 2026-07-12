@@ -31,6 +31,15 @@ export default function Workspace() {
   const [submitting, setSubmitting] = useState(false);
   const [outputError, setOutputError] = useState('');
   const [rightTab, setRightTab] = useState('console');
+  const [maxAttemptsReached, setMaxAttemptsReached] = useState(false);
+
+  function startNewSession() {
+    const newId = crypto.randomUUID();
+    localStorage.setItem('socratica-last-session-id', newId);
+    setMaxAttemptsReached(false);
+    setOutput(null);
+    setOutputError('');
+  }
 
   // 1. Fetch problem list
   useEffect(() => {
@@ -89,6 +98,7 @@ export default function Workspace() {
       setSubmitting(true);
       setOutput(null);
       setOutputError('');
+      setMaxAttemptsReached(false);
       const response = await submitCode({
         code,
         language: lang,
@@ -100,7 +110,13 @@ export default function Workspace() {
       }
       setOutput(response);
     } catch (err) {
-      setOutputError(err.response?.data?.error || err.message);
+      const msg = err.response?.data?.error || err.message;
+      if (msg.includes('Max attempts')) {
+        setMaxAttemptsReached(true);
+        setOutputError('');
+      } else {
+        setOutputError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -330,6 +346,22 @@ export default function Workspace() {
                   <div className="flex flex-col items-center justify-center h-full gap-3 text-on-surface-variant">
                     <div className="w-8 h-8 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
                     <span className="font-mono text-xs">Running in sandbox…</span>
+                  </div>
+                ) : maxAttemptsReached ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+                    <div className="w-12 h-12 rounded-full bg-tertiary/15 border border-tertiary/30 flex items-center justify-center">
+                      <Icon name="flag" size={24} className="text-tertiary" />
+                    </div>
+                    <div>
+                      <p className="text-on-surface text-sm font-semibold">Session Complete</p>
+                      <p className="text-on-surface-variant text-xs mt-1 max-w-[220px]">
+                        You've used all 5 attempts for this session. Start a new session to continue practicing.
+                      </p>
+                    </div>
+                    <Button variant="primary" size="sm" onClick={startNewSession}>
+                      <Icon name="add" size={14} />
+                      New Session
+                    </Button>
                   </div>
                 ) : output ? (
                   <VerdictDisplay
