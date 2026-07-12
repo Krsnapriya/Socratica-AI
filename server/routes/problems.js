@@ -28,7 +28,9 @@ router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "sup
     const user = await User.findById(req.userId).lean();
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    const problems = await Problem.find({}, { starterCode: 0, testCases: 0, oracleSolutions: 0 }).lean();
+    const isAdmin = ["admin", "super_admin"].includes(user.role);
+    const projection = isAdmin ? { starterCode: 0, testCases: 0 } : { starterCode: 0, testCases: 0, oracleSolutions: 0 };
+    const problems = await Problem.find({}, projection).lean();
     
     // Filter problems the user can access
     const accessibleProblems = [];
@@ -53,7 +55,9 @@ router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "
       return res.status(403).json({ error: "Access denied. Module locked." });
     }
 
-    const problem = await Problem.findOne({ problemId: req.params.id }, { oracleSolutions: 0 }).lean();
+    const isAdmin = ["admin", "super_admin"].includes(user.role);
+    const projection = isAdmin ? {} : { oracleSolutions: 0 };
+    const problem = await Problem.findOne({ problemId: req.params.id }, projection).lean();
     if (!problem) {
       return res.status(404).json({ error: "Problem not found" });
     }

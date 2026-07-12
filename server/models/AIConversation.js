@@ -17,7 +17,7 @@ const aiConversationSchema = new mongoose.Schema({
     moduleId: { type: mongoose.Schema.Types.ObjectId, ref: "Module" },
     problemId: { type: String },
     submissionId: { type: mongoose.Schema.Types.ObjectId, ref: "Submission" },
-    preferredStyle: { type: String, enum: ["beginner", "intermediate", "expert", "analogy", "step_by_step"], default: "intermediate" },
+    preferredStyle: { type: String, enum: ["beginner", "intermediate", "expert", "analogy", "step_by_step", "socratic"], default: "intermediate" },
   },
   active: { type: Boolean, default: true },
 }, { timestamps: true });

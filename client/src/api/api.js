@@ -266,6 +266,29 @@ export async function deleteNotification(id) {
   return data;
 }
 
+// ── Admin: User Submissions & Sessions ────────────────────────────────────────
+export async function fetchAdminUserSubmissions(userId, page = 1, filters = {}) {
+  const params = new URLSearchParams({ page, limit: 20 });
+  if (filters.problemId) params.set('problemId', filters.problemId);
+  if (filters.verdict) params.set('verdict', filters.verdict);
+  const { data } = await client.get(`/admin/submissions/user/${userId}?${params}`);
+  return data;
+}
+
+export async function fetchAdminSessionAnalysis(sessionId) {
+  const { data } = await client.get(`/admin/submissions/session/${sessionId}/analysis`);
+  return data;
+}
+
+export async function fetchAdminSessions(page = 1, filters = {}) {
+  const params = new URLSearchParams({ page, limit: 50 });
+  if (filters.userId) params.set('userId', filters.userId);
+  if (filters.problemId) params.set('problemId', filters.problemId);
+  if (filters.finalVerdict) params.set('finalVerdict', filters.finalVerdict);
+  const { data } = await client.get(`/admin/sessions?${params}`);
+  return data;
+}
+
 // ── Notifications (public) ────────────────────────────────────────────────────
 export async function fetchActiveNotifications() {
   const { data } = await client.get('/notifications/active');

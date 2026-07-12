@@ -8,6 +8,7 @@ const Submission = require("../models/Submission");
 const AuditLog = require("../models/AuditLog");
 const SystemConfig = require("../models/SystemConfig");
 const FailedLogin = require("../models/FailedLogin");
+const Session = require("../models/Session");
 const Notification = require("../models/Notification");
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
@@ -747,6 +748,123 @@ router.post("/reseed-permissions", requireRole(["super_admin", "admin"]), async 
     res.json({ message: "Permissions reseeded", count });
   } catch (err) {
     console.error("[admin] POST /reseed-permissions error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Admin: View any user's submissions ────────────────────────────────────────
+router.get("/submissions/user/:userId", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
+    const skip = (page - 1) * limit;
+    const filter = { userId: req.params.userId };
+    if (req.query.problemId) filter.problemId = req.query.problemId;
+    if (req.query.verdict) filter.verdict = req.query.verdict;
+
+    const [subs, total] = await Promise.all([
+      Submission.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Submission.countDocuments(filter),
+    ]);
+    res.json({ submissions: subs, total, page, limit, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.error("[admin] user submissions error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Admin: View any session's analysis (with oracle) ──────────────────────────
+router.get("/submissions/session/:sessionId/analysis", async (req, res) => {
+  try {
+    const rounds = await Submission.find({ sessionId: req.params.sessionId })
+      .sort({ round: 1 }).lean();
+    if (rounds.length === 0) return res.status(404).json({ error: "No submissions found" });
+
+    const problemId = rounds[0].problemId;
+    const language = rounds[0].language;
+    const problem = await Problem.findOne({ problemId }).lean();
+    if (!problem) return res.status(404).json({ error: "Problem not found" });
+
+    const oracleCode = problem.oracleSolutions?.[language] || null;
+    const bestRound = rounds.reduce((best, r) => {
+      if (r.verdict === 'pass') return r;
+      if (!best) return r;
+      if (r.tier === 1 && (!best.tier || best.tier !== 1)) return r;
+      return best;
+    }, null);
+
+    const divergences = rounds
+      .filter(r => r.divergenceStep != null)
+      .map(r => ({ round: r.round, step: r.divergenceStep, tier: r.tier }));
+
+    const owner = await User.findById(rounds[0].userId).select("email displayName role").lean();
+
+    res.json({
+      problemId,
+      language,
+      title: problem.title,
+      statement: problem.statement,
+      difficulty: problem.difficulty,
+      category: problem.category,
+      oracleCode,
+      owner: owner ? { email: owner.email, displayName: owner.displayName, role: owner.role } : null,
+      rounds: rounds.map(r => ({
+        round: r.round,
+        code: r.code,
+        verdict: r.verdict,
+        tier: r.tier,
+        hint: r.hint,
+        divergenceStep: r.divergenceStep,
+        tier2Result: r.tier2Result,
+      })),
+      bestAttempt: bestRound ? {
+        round: bestRound.round,
+        code: bestRound.code,
+        verdict: bestRound.verdict,
+        tier: bestRound.tier,
+        hint: bestRound.hint,
+        divergenceStep: bestRound.divergenceStep,
+      } : null,
+      divergences,
+      totalRounds: rounds.length,
+      hasPass: rounds.some(r => r.verdict === 'pass'),
+    });
+  } catch (err) {
+    console.error("[admin] session analysis error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Admin: Get all sessions (all users) ───────────────────────────────────────
+router.get("/sessions", async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const skip = (page - 1) * limit;
+    const filter = {};
+    if (req.query.userId) filter.userId = req.query.userId;
+    if (req.query.problemId) filter.problemId = req.query.problemId;
+    if (req.query.finalVerdict) filter.finalVerdict = req.query.finalVerdict;
+
+    const [sessions, total] = await Promise.all([
+      Session.find(filter).sort({ startedAt: -1 }).skip(skip).limit(limit).lean(),
+      Session.countDocuments(filter),
+    ]);
+
+    const userIds = [...new Set(sessions.map(s => s.userId?.toString()))].filter(Boolean);
+    const users = userIds.length > 0 ? await User.find({ _id: { $in: userIds } }).select("email displayName role").lean() : [];
+    const userMap = {};
+    users.forEach(u => { userMap[u._id.toString()] = u; });
+
+    res.json({
+      sessions: sessions.map(s => ({
+        ...s,
+        owner: userMap[s.userId?.toString()] || null,
+      })),
+      total, page, limit, pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    console.error("[admin] sessions list error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

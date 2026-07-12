@@ -8,9 +8,11 @@ const router = express.Router();
 
 router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const sessions = await Session.find({ userId: req.userId })
+    const isAdmin = ["admin", "super_admin"].includes(req.userRole);
+    const filter = isAdmin ? {} : { userId: req.userId };
+    const sessions = await Session.find(filter)
       .sort({ startedAt: -1 })
-      .limit(20)
+      .limit(50)
       .lean();
     res.json(sessions);
   } catch (err) {
@@ -21,10 +23,11 @@ router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "sup
 
 router.get("/:sessionId", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const session = await Session.findOne({
-      sessionId: req.params.sessionId,
-      userId: req.userId,
-    }).lean();
+    const isAdmin = ["admin", "super_admin"].includes(req.userRole);
+    const filter = isAdmin
+      ? { sessionId: req.params.sessionId }
+      : { sessionId: req.params.sessionId, userId: req.userId };
+    const session = await Session.findOne(filter).lean();
     if (!session) return res.status(404).json({ error: "Session not found" });
 
     const rounds = await Submission.find({ sessionId: req.params.sessionId })
