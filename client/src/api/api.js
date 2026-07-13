@@ -80,6 +80,67 @@ export async function submitCode({ code, language, problemId, sessionId }) {
   return data;
 }
 
+// ── Execute Engine (3 modes) ─────────────────────────────────────────────────
+export async function runCode({ code, language, problemId, customInput }) {
+  const { data } = await client.post('/execute/run', { code, language, problemId, customInput });
+  return data;
+}
+
+export async function runSamples({ code, language, problemId }) {
+  const { data } = await client.post('/execute/samples', { code, language, problemId });
+  return data;
+}
+
+export async function submitSolution({ code, language, problemId, sessionId }) {
+  const { data } = await client.post('/execute/submit', { code, language, problemId, sessionId });
+  return data;
+}
+
+// ── Admin: Test Cases ────────────────────────────────────────────────────────
+export async function fetchAdminTestCases(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.problemId) params.set('problemId', filters.problemId);
+  if (filters.visibility) params.set('visibility', filters.visibility);
+  if (filters.category) params.set('category', filters.category);
+  if (filters.language) params.set('language', filters.language);
+  const { data } = await client.get(`/admin/testcases?${params}`);
+  return data;
+}
+
+export async function createTestCase(payload) {
+  const { data } = await client.post('/admin/testcases', payload);
+  return data;
+}
+
+export async function updateTestCase(id, payload) {
+  const { data } = await client.put(`/admin/testcases/${id}`, payload);
+  return data;
+}
+
+export async function deleteTestCase(id) {
+  const { data } = await client.delete(`/admin/testcases/${id}`);
+  return data;
+}
+
+// ── Admin: Driver Templates ──────────────────────────────────────────────────
+export async function fetchAdminDrivers(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.problemId) params.set('problemId', filters.problemId);
+  if (filters.language) params.set('language', filters.language);
+  const { data } = await client.get(`/admin/drivers?${params}`);
+  return data;
+}
+
+export async function createDriver(payload) {
+  const { data } = await client.post('/admin/drivers', payload);
+  return data;
+}
+
+export async function deleteDriver(id) {
+  const { data } = await client.delete(`/admin/drivers/${id}`);
+  return data;
+}
+
 export async function fetchSession(sessionId) {
   const { data } = await client.get(`/submissions/session/${sessionId}`);
   return data;

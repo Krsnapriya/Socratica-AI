@@ -16,6 +16,7 @@ Sentry.init({
 const authRoutes = require("./routes/auth");
 const problemsRoutes = require("./routes/problems");
 const submissionsRoutes = require("./routes/submissions");
+const executeRoutes = require("./routes/execute");
 const adminRoutes = require("./routes/admin");
 const coursesRoutes = require("./routes/courses");
 const sessionRoutes = require("./routes/sessions");
@@ -65,6 +66,7 @@ app.get("/api/csrf-token", csrfToken, (req, res) => res.json({ token: req._csrfT
 
 // Submissions & AI bypass CSRF — students need reliable access from Workspace
 app.use("/api/submissions", submissionsRoutes);
+app.use("/api/execute", executeRoutes);
 app.use("/api/ai", aiRoutes);
 
 app.use(csrfProtection);

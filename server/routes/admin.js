@@ -869,4 +869,112 @@ router.get("/sessions", async (req, res) => {
   }
 });
 
+// ── Test Cases CRUD ──────────────────────────────────────────────────────────
+
+const TestCase = require("../models/TestCase");
+
+router.get("/testcases", requirePermission("problems", "read"), async (req, res) => {
+  try {
+    const { problemId, visibility, category, language } = req.query;
+    const filter = {};
+    if (problemId) filter.problemId = problemId;
+    if (visibility) filter.visibility = visibility;
+    if (category) filter.category = category;
+    if (language) filter.language = language;
+    const testCases = await TestCase.find(filter).sort({ order: 1, createdAt: 1 }).lean();
+    res.json(testCases);
+  } catch (err) {
+    console.error("[admin] testcases list error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/testcases", requirePermission("problems", "create"), async (req, res) => {
+  try {
+    const { problemId, language, visibility, category, input, expectedOutput, weight, description, order, timeLimitMs, memoryLimitMb } = req.body;
+    if (!problemId || !language || !input || !expectedOutput) {
+      return res.status(400).json({ error: "problemId, language, input, and expectedOutput are required" });
+    }
+    const tc = await TestCase.create({
+      problemId, language, visibility: visibility || "public",
+      category: category || "sample", input, expectedOutput,
+      weight: weight || 1, description: description || "",
+      order: order || 0, timeLimitMs, memoryLimitMb,
+    });
+    res.status(201).json(tc);
+  } catch (err) {
+    console.error("[admin] testcases create error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/testcases/:id", requirePermission("problems", "update"), async (req, res) => {
+  try {
+    const tc = await TestCase.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!tc) return res.status(404).json({ error: "Test case not found" });
+    res.json(tc);
+  } catch (err) {
+    console.error("[admin] testcases update error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/testcases/:id", requirePermission("problems", "delete"), async (req, res) => {
+  try {
+    const tc = await TestCase.findByIdAndDelete(req.params.id);
+    if (!tc) return res.status(404).json({ error: "Test case not found" });
+    res.json({ message: "Test case deleted" });
+  } catch (err) {
+    console.error("[admin] testcases delete error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Driver Templates CRUD ───────────────────────────────────────────────────
+
+const DriverTemplate = require("../models/DriverTemplate");
+
+router.get("/drivers", requirePermission("problems", "read"), async (req, res) => {
+  try {
+    const { problemId, language } = req.query;
+    const filter = {};
+    if (problemId) filter.problemId = problemId;
+    if (language) filter.language = language;
+    const drivers = await DriverTemplate.find(filter).sort({ createdAt: 1 }).lean();
+    res.json(drivers);
+  } catch (err) {
+    console.error("[admin] drivers list error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/drivers", requirePermission("problems", "create"), async (req, res) => {
+  try {
+    const { problemId, language, driverCode, stdinTemplate, wrapperType, functionName, description } = req.body;
+    if (!problemId || !language || !driverCode) {
+      return res.status(400).json({ error: "problemId, language, and driverCode are required" });
+    }
+    const driver = await DriverTemplate.findOneAndUpdate(
+      { problemId, language },
+      { $set: { driverCode, stdinTemplate, wrapperType, functionName, description } },
+      { new: true, upsert: true, runValidators: true }
+    );
+    res.status(201).json(driver);
+  } catch (err) {
+    console.error("[admin] drivers create error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/drivers/:id", requirePermission("problems", "delete"), async (req, res) => {
+  try {
+    const driver = await DriverTemplate.findByIdAndDelete(req.params.id);
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    res.json({ message: "Driver deleted" });
+  } catch (err) {
+    console.error("[admin] drivers delete error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

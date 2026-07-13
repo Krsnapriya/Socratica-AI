@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Socratica AI — Sandbox Entrypoint
-# Runs student + oracle code, captures telemetry, and emits a single JSON line.
+# Socratica AI — Sandbox Entrypoint (v2)
+# Supports: single execution (run_code), dual execution (submit), and stdin piping.
 #
 # Critical design rules:
-#   - NEVER set -e. Every subprocess must be allowed to fail; we capture the
-#     error and encode it in JSON instead of aborting the container.
+#   - NEVER set -e. Every subprocess must be allowed to fail.
 #   - All stderr from child processes goes to /dev/null or a tmp file.
 #   - The ONLY thing written to stdout is the final JSON object.
 
-set -uo pipefail   # keep -u and -o pipefail but NOT -e
+set -uo pipefail
 
 log() { printf '[sandbox] %s\n' "$*" >&2; }
 
@@ -20,9 +19,16 @@ write_code() {
   chmod 444 "$path"
 }
 
-# ── json_escape: single-line escape for embedding strings inside JSON ─────────
+write_stdin() {
+  local b64="$1" path="$2"
+  if [[ -n "$b64" ]]; then
+    decode "$b64" > "$path"
+  else
+    touch "$path"
+  fi
+}
+
 json_escape() {
-  # Replace backslash first, then special chars, then newlines → \n
   printf '%s' "$1" \
     | sed 's/\\/\\\\/g' \
     | sed 's/"/\\"/g' \
@@ -30,16 +36,12 @@ json_escape() {
     | sed 's/[[:cntrl:]]//g'
 }
 
-# ── compile_cpp ───────────────────────────────────────────────────────────────
-# Returns exit code 0 on success, writes compile error JSON to stdout on failure.
 compile_cpp() {
   local src="$1" bin="$2"
   local err_file="/tmp/compile_err_$"
-  # Use timeout from env (default 10000ms = 10s), 0 = no timeout (interpreted languages)
   local compile_timeout_ms="${COMPILE_TIMEOUT_MS:-10000}"
   local timeout_cmd=""
   if [[ "$compile_timeout_ms" -gt 0 ]]; then
-    # Convert ms to seconds (bash integer arithmetic, round up)
     local timeout_sec=$(( (compile_timeout_ms + 999) / 1000 ))
     timeout_cmd="timeout ${timeout_sec} "
   fi
@@ -59,21 +61,25 @@ compile_cpp() {
   return 0
 }
 
-# ── run_one: execute one piece of code and write telemetry JSON to $out_file ──
-# Args: lang src bin out_file
-# Returns 0 always (errors go into the JSON).
 run_one() {
-  local lang="$1" src="$2" bin="$3" out_file="$4"
+  local lang="$1" src="$2" bin="$3" out_file="$4" stdin_file="${5:-}"
   local stdout_file="${out_file}.stdout"
   local stderr_file="${out_file}.stderr"
   local start_ns end_ns elapsed_ms stdout_content err_content rc
 
-  case "$lang" in
+  local stdin_redirect=""
+  if [[ -n "$stdin_file" && -s "$stdin_file" ]]; then
+    stdin_redirect=" < $stdin_file"
+  fi
 
-    # ── Python: use tracer.py for step-level telemetry ──────────────────────
+  case "$lang" in
     python)
       local python_timeout_sec=$(( (TIMEOUT_MS + 999) / 1000 ))
-      timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
+      if [[ -n "$stdin_redirect" ]]; then
+        timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" < "$stdin_file" 2>"$stderr_file"
+      else
+        timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
+      fi
       rc=$?
       if [[ $rc -eq 124 ]]; then
         printf '{"version":1,"error":"timeout","steps":0,"elapsed_ms":%d,"snapshots":[],"stdout":""}' "$((TIMEOUT_MS))" > "$out_file"
@@ -83,10 +89,13 @@ run_one() {
       fi
       ;;
 
-    # ── JavaScript ───────────────────────────────────────────────────────────
     javascript)
       start_ns=$(date +%s%N 2>/dev/null || echo 0)
-      timeout 10 node "$src" >"$stdout_file" 2>"$stderr_file"
+      if [[ -n "$stdin_redirect" ]]; then
+        timeout 10 node "$src" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
+      else
+        timeout 10 node "$src" >"$stdout_file" 2>"$stderr_file"
+      fi
       rc=$?
       end_ns=$(date +%s%N 2>/dev/null || echo 0)
       elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
@@ -104,10 +113,13 @@ run_one() {
       fi
       ;;
 
-    # ── C++ ──────────────────────────────────────────────────────────────────
     cpp)
       start_ns=$(date +%s%N 2>/dev/null || echo 0)
-      timeout 12 "$bin" >"$stdout_file" 2>"$stderr_file"
+      if [[ -n "$stdin_redirect" ]]; then
+        timeout 12 "$bin" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
+      else
+        timeout 12 "$bin" >"$stdout_file" 2>"$stderr_file"
+      fi
       rc=$?
       end_ns=$(date +%s%N 2>/dev/null || echo 0)
       elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
@@ -134,7 +146,6 @@ run_one() {
   return 0
 }
 
-# ── merge_telemetry: combine student + oracle JSON into final output ───────────
 merge_telemetry() {
   python3 -c "
 import sys, json
@@ -143,7 +154,6 @@ def safe_load(path):
     try:
         with open(path) as f:
             raw = f.read().strip()
-        # Strip Docker multiplexed stream header bytes if present
         while raw and ord(raw[0]) < 8:
             raw = raw[1:]
         return json.loads(raw)
@@ -157,14 +167,15 @@ print(json.dumps({'student': s, 'oracle': o}))
 "
 }
 
-# ── main ──────────────────────────────────────────────────────────────────────
 main() {
   local student_b64="${STUDENT_CODE_B64:-}"
   local oracle_b64="${ORACLE_CODE_B64:-}"
   local lang="${LANGUAGE:-python}"
+  local exec_mode="${EXEC_MODE:-dual}"
+  local custom_input_b64="${CUSTOM_INPUT_B64:-}"
 
-  if [[ -z "$student_b64" || -z "$oracle_b64" ]]; then
-    printf '{"student":{"error":"missing_codes"},"oracle":{}}\n'
+  if [[ -z "$student_b64" ]]; then
+    printf '{"student":{"error":"missing_code"},"oracle":{}}\n'
     exit 1
   fi
 
@@ -180,16 +191,56 @@ main() {
   esac
 
   local student_src="/tmp/student${ext}"
-  local oracle_src="/tmp/oracle${ext}"
   local student_bin="/tmp/student_bin"
-  local oracle_bin="/tmp/oracle_bin"
+  local stdin_file="/tmp/custom_stdin"
 
   write_code "$student_b64" "$student_src"
-  write_code "$oracle_b64"  "$oracle_src"
+  write_stdin "$custom_input_b64" "$stdin_file"
 
-  # ── Compile phase (compiled languages only) ──────────────────────────────
-  local compile_result
+  if [[ "$exec_mode" == "single" ]]; then
+    # Run Code mode — no oracle, just student code with optional stdin
+    if [[ "$lang" == "cpp" ]]; then
+      local compile_result
+      compile_result=$(compile_cpp "$student_src" "$student_bin")
+      if [[ $? -ne 0 ]]; then
+        printf '{"student":%s,"oracle":{"version":1,"steps":0,"elapsed_ms":0,"snapshots":[],"stdout":""}}\n' "$compile_result"
+        return
+      fi
+    fi
+
+    log "Running student ($lang) [single mode]..."
+    run_one "$lang" "$student_src" "$student_bin" "/tmp/student_telemetry.json" "$stdin_file"
+
+    python3 -c "
+import json
+def safe_load(path):
+    try:
+        with open(path) as f:
+            raw = f.read().strip()
+        while raw and ord(raw[0]) < 8:
+            raw = raw[1:]
+        return json.loads(raw)
+    except:
+        return {'version': 1, 'error': 'parse_error', 'steps': 0, 'elapsed_ms': 0, 'snapshots': [], 'stdout': ''}
+s = safe_load('/tmp/student_telemetry.json')
+print(json.dumps({'student': s, 'oracle': {}}))
+"
+    return
+  fi
+
+  # Dual mode — student + oracle (submit)
+  if [[ -z "$oracle_b64" ]]; then
+    printf '{"student":{"error":"missing_oracle"},"oracle":{}}\n'
+    exit 1
+  fi
+
+  local oracle_src="/tmp/oracle${ext}"
+  local oracle_bin="/tmp/oracle_bin"
+
+  write_code "$oracle_b64" "$oracle_src"
+
   if [[ "$lang" == "cpp" ]]; then
+    local compile_result
     compile_result=$(compile_cpp "$student_src" "$student_bin")
     if [[ $? -ne 0 ]]; then
       printf '{"student":%s,"oracle":{"version":1,"steps":0,"elapsed_ms":0,"snapshots":[],"stdout":""}}\n' "$compile_result"
@@ -202,14 +253,12 @@ main() {
     fi
   fi
 
-  # ── Run phase ────────────────────────────────────────────────────────────
-  log "Running student ($lang)..."
-  run_one "$lang" "$student_src" "$student_bin" "/tmp/student_telemetry.json"
+  log "Running student ($lang) [dual mode]..."
+  run_one "$lang" "$student_src" "$student_bin" "/tmp/student_telemetry.json" "$stdin_file"
 
   log "Running oracle ($lang)..."
-  run_one "$lang" "$oracle_src"  "$oracle_bin"  "/tmp/oracle_telemetry.json"
+  run_one "$lang" "$oracle_src" "$oracle_bin" "/tmp/oracle_telemetry.json"
 
-  # ── Merge and emit ────────────────────────────────────────────────────────
   merge_telemetry
 }
 
