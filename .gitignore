@@ -3,9 +3,17 @@ node_modules/
 __pycache__/
 *.pyc
 *.egg-info/
-.env
 *.log
 client/dist/
+.vercel
+.vercel.bak
+
+# Environment files (never commit secrets)
+.env
+.env.*
+.env.local
+.env.development
+.env.production
 
 # Terraform
 terraform/.terraform/
@@ -13,9 +21,3 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfvars
-.env
-.env.local
-node_modules/
-.vercel
-.env*
-.vercel.bak
