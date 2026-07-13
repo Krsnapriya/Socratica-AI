@@ -1,7 +1,7 @@
 const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver } = require("./sandbox");
 const { isCompileError, formatCompileError } = require("../sandbox/compileErrorHandler");
 const { analyzeTraces } = require("../tracer/traceAligner");
-const { generateSocraticHint, generateCompileHint } = require("../ai/llmClient");
+const { getAIResponse } = require("../ai/llmOrchestrator");
 const TestCase = require("../models/TestCase");
 const DriverTemplate = require("../models/DriverTemplate");
 const Problem = require("../models/Problem");
@@ -201,12 +201,18 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
 
   if (isCompileError(student)) {
     const formatted = formatCompileError(student);
-    const hint = await generateCompileHint(code, language, problem.statement, formatted.compileError, "Compile Error");
+    const aiResult = await getAIResponse({
+      userId, problemId, sessionId: sId, code, language,
+      executionResult: { error: "compile_error", stderr: formatted.compileError },
+    }).catch(() => null);
     const sub = await Submission.create({
       userId, problemId, sessionId: sId, code, language, round: roundNum,
       verdict: "compile_error", tier: 2,
       tier2Result: { studentTimeMs: 0, oracleTimeMs: 0, studentMemMb: 0, oracleMemMb: 0 },
-      hint: hint || formatted.compileError,
+      hint: aiResult?.response || formatted.compileError,
+      hintLevel: aiResult?.level,
+      aiAnalysis: aiResult ? { agent: aiResult.agent, confidence: aiResult.confidence, response: aiResult.response } : undefined,
+      executionMode: "submit",
     });
     await Session.updateOne({ sessionId: sId }, { roundCount: roundNum, endedAt: new Date() });
     return { mode: "submit", ...sub.toObject(), sessionId: sId };
@@ -231,7 +237,10 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   let finalTier = 2;
   let traceLog = undefined;
   let divergenceStep = undefined;
-  let hint = undefined;
+
+  let aiAnalysisData = undefined;
+  let hintContent = undefined;
+  let hintLevel = undefined;
 
   if (verdict === "fail") {
     const { summary } = analyzeTraces({ studentTelemetry: student, oracleTelemetry: oracle, language });
@@ -245,27 +254,45 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       ? (await Submission.findOne({ sessionId: sId, round: roundNum - 1 }).select("hint").lean())?.hint || undefined
       : undefined;
 
-    const hintParams = { code, language, problemStatement: problem.statement, verdict: "fail", previousHint };
+    const executionResultForAI = {
+      stdout: student.stdout || "",
+      stderr: student.stderr || "",
+      error: student.error || null,
+      exitCode: student.exit_code,
+      elapsedMs: studentTimeMs,
+      memoryBytes: student.max_memory_bytes || 0,
+    };
 
-    if (summary.tier === 1) {
-      hint = await generateSocraticHint({
-        ...hintParams, tier: 1,
-        traceData: {
-          snapshots: student.snapshots || [], steps: student.steps || 0,
-          studentStdout: student.stdout || "", oracleStdout: oracle.stdout || "",
-          divergenceStep: summary.divergenceStep, divergenceLine: summary.divergenceLine,
-          divergenceLocals: summary.divergenceLocals,
-        },
-      });
-    } else {
-      hint = await generateSocraticHint({
-        ...hintParams, tier: 2,
-        performanceData: {
-          studentStdout: student.stdout || "", oracleStdout: oracle.stdout || "",
-          studentTimeMs, oracleTimeMs, studentMemMb, oracleMemMb,
-          error: student.error || "",
-        },
-      });
+    const aiResult = await getAIResponse({
+      userId, problemId, sessionId: sId, code, language,
+      executionResult: executionResultForAI,
+      previousHint,
+    }).catch(() => null);
+
+    if (aiResult) {
+      hintContent = aiResult.response;
+      hintLevel = aiResult.level;
+      aiAnalysisData = {
+        agent: aiResult.agent,
+        confidence: aiResult.confidence,
+        response: aiResult.response,
+      };
+    }
+  } else if (verdict === "pass") {
+    const aiResult = await getAIResponse({
+      userId, problemId, sessionId: sId, code, language,
+      executionResult: { stdout: student.stdout || "", error: null },
+      explicitAgent: "correctAnswer",
+    }).catch(() => null);
+
+    if (aiResult) {
+      hintContent = aiResult.response;
+      aiAnalysisData = {
+        agent: aiResult.agent,
+        confidence: aiResult.confidence,
+        response: aiResult.response,
+        oracleComparison: aiResult.comparison || undefined,
+      };
     }
   }
 
@@ -273,7 +300,10 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
     userId, problemId, sessionId: sId, code, language, round: roundNum,
     verdict, tier: finalTier, traceLog, divergenceStep,
     tier2Result: { studentTimeMs, oracleTimeMs, studentMemMb, oracleMemMb },
-    hint,
+    hint: hintContent,
+    hintLevel,
+    aiAnalysis: aiAnalysisData,
+    executionMode: "submit",
   });
 
   const sessionUpdate = { roundCount: roundNum, endedAt: new Date() };

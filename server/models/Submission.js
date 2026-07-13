@@ -21,7 +21,22 @@ const submissionSchema = new mongoose.Schema({
     studentMemMb: { type: Number, default: 0 },
     oracleMemMb: { type: Number, default: 0 },
   },
+  hiddenTestResults: {
+    passed: { type: Number, default: 0 },
+    failed: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    categoriesFailed: [{ type: String }],
+    details: [{ type: mongoose.Schema.Types.Mixed }],
+  },
+  aiAnalysis: {
+    agent: { type: String },
+    confidence: { type: mongoose.Schema.Types.Mixed },
+    response: { type: String },
+    codeAnalysis: { type: mongoose.Schema.Types.Mixed },
+    oracleComparison: { type: mongoose.Schema.Types.Mixed },
+  },
   hint: { type: String },
+  hintLevel: { type: Number, min: 1, max: 5 },
   ipAddress: { type: String },
   userAgent: { type: String },
   containerId: { type: String },
@@ -29,6 +44,12 @@ const submissionSchema = new mongoose.Schema({
   compileOutput: { type: String },
   oracleOutput: { type: String },
   diffOutput: { type: String },
+  executionMode: {
+    type: String,
+    enum: ["run", "samples", "submit"],
+    default: "submit",
+  },
+  customInputUsed: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });
 

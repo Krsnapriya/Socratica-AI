@@ -344,4 +344,78 @@ router.get("/insights", requireRole(["admin", "super_admin"]), async (req, res) 
   }
 });
 
+// ── Code Review (contextual) ────────────────────────────────────────────
+router.post("/code-review-contextual", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+    const { getCodeReview } = require("../ai/llmOrchestrator");
+    const result = await getCodeReview({ userId: req.userId, problemId, code, language: language || "python" });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] code-review-contextual error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Oracle Comparison (post-acceptance) ──────────────────────────────────
+router.post("/oracle-comparison", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+    const { getOracleComparison } = require("../ai/llmOrchestrator");
+    const result = await getOracleComparison({ userId: req.userId, problemId, code, language: language || "python" });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] oracle-comparison error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Learning Summary ─────────────────────────────────────────────────────
+router.post("/learning-summary", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const { getLearningSummary } = require("../ai/llmOrchestrator");
+    const result = await getLearningSummary({ userId: req.userId, sessionId });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] learning-summary error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Context-Aware Hint ───────────────────────────────────────────────────
+router.post("/contextual-hint", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId, sessionId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+    const { getAIResponse } = require("../ai/llmOrchestrator");
+    const result = await getAIResponse({
+      userId: req.userId, problemId, sessionId, code, language: language || "python",
+      explicitAgent: "hint",
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] contextual-hint error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Confidence Report ────────────────────────────────────────────────────
+router.post("/confidence", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code) return res.status(400).json({ error: "code is required" });
+    const { analyzeStudentCode } = require("../ai/codeAnalyzer");
+    const { getConfidenceReport } = require("../ai/llmOrchestrator");
+    const codeAnalysis = analyzeStudentCode(code, language || "python");
+    const result = await getConfidenceReport({ code, language: language || "python", codeAnalysis });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] confidence error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;
