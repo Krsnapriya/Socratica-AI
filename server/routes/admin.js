@@ -977,4 +977,66 @@ router.delete("/drivers/:id", requirePermission("problems", "delete"), async (re
   }
 });
 
+// ── Reference Solutions CRUD ────────────────────────────────────────────────
+const ReferenceSolution = require("../models/ReferenceSolution");
+
+router.get("/reference-solutions", requirePermission("problems", "read"), async (req, res) => {
+  try {
+    const { problemId, language } = req.query;
+    const filter = {};
+    if (problemId) filter.problemId = problemId;
+    if (language) filter.language = language;
+    const solutions = await ReferenceSolution.find(filter).sort({ problemId: 1, language: 1, variant: 1 }).lean();
+    res.json(solutions);
+  } catch (err) {
+    console.error("[admin] reference-solutions list error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/reference-solutions", requirePermission("problems", "create"), async (req, res) => {
+  try {
+    const { problemId, language, code, variant, notes } = req.body;
+    if (!problemId || !language || !code) {
+      return res.status(400).json({ error: "problemId, language, and code are required" });
+    }
+    const solution = await ReferenceSolution.create({ problemId, language, code, variant, notes });
+    res.status(201).json(solution);
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ error: "A reference solution with this problemId, language, and variant already exists" });
+    }
+    console.error("[admin] reference-solutions create error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/reference-solutions/:id", requirePermission("problems", "update"), async (req, res) => {
+  try {
+    const { code, variant, notes, isActive } = req.body;
+    const update = {};
+    if (code !== undefined) update.code = code;
+    if (variant !== undefined) update.variant = variant;
+    if (notes !== undefined) update.notes = notes;
+    if (isActive !== undefined) update.isActive = isActive;
+    const solution = await ReferenceSolution.findByIdAndUpdate(req.params.id, { $set: update }, { new: true, runValidators: true });
+    if (!solution) return res.status(404).json({ error: "Reference solution not found" });
+    res.json(solution);
+  } catch (err) {
+    console.error("[admin] reference-solutions update error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/reference-solutions/:id", requirePermission("problems", "delete"), async (req, res) => {
+  try {
+    const solution = await ReferenceSolution.findByIdAndDelete(req.params.id);
+    if (!solution) return res.status(404).json({ error: "Reference solution not found" });
+    res.json({ message: "Reference solution deleted" });
+  } catch (err) {
+    console.error("[admin] reference-solutions delete error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

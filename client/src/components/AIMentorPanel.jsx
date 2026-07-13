@@ -8,12 +8,22 @@ import {
   aiReflect,
   fetchAIHistory,
 } from '../api/api.js';
+import {
+  aiCodeReviewContextual,
+  aiOracleComparison,
+  aiLearningSummary,
+  aiContextualHint,
+  aiConfidence,
+} from '../api/api.js';
 
 const QUICK_ACTIONS = [
   { id: 'review', label: 'Code Review', icon: 'rate_review', color: 'text-secondary' },
   { id: 'quiz', label: 'Quiz Me', icon: 'quiz', color: 'text-tertiary' },
   { id: 'explain', label: 'Explain Approach', icon: 'lightbulb', color: 'text-primary' },
   { id: 'reflect', label: 'Reflect', icon: 'psychology', color: 'text-secondary' },
+  { id: 'oracle', label: 'Compare to Gold', icon: 'compare_arrows', color: 'text-tertiary' },
+  { id: 'hint', label: 'Contextual Hint', icon: 'tips_and_updates', color: 'text-primary' },
+  { id: 'confidence', label: 'Confidence Check', icon: 'speed', color: 'text-secondary' },
 ];
 
 function MarkdownText({ text }) {
@@ -142,6 +152,71 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
       case 'explain':
         sendMessage(`Can you explain the approach to solve this problem? I want to understand the algorithm, not get the code.`, { mode: 'explain' });
         break;
+      case 'oracle': {
+        if (!code?.trim()) {
+          setMessages(prev => [...prev, { role: 'user', content: '[Compare to Gold]', ts: new Date().toISOString() }, { role: 'assistant', content: 'Write some code first, then I can compare it to gold solutions.', ts: new Date().toISOString() }]);
+          return;
+        }
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Compare to Gold Solution]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiOracleComparison({ code, language, problemId });
+          const text = res.comparison?.feedback || res.feedback || 'No comparison available yet. Submit your solution first to enable gold comparison.';
+          setMessages(prev => [...prev, { role: 'assistant', content: text, ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'hint': {
+        if (!code?.trim()) {
+          setMessages(prev => [...prev, { role: 'user', content: '[Contextual Hint]', ts: new Date().toISOString() }, { role: 'assistant', content: 'Write some code first, then I can give you a contextual hint.', ts: new Date().toISOString() }]);
+          return;
+        }
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Get Contextual Hint]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiContextualHint({ code, language, problemId, sessionId: localStorage.getItem('socratica-last-session-id') });
+          const text = res.response || res.hint || 'No hint available.';
+          setMessages(prev => [...prev, { role: 'assistant', content: text, ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'confidence': {
+        if (!code?.trim()) {
+          setMessages(prev => [...prev, { role: 'user', content: '[Confidence Check]', ts: new Date().toISOString() }, { role: 'assistant', content: 'Write some code first, then I can analyze your confidence.', ts: new Date().toISOString() }]);
+          return;
+        }
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Check Confidence]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiConfidence({ code, language, problemId });
+          const conf = res.confidence || {};
+          const parts = [];
+          if (conf.syntax != null) parts.push(`Syntax: ${Math.round(conf.syntax * 100)}%`);
+          if (conf.logic != null) parts.push(`Logic: ${Math.round(conf.logic * 100)}%`);
+          if (conf.optimization != null) parts.push(`Optimization: ${Math.round(conf.optimization * 100)}%`);
+          const overall = conf.overall != null ? `\nOverall: ${Math.round(conf.overall * 100)}%` : '';
+          const recs = res.recommendations?.length > 0
+            ? '\n\nRecommendations:\n' + res.recommendations.map((r, i) => `  ${i + 1}. ${r}`).join('\n')
+            : '';
+          const text = parts.length > 0
+            ? `Confidence Analysis:\n${parts.join(' | ')}${overall}${recs}`
+            : (res.analysis || 'No confidence data available.');
+          setMessages(prev => [...prev, { role: 'assistant', content: text, ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
       case 'reflect': {
         setLoading(true);
         setMessages(prev => [...prev, { role: 'user', content: '[Reflect on Session]', ts: new Date().toISOString() }]);

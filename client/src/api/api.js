@@ -141,6 +141,31 @@ export async function deleteDriver(id) {
   return data;
 }
 
+// ── Admin: Reference Solutions ─────────────────────────────────────────────
+export async function fetchAdminReferenceSolutions(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.problemId) params.set('problemId', filters.problemId);
+  if (filters.language) params.set('language', filters.language);
+  const qs = params.toString();
+  const { data } = await client.get(`/admin/reference-solutions${qs ? `?${qs}` : ''}`);
+  return data;
+}
+
+export async function createAdminReferenceSolution(solution) {
+  const { data } = await client.post('/admin/reference-solutions', solution);
+  return data;
+}
+
+export async function updateAdminReferenceSolution(id, updates) {
+  const { data } = await client.put(`/admin/reference-solutions/${id}`, updates);
+  return data;
+}
+
+export async function deleteAdminReferenceSolution(id) {
+  const { data } = await client.delete(`/admin/reference-solutions/${id}`);
+  return data;
+}
+
 export async function fetchSession(sessionId) {
   const { data } = await client.get(`/submissions/session/${sessionId}`);
   return data;
@@ -409,5 +434,30 @@ export async function fetchAIConversation(sessionId) {
 
 export async function clearAIHistory(sessionId) {
   const { data } = await client.delete('/ai/history', { data: { sessionId } });
+  return data;
+}
+
+export async function aiCodeReviewContextual({ code, language, problemId }) {
+  const { data } = await client.post('/ai/code-review-contextual', { code, language, problemId });
+  return data;
+}
+
+export async function aiOracleComparison({ code, language, problemId }) {
+  const { data } = await client.post('/ai/oracle-comparison', { code, language, problemId });
+  return data;
+}
+
+export async function aiLearningSummary({ sessionId }) {
+  const { data } = await client.post('/ai/learning-summary', { sessionId });
+  return data;
+}
+
+export async function aiContextualHint({ code, language, problemId, sessionId }) {
+  const { data } = await client.post('/ai/contextual-hint', { code, language, problemId, sessionId });
+  return data;
+}
+
+export async function aiConfidence({ code, language, problemId }) {
+  const { data } = await client.post('/ai/confidence', { code, language, problemId });
   return data;
 }

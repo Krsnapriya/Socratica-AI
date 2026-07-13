@@ -8,6 +8,7 @@ import {
   fetchSystemConfig, updateSystemConfig,
   fetchSecurityOverview, fetchFailedLogins, forceLogoutUser,
   fetchAdminNotifications, createNotification, deleteNotification,
+  fetchAdminReferenceSolutions, createAdminReferenceSolution, updateAdminReferenceSolution, deleteAdminReferenceSolution,
 } from '../api/api.js';
 import Icon from '../components/ui/Icon.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
@@ -54,6 +55,9 @@ export default function AdminDashboard() {
   const [showNewNotif, setShowNewNotif] = useState(false);
   const [logFilter, setLogFilter] = useState({ type: 'all', action: '', days: 7 });
   const [usersForLogout, setUsersForLogout] = useState(null);
+  const [refSolutions, setRefSolutions] = useState([]);
+  const [editingRefSol, setEditingRefSol] = useState(null);
+  const [showRefSolPanel, setShowRefSolPanel] = useState(false);
   const { addToast } = useToast();
 
   function loadDashboard() {
@@ -94,6 +98,46 @@ export default function AdminDashboard() {
   function loadNotifs() {
     setLoading(true);
     fetchAdminNotifications(1).then(d => setNotifs(d?.notifications || [])).catch(() => addToast('Failed to load notifications', 'error')).finally(() => setLoading(false));
+  }
+
+  function loadRefSolutions(problemId) {
+    fetchAdminReferenceSolutions(problemId ? { problemId } : {}).then(setRefSolutions).catch(() => addToast('Failed to load reference solutions', 'error'));
+  }
+
+  async function handleSaveRefSol(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = {
+      problemId: fd.get('problemId'),
+      language: fd.get('language'),
+      code: fd.get('code'),
+      variant: fd.get('variant') || 'most_readable',
+      notes: fd.get('notes') || '',
+    };
+    try {
+      if (editingRefSol._id) {
+        await updateAdminReferenceSolution(editingRefSol._id, data);
+        addToast('Reference solution updated', 'success');
+      } else {
+        await createAdminReferenceSolution(data);
+        addToast('Reference solution created', 'success');
+      }
+      setEditingRefSol(null);
+      loadRefSolutions();
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Failed', 'error');
+    }
+  }
+
+  async function handleDeleteRefSol(id) {
+    if (!confirm('Delete this reference solution?')) return;
+    try {
+      await deleteAdminReferenceSolution(id);
+      addToast('Reference solution deleted', 'success');
+      loadRefSolutions();
+    } catch (err) {
+      addToast('Failed', 'error');
+    }
   }
 
   function loadConfig() {
@@ -139,7 +183,7 @@ export default function AdminDashboard() {
   }, [tab, page]);
 
   useEffect(() => { if (tab === 'courses') loadCourses(); }, [tab]);
-  useEffect(() => { if (tab === 'problems') loadProblems(); }, [tab]);
+  useEffect(() => { if (tab === 'problems') { loadProblems(); loadRefSolutions(); } }, [tab]);
 
   async function handleRoleChange(userId, newRole) {
     try {
@@ -489,6 +533,73 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex gap-3"><input name="moduleId" defaultValue={editingProblem.moduleId || ''} placeholder="Module ID" className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono" /><input name="authorId" defaultValue={editingProblem.authorId || ''} placeholder="Author User ID" className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono" /></div>
                   <div className="flex gap-3 pt-2"><button type="submit" className="flex-1 py-2.5 bg-primary text-white font-mono text-xs font-bold uppercase rounded-lg hover:opacity-90">Save</button><button type="button" onClick={() => setEditingProblem(null)} className="flex-1 py-2.5 bg-surface-container border border-outline-variant font-mono text-xs rounded-lg hover:bg-surface-container-high">Cancel</button></div>
+                </form>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── REFERENCE SOLUTIONS (inline under Problems) ── */}
+      {tab === 'problems' && (
+        <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden mt-4">
+          <div className="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <h2 className="font-sans text-lg font-semibold text-on-surface">Reference Solutions</h2>
+              <button onClick={() => setShowRefSolPanel(!showRefSolPanel)} className="font-mono text-[10px] px-2 py-1 rounded bg-surface-container border border-outline-variant text-on-surface-variant hover:text-on-surface">
+                <Icon name={showRefSolPanel ? 'expand_less' : 'expand_more'} size={14} className="inline" />
+              </button>
+            </div>
+            <button onClick={() => setEditingRefSol({})} className="font-mono text-xs px-3 py-1.5 bg-primary text-white rounded hover:opacity-90 flex items-center gap-1"><Icon name="add" size={14} /> Add Solution</button>
+          </div>
+          {showRefSolPanel && (
+            <table className="w-full text-left font-mono text-sm">
+              <thead className="bg-surface-container-lowest border-b border-outline-variant text-on-surface-variant text-[11px] uppercase tracking-wider">
+                <tr><th className="px-6 py-4">Problem</th><th className="px-6 py-4">Language</th><th className="px-6 py-4">Variant</th><th className="px-6 py-4">Notes</th><th className="px-6 py-4 text-right">Actions</th></tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/50">
+                {refSolutions.map(rs => (
+                  <tr key={rs._id} className="hover:bg-surface-container-low group">
+                    <td className="px-6 py-4 font-mono text-xs text-on-surface-variant">{rs.problemId}</td>
+                    <td className="px-6 py-4"><span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary border border-primary/30">{rs.language}</span></td>
+                    <td className="px-6 py-4 text-on-surface-variant text-xs">{rs.variant}</td>
+                    <td className="px-6 py-4 text-on-surface-variant text-xs truncate max-w-xs">{rs.notes || '—'}</td>
+                    <td className="px-6 py-4 text-right"><div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditingRefSol(rs)} className="font-mono text-[10px] px-2 py-1 bg-primary/10 text-primary border border-primary/30 rounded hover:bg-primary/20"><Icon name="edit" size={12} /></button>
+                      <button onClick={() => handleDeleteRefSol(rs._id)} className="font-mono text-[10px] px-2 py-1 bg-error/10 text-error border border-error/30 rounded hover:bg-error/20"><Icon name="delete" size={12} /></button>
+                    </div></td>
+                  </tr>
+                ))}
+                {refSolutions.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No reference solutions</td></tr>}
+              </tbody>
+            </table>
+          )}
+          {editingRefSol !== null && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditingRefSol(null)}>
+              <div className="bg-surface-container-low border border-outline-variant rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <h3 className="font-sans text-lg font-semibold text-on-surface mb-4">{editingRefSol._id ? 'Edit Reference Solution' : 'Add Reference Solution'}</h3>
+                <form onSubmit={handleSaveRefSol} className="space-y-3">
+                  <div className="flex gap-3">
+                    <select name="problemId" defaultValue={editingRefSol.problemId || ''} required className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
+                      <option value="">Select Problem</option>
+                      {problems.map(p => <option key={p.problemId} value={p.problemId}>{p.title} ({p.problemId})</option>)}
+                    </select>
+                    <select name="language" defaultValue={editingRefSol.language || 'python'} required className="w-40 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
+                      <option value="python">Python</option>
+                      <option value="javascript">JavaScript</option>
+                      <option value="cpp">C++</option>
+                    </select>
+                  </div>
+                  <select name="variant" defaultValue={editingRefSol.variant || 'most_readable'} className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
+                    <option value="most_readable">Most Readable</option>
+                    <option value="fastest">Fastest</option>
+                    <option value="lowest_memory">Lowest Memory</option>
+                    <option value="beginner_friendly">Beginner Friendly</option>
+                    <option value="optimal">Optimal</option>
+                  </select>
+                  <textarea name="code" defaultValue={editingRefSol.code || ''} placeholder="Reference solution code" rows={10} required className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono" />
+                  <input name="notes" defaultValue={editingRefSol.notes || ''} placeholder="Notes (optional)" className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono" />
+                  <div className="flex gap-3 pt-2"><button type="submit" className="flex-1 py-2.5 bg-primary text-white font-mono text-xs font-bold uppercase rounded-lg hover:opacity-90">Save</button><button type="button" onClick={() => setEditingRefSol(null)} className="flex-1 py-2.5 bg-surface-container border border-outline-variant font-mono text-xs rounded-lg hover:bg-surface-container-high">Cancel</button></div>
                 </form>
               </div>
             </div>

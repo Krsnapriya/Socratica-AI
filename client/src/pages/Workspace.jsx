@@ -443,7 +443,13 @@ export default function Workspace() {
                       </div>
                     )
                   ) : executionMode === 'submit' ? (
-                    <VerdictDisplay verdict={output.verdict} hint={output.hint} tier2Result={output.tier2Result} />
+                    <VerdictDisplay
+                      verdict={output.verdict}
+                      hint={output.hint}
+                      tier2Result={output.tier2Result}
+                      aiAnalysis={output.aiAnalysis}
+                      hintLevel={output.hintLevel}
+                    />
                   ) : null
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-on-surface-variant">
