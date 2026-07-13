@@ -125,7 +125,7 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
         setMessages(prev => [...prev, { role: 'user', content: '[Code Review]', ts: new Date().toISOString() }]);
         try {
           const res = await aiCodeReview({ code, language, problemId });
-          setMessages(prev => [...prev, { role: 'assistant', content: res.review || res.feedback || 'No review available.', ts: new Date().toISOString() }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || res.review || res.feedback || 'No review available.', ts: new Date().toISOString() }]);
         } catch (err) {
           setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
         } finally {
