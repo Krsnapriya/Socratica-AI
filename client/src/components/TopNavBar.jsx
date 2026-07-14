@@ -1,19 +1,12 @@
 import { NavLink, Link } from 'react-router-dom';
 import Icon from './ui/Icon.jsx';
-
-// Unified primary nav items
-const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/modules', label: 'Modules' },
-  { to: '/workspace', label: 'Workspace' },
-  { to: '/analytics', label: 'Analytics' },
-  { to: '/archive', label: 'Archive' },
-];
+import { NAV_ITEMS, ADMIN_NAV_ITEMS } from '../navigation';
+import { ROLES } from '../constants';
 
 function getNavItems(user) {
   const items = [...NAV_ITEMS];
-  if (user?.role === 'admin' || user?.role === 'super_admin') {
-    items.push({ to: '/admin', label: 'Admin Console' });
+  if (user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN) {
+    items.push(...ADMIN_NAV_ITEMS);
   }
   return items;
 }

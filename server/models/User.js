@@ -27,7 +27,28 @@ const userSchema = new mongoose.Schema({
   lastLoginAt: { type: Date },
   unlockedModules: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Module', index: true }],
   lastActiveAt: { type: Date, default: Date.now, index: true },
-  tokenVersion: { type: Number, default: 0 }
+  tokenVersion: { type: Number, default: 0 },
+  learningProfile: {
+    skillLevel: { type: String, enum: ["beginner", "intermediate", "advanced"], default: "intermediate" },
+    preferredStyle: { type: String, enum: ["socratic", "direct", "example", "analogy"], default: "socratic" },
+    weakTopics: [{ type: String }],
+    strongTopics: [{ type: String }],
+    lastProblemCategory: { type: String },
+    totalProblemsSolved: { type: Number, default: 0 },
+    totalSubmissions: { type: Number, default: 0 },
+    streakDays: { type: Number, default: 0 },
+    lastPracticeDate: { type: Date },
+    teachingMemory: {
+      commonMistakes: [{
+        type: { type: String },
+        timestamp: { type: Date },
+        problemId: { type: String },
+      }],
+      learningVelocity: { type: String, enum: ["slow", "moderate", "fast"], default: "moderate" },
+      lastAiFeedback: { type: String },
+      lastAiFeedbackDate: { type: Date },
+    },
+  },
 }, { timestamps: true });
 
 // Optimizing for query patterns

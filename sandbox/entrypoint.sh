@@ -72,13 +72,15 @@ run_one() {
     stdin_redirect=" < $stdin_file"
   fi
 
+  # Use TIMEOUT_MS env var for all languages (set by Docker container)
+  local timeout_sec=$(( (TIMEOUT_MS + 999) / 1000 ))
+
   case "$lang" in
     python)
-      local python_timeout_sec=$(( (TIMEOUT_MS + 999) / 1000 ))
       if [[ -n "$stdin_redirect" ]]; then
-        timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" < "$stdin_file" 2>"$stderr_file"
+        timeout "$timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" < "$stdin_file" 2>"$stderr_file"
       else
-        timeout "$python_timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
+        timeout "$timeout_sec" python3 /opt/socratica/tracer.py --input "$src" --output "$out_file" 2>"$stderr_file"
       fi
       rc=$?
       if [[ $rc -eq 124 ]]; then
@@ -92,9 +94,9 @@ run_one() {
     javascript)
       start_ns=$(date +%s%N 2>/dev/null || echo 0)
       if [[ -n "$stdin_redirect" ]]; then
-        timeout 10 node "$src" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
+        timeout "$timeout_sec" node "$src" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
       else
-        timeout 10 node "$src" >"$stdout_file" 2>"$stderr_file"
+        timeout "$timeout_sec" node "$src" >"$stdout_file" 2>"$stderr_file"
       fi
       rc=$?
       end_ns=$(date +%s%N 2>/dev/null || echo 0)
@@ -116,9 +118,9 @@ run_one() {
     cpp)
       start_ns=$(date +%s%N 2>/dev/null || echo 0)
       if [[ -n "$stdin_redirect" ]]; then
-        timeout 12 "$bin" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
+        timeout "$timeout_sec" "$bin" < "$stdin_file" >"$stdout_file" 2>"$stderr_file"
       else
-        timeout 12 "$bin" >"$stdout_file" 2>"$stderr_file"
+        timeout "$timeout_sec" "$bin" >"$stdout_file" 2>"$stderr_file"
       fi
       rc=$?
       end_ns=$(date +%s%N 2>/dev/null || echo 0)

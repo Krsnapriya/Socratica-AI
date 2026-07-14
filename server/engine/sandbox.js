@@ -1,5 +1,6 @@
 const Docker = require("dockerode");
 const { getDockerRunArgs } = require("../sandbox/languageConfigs");
+const config = require("../config");
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 const DOCKER_HOST = process.env.DOCKER_HOST || null;
@@ -96,17 +97,17 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
         ReadonlyRootfs: true,
         SecurityOpt: ["no-new-privileges:true"],
         CapDrop: ["ALL"],
-        Tmpfs: { "/tmp": "rw,exec,nosuid,size=64m" },
+        Tmpfs: { "/tmp": `rw,exec,nosuid,size=${config.sandbox.tmpfsSizeMb}m` },
         OomKillDisable: false,
       },
-      User: "1000:1000",
+      User: config.sandbox.containerUser,
     });
 
     await container.start();
 
     const waitPromise = container.wait();
     const timeoutPromise = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + 5000)
+      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + config.sandbox.graceTimeoutMs)
     );
     await Promise.race([waitPromise, timeoutPromise]);
 
@@ -175,17 +176,17 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
         ReadonlyRootfs: true,
         SecurityOpt: ["no-new-privileges:true"],
         CapDrop: ["ALL"],
-        Tmpfs: { "/tmp": "rw,exec,nosuid,size=64m" },
+        Tmpfs: { "/tmp": `rw,exec,nosuid,size=${config.sandbox.tmpfsSizeMb}m` },
         OomKillDisable: false,
       },
-      User: "1000:1000",
+      User: config.sandbox.containerUser,
     });
 
     await container.start();
 
     const waitPromise = container.wait();
     const timeoutPromise = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + 5000)
+      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + config.sandbox.graceTimeoutMs)
     );
     await Promise.race([waitPromise, timeoutPromise]);
 

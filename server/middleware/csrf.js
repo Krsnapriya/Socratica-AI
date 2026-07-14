@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const config = require("../config");
 
 function csrfProtection(req, res, next) {
   // Skip CSRF for GET, HEAD, OPTIONS
@@ -24,7 +25,7 @@ function csrfToken(req, res, next) {
       httpOnly: true,
       sameSite: "lax",
       secure: isSecure,
-      maxAge: 86400000, // 24h
+      maxAge: config.csrf.maxAgeMs,
     });
     req._csrfToken = token;
   } else {

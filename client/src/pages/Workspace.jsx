@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NavLink, useSearchParams } from 'react-router-dom';
+import { NavLink, useSearchParams, useOutletContext } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { fetchProblems, fetchProblem, fetchTemplate, runCode, runSamples, submitSolution } from '../api/api.js';
 import Button from '../components/ui/Button.jsx';
@@ -7,13 +7,8 @@ import Icon from '../components/ui/Icon.jsx';
 import VerdictDisplay from '../components/ui/VerdictDisplay.jsx';
 import AIMentorPanel from '../components/AIMentorPanel.jsx';
 import SessionAnalysis from '../components/SessionAnalysis.jsx';
-
-const WORKSPACE_NAV = [
-  { to: '/workspace', icon: 'code', label: 'Workspace' },
-  { to: '/trajectory', icon: 'account_tree', label: 'Trajectory' },
-  { to: '/analytics', icon: 'insights', label: 'Analytics' },
-  { to: '/settings', icon: 'settings', label: 'Settings' },
-];
+import { WORKSPACE_NAV } from '../navigation';
+import { LANGUAGES } from '../constants';
 
 const DIFFICULTY_STYLES = {
   easy: 'text-green-500 border-green-500 bg-green-500/10',
@@ -59,6 +54,7 @@ function TestCaseRow({ tc, index }) {
 
 export default function Workspace() {
   const [searchParams] = useSearchParams();
+  const { user } = useOutletContext() || {};
   const initialProblemId = searchParams.get('problem');
 
   const [problems, setProblems] = useState([]);
@@ -286,9 +282,9 @@ export default function Workspace() {
           <div className="h-10 border-b flex items-center justify-between shrink-0 px-3 gap-3" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <select value={lang} onChange={e => setLang(e.target.value)}
               className="bg-surface-container border border-outline-variant text-xs py-1.5 px-2 rounded font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-              <option value="python">Python 3.10</option>
-              <option value="javascript">JavaScript</option>
-              <option value="cpp">C++20</option>
+              {LANGUAGES.map(l => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
             </select>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowInputPanel(!showInputPanel)}
@@ -473,7 +469,7 @@ export default function Workspace() {
             </>
           ) : (
             <div className="flex-1 overflow-hidden">
-              <AIMentorPanel code={code} language={lang} problemId={selectedProblemId} problemDetail={problemDetail} />
+              <AIMentorPanel code={code} language={lang} problemId={selectedProblemId} problemDetail={problemDetail} userRole={user?.role} />
             </div>
           )}
         </section>

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import { fetchMe, updateProfile } from '../api/api.js';
+import { LANGUAGES } from '../constants';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 function SectionHeader({ icon, title }) {
@@ -204,9 +205,9 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <FormField label="Default Language" id="lang">
               <select id="lang" className={inputClass} value={prefs.language} onChange={e => setPrefs(p => ({ ...p, language: e.target.value }))}>
-                <option value="python">Python 3.10</option>
-                <option value="javascript">JavaScript</option>
-                <option value="cpp">C++20</option>
+                {LANGUAGES.map(l => (
+                  <option key={l.id} value={l.id}>{l.label}</option>
+                ))}
               </select>
             </FormField>
             <FormField label="Tab Size" id="tab-size">

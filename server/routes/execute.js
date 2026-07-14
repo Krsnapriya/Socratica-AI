@@ -5,24 +5,26 @@ const { validate } = require("../middleware/validate");
 const { compilerLimiter } = require("../middleware/rateLimiter");
 const submissionLock = require("../middleware/submissionLock");
 const { runCode, runSamples, submitSolution } = require("../engine/execute");
+const config = require("../config");
 
 const router = express.Router();
 
+const langList = config.roles ? Object.keys(config.sandbox.languages).join(",") : "python,cpp,javascript";
 const runCodeSchema = {
   code: "required",
-  language: "required|in:python,cpp,javascript",
+  language: `required|in:${langList}`,
   problemId: "required",
 };
 
 const runSamplesSchema = {
   code: "required",
-  language: "required|in:python,cpp,javascript",
+  language: `required|in:${langList}`,
   problemId: "required",
 };
 
 const submitSchema = {
   code: "required",
-  language: "required|in:python,cpp,javascript",
+  language: `required|in:${langList}`,
   problemId: "required",
 };
 
@@ -33,10 +35,10 @@ router.post("/run", requireAuth, requireRole(["student", "instructor", "admin", 
     if (!code || code.trim().length === 0) {
       return res.status(400).json({ error: "Code is required" });
     }
-    if (code.trim().length < 10) {
+    if (code.trim().length < config.execution.minCodeLength) {
       return res.status(400).json({ error: "Submission too short. Please provide a complete solution." });
     }
-    if (customInput && customInput.length > 10000) {
+    if (customInput && customInput.length > config.execution.maxCustomInputBytes) {
       return res.status(400).json({ error: "Custom input too large (max 10KB)" });
     }
 

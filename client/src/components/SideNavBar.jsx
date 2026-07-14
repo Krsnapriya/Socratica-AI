@@ -1,14 +1,8 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import Icon from './ui/Icon';
 import Button from './ui/Button';
-
-const NAV_ITEMS = [
-  { to: '/', icon: 'dashboard', label: 'Dashboard', end: true },
-  { to: '/modules', icon: 'view_module', label: 'Modules' },
-  { to: '/workspace', icon: 'code', label: 'Workspace' },
-  { to: '/analytics', icon: 'insights', label: 'Analytics' },
-  { to: '/archive', icon: 'archive', label: 'Archive' },
-];
+import { NAV_ITEMS, ADMIN_NAV_ITEMS } from '../navigation';
+import { ROLES } from '../constants';
 
 export default function SideNavBar({ user }) {
   const navigate = useNavigate();
@@ -52,15 +46,16 @@ export default function SideNavBar({ user }) {
 
         <div className="my-2 border-t" style={{ borderColor: 'var(--outline-variant)' }} aria-hidden="true" />
 
-        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+        {(user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN) && ADMIN_NAV_ITEMS.map(({ to, icon, label }) => (
           <NavLink
-            to="/admin"
+            key={to}
+            to={to}
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
-            <Icon name="admin_panel_settings" size={20} />
-            <span>Admin Console</span>
+            <Icon name={icon} size={20} />
+            <span>{label}</span>
           </NavLink>
-        )}
+        ))}
 
         <NavLink
           to="/trajectory"

@@ -10,6 +10,7 @@ const SystemConfig = require("../models/SystemConfig");
 const FailedLogin = require("../models/FailedLogin");
 const Session = require("../models/Session");
 const Notification = require("../models/Notification");
+const config = require("../config");
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
 const requirePermission = require("../middleware/requirePermission");
@@ -63,7 +64,7 @@ router.get("/users", requirePermission("users", "read"), async (req, res) => {
 router.put("/users/:id/role", requirePermission("users", "update"), async (req, res) => {
   try {
     const { role } = req.body;
-    if (!["super_admin", "admin", "instructor", "student", "guest"].includes(role)) {
+    if (!config.roles.includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
     }
 

@@ -1,7 +1,7 @@
 const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver } = require("./sandbox");
 const { isCompileError, formatCompileError } = require("../sandbox/compileErrorHandler");
 const { analyzeTraces } = require("../tracer/traceAligner");
-const { getAIResponse } = require("../ai/llmOrchestrator");
+const { getAIResponse } = require("../ai/orchestrator");
 const TestCase = require("../models/TestCase");
 const DriverTemplate = require("../models/DriverTemplate");
 const Problem = require("../models/Problem");

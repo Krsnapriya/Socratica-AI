@@ -2,24 +2,110 @@ const express = require("express");
 const router = express.Router();
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
-const { chat, getHistory, clearHistory } = require("../ai/aiOrchestrator");
 const AIConversation = require("../models/AIConversation");
 const User = require("../models/User");
 const Problem = require("../models/Problem");
 const Submission = require("../models/Submission");
 const LearningPath = require("../models/LearningPath");
+const { getAgentsForRequest, shouldGateContent, getRateLimit, getPersonaStyle } = require("../ai/roleRouter");
+const { routeAndRespond } = require("../ai/orchestrator");
+const { getLLMClient } = require("../ai/llmClient.unified");
+const { buildAgentPrompt, getHintLevel } = require("../ai/agents");
+const { buildMemoryContext, updateLearningMemory } = require("../ai/memoryAgent");
+const { buildContentQualityPrompt } = require("../ai/agents/definitions/admin/contentQuality");
+const { buildModerationPrompt } = require("../ai/agents/definitions/admin/moderation");
+const { buildPlatformIntelPrompt } = require("../ai/agents/definitions/admin/platformIntel");
+const { buildHealthPrompt } = require("../ai/agents/definitions/superAdmin/health");
+const { buildSecurityPrompt } = require("../ai/agents/definitions/superAdmin/security");
+const { buildGovernancePrompt } = require("../ai/agents/definitions/superAdmin/governance");
+const { buildCurriculumPrompt } = require("../ai/agents/definitions/instructor/curriculum");
+const { buildAssessmentPrompt } = require("../ai/agents/definitions/instructor/assessment");
+const { buildInsightsPrompt } = require("../ai/agents/definitions/instructor/insights");
+const { buildProblemAuthorPrompt } = require("../ai/agents/definitions/instructor/problemAuthor");
 
-// All AI mentor routes require auth
+// ── Rate limit store (in-memory, per-role) ───────────────────────────────
+const rateLimitStore = new Map();
+
+function roleRateLimit(req, res, next) {
+  const role = req.userRole || "guest";
+  const limit = getRateLimit(role);
+  const key = `${role}:${req.userId || req.ip}`;
+  const now = Date.now();
+
+  const record = rateLimitStore.get(key) || { count: 0, windowStart: now };
+  if (now - record.windowStart > limit.windowMs) {
+    record.count = 0;
+    record.windowStart = now;
+  }
+  record.count++;
+  rateLimitStore.set(key, record);
+
+  if (record.count > limit.requests) {
+    return res.status(429).json({ error: "Rate limit exceeded. Try again shortly." });
+  }
+  next();
+}
+
+// ── Guest access routes (no auth required) ──────────────────────────────
+router.post("/guest/chat", roleRateLimit, async (req, res) => {
+  try {
+    const { message, topic } = req.body;
+    if (!message) return res.status(400).json({ error: "Message is required" });
+
+    const result = await routeAndRespond({
+      userId: null,
+      userRole: "guest",
+      action: "chat",
+      message,
+      context: { topic, nudgeRegistration: true },
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/guest] chat error:", err.message);
+    res.status(500).json({ error: "AI mentor unavailable" });
+  }
+});
+
+router.post("/guest/syllabus", roleRateLimit, async (req, res) => {
+  try {
+    const { problemId } = req.body;
+    if (!problemId) return res.status(400).json({ error: "problemId required" });
+
+    const problem = await Problem.findOne({ problemId }).lean();
+    if (!problem) return res.status(404).json({ error: "Problem not found" });
+
+    const result = await routeAndRespond({
+      userId: null,
+      userRole: "guest",
+      action: "syllabus",
+      message: `Explain this topic: ${problem.title} (${problem.difficulty}, ${problem.category})`,
+      problemId,
+      context: { problem },
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/guest] syllabus error:", err.message);
+    res.status(500).json({ error: "AI mentor unavailable" });
+  }
+});
+
+// ── Auth middleware for all routes below ─────────────────────────────────
 router.use(requireAuth);
 
 // ── Chat with AI Mentor ──────────────────────────────────────────────────
-router.post("/chat", async (req, res) => {
+router.post("/chat", roleRateLimit, async (req, res) => {
   try {
     const { message, sessionId, topic, context, style } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
 
-    const result = await chat(req.userId, { message, sessionId, topic, context, style });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "chat",
+      message,
+      sessionId,
+      context: { topic, ...context, preferredStyle: style },
+    });
     res.json(result);
   } catch (err) {
     console.error("[ai/mentor] chat error:", err.message);
@@ -31,8 +117,12 @@ router.post("/chat", async (req, res) => {
 router.get("/history", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 10, 50);
-    const history = await getHistory(req.userId, limit);
-    res.json(history);
+    const conversations = await AIConversation.find({ userId: req.userId, active: true })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .select("sessionId topic createdAt updatedAt")
+      .lean();
+    res.json(conversations);
   } catch (err) {
     console.error("[ai/mentor] history error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -57,7 +147,17 @@ router.get("/conversation/:sessionId", async (req, res) => {
 router.delete("/history", async (req, res) => {
   try {
     const { sessionId } = req.body;
-    await clearHistory(req.userId, sessionId);
+    if (sessionId) {
+      await AIConversation.updateOne(
+        { userId: req.userId, sessionId },
+        { $set: { active: false } }
+      );
+    } else {
+      await AIConversation.updateMany(
+        { userId: req.userId },
+        { $set: { active: false } }
+      );
+    }
     res.json({ success: true });
   } catch (err) {
     console.error("[ai/mentor] clear error:", err.message);
@@ -66,11 +166,10 @@ router.delete("/history", async (req, res) => {
 });
 
 // ── Explain syllabus / topic ────────────────────────────────────────────
-router.post("/syllabus", async (req, res) => {
+router.post("/syllabus", roleRateLimit, async (req, res) => {
   try {
     const { moduleId, problemId } = req.body;
-    const ctx = { moduleId, problemId };
-    const context = await require("../ai/aiOrchestrator").gatherContext(req.userId, ctx);
+    if (!moduleId && !problemId) return res.status(400).json({ error: "moduleId or problemId required" });
 
     let topicContext = "";
     if (problemId) {
@@ -86,14 +185,15 @@ router.post("/syllabus", async (req, res) => {
       }
     }
 
-    if (!topicContext) return res.status(400).json({ error: "Module ID or Problem ID required" });
+    if (!topicContext) return res.status(400).json({ error: "Could not find content" });
 
-    const result = await chat(req.userId, {
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "syllabus",
       message: topicContext,
-      topic: "syllabus_explanation",
-      context: ctx,
+      context: { moduleId, problemId },
     });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
     res.json(result);
   } catch (err) {
     console.error("[ai/mentor] syllabus error:", err.message);
@@ -102,22 +202,24 @@ router.post("/syllabus", async (req, res) => {
 });
 
 // ── Explain compiler error ──────────────────────────────────────────────
-router.post("/debug", async (req, res) => {
+router.post("/debug", roleRateLimit, async (req, res) => {
   try {
     const { code, language, problemId, error, sessionId } = req.body;
     if (!error) return res.status(400).json({ error: "Error message is required" });
 
-    const ctx = { problemId, sessionId };
-    if (code) ctx.code = code.substring(0, 2000);
-
     const debugMessage = `I'm working on a ${language} problem and got this error. Help me understand what caused it and how to fix it.\n\n**Error:**\n\`\`\`\n${error}\n\`\`\`\n${code ? `**My Code:**\n\`\`\`${language}\n${code.substring(0, 1500)}\n\`\`\`` : ""}\n\nExplain:\n1. What caused this error\n2. Where it likely occurred\n3. Why it happened\n4. How to fix it\n5. Similar mistakes to avoid`;
 
-    const result = await chat(req.userId, {
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "debug",
       message: debugMessage,
-      topic: "debug_explanation",
-      context: ctx,
+      code,
+      language,
+      problemId,
+      sessionId,
+      executionResult: { error: "compile_error" },
     });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
     res.json(result);
   } catch (err) {
     console.error("[ai/mentor] debug error:", err.message);
@@ -125,23 +227,46 @@ router.post("/debug", async (req, res) => {
   }
 });
 
-// ── Code review ─────────────────────────────────────────────────────────
-router.post("/code-review", async (req, res) => {
+// ── Code review (contextual) ────────────────────────────────────────────
+router.post("/code-review-contextual", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "code-review-contextual",
+      code,
+      language: language || "python",
+      problemId,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] code-review-contextual error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Code review (legacy) ─────────────────────────────────────────────────
+router.post("/code-review", roleRateLimit, async (req, res) => {
   try {
     const { code, language, problemId, sessionId } = req.body;
     if (!code) return res.status(400).json({ error: "Code is required" });
 
-    const ctx = { problemId, sessionId };
     const problem = problemId ? await Problem.findOne({ problemId }).lean() : null;
+    const reviewMessage = `Review my ${language} code and provide feedback on:\n\n1. **Readability** - naming, formatting, clarity\n2. **Correctness** - edge cases, logic errors\n3. **Complexity** - time and space analysis\n4. **Best Practices** - idiomatic patterns, modularity\n5. **Optimization Suggestions**\n\n${problem ? `**Problem:** ${problem.title}\n` : ""}**My Code:**\n\`\`\`${language}\n${code.substring(0, 2000)}\n\`\`\``;
 
-    const reviewMessage = `Review my ${language} code and provide feedback on:\n\n1. **Readability** - naming, formatting, clarity\n2. **Correctness** - edge cases, logic errors\n3. **Complexity** - time and space analysis\n4. **Best Practices** - idiomatic patterns, modularity\n5. **Optimization Suggestions** - if applicable\n\n${problem ? `**Problem:** ${problem.title}\n` : ""}**My Code:**\n\`\`\`${language}\n${code.substring(0, 2000)}\n\`\`\``;
-
-    const result = await chat(req.userId, {
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "code-review",
       message: reviewMessage,
-      topic: "code_review",
-      context: ctx,
+      code,
+      language,
+      problemId,
+      sessionId,
     });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
     res.json(result);
   } catch (err) {
     console.error("[ai/mentor] code-review error:", err.message);
@@ -149,13 +274,96 @@ router.post("/code-review", async (req, res) => {
   }
 });
 
+// ── Oracle Comparison (post-acceptance) ──────────────────────────────────
+router.post("/oracle-comparison", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+
+    const Problem = require("../models/Problem");
+    const problem = await Problem.findOne({ problemId }).lean();
+    const referenceSolutions = problem?.referenceSolutions?.filter(
+      s => s.language === (language || "python") && s.status === "approved"
+    ) || [];
+
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "oracle-comparison",
+      code,
+      language: language || "python",
+      problemId,
+      context: { referenceSolutions },
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] oracle-comparison error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Learning Summary ─────────────────────────────────────────────────────
+router.post("/learning-summary", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "learning-summary",
+      sessionId,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] learning-summary error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Context-Aware Hint ───────────────────────────────────────────────────
+router.post("/contextual-hint", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId, sessionId } = req.body;
+    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
+
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "contextual-hint",
+      code,
+      language: language || "python",
+      problemId,
+      sessionId,
+      explicitAgent: "hintAgent",
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] contextual-hint error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Confidence Report ────────────────────────────────────────────────────
+router.post("/confidence", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const { code, language, problemId } = req.body;
+    if (!code) return res.status(400).json({ error: "code is required" });
+    const { analyzeStudentCode } = require("../ai/codeAnalyzer");
+    const { scoreConfidence, formatConfidence } = require("../ai/confidenceScorer");
+    const codeAnalysis = analyzeStudentCode(code, language || "python");
+    const confidence = scoreConfidence({ code, language: language || "python", codeAnalysis });
+    res.json({ confidence, label: formatConfidence(confidence) });
+  } catch (err) {
+    console.error("[ai/mentor] confidence error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── Generate quiz ───────────────────────────────────────────────────────
-router.post("/quiz", async (req, res) => {
+router.post("/quiz", roleRateLimit, async (req, res) => {
   try {
     const { moduleId, problemId, difficulty, count = 5 } = req.body;
-    if (!moduleId && !problemId) return res.status(400).json({ error: "Module ID or Problem ID required" });
+    if (!moduleId && !problemId) return res.status(400).json({ error: "moduleId or problemId required" });
 
-    const ctx = { moduleId, problemId };
     let quizContext = "";
     if (problemId) {
       const problem = await Problem.findOne({ problemId }).lean();
@@ -166,22 +374,71 @@ router.post("/quiz", async (req, res) => {
       const Module = require("../models/Module");
       const mod = await Module.findById(moduleId).lean();
       if (mod) {
-        const titles = (mod.topics || []).map(t => t.title).join(", ");
-        quizContext = `Create a quiz with ${count} questions covering these topics: ${titles}. Difficulty: ${difficulty || "mixed"}. Include answer key.`;
+        quizContext = `Create a quiz with ${count} questions covering these topics: ${(mod.topics || []).map(t => t.title).join(", ")}. Difficulty: ${difficulty || "mixed"}. Include answer key.`;
       }
     }
 
     if (!quizContext) return res.status(400).json({ error: "Could not find content for quiz" });
 
-    const result = await chat(req.userId, {
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "quiz",
       message: quizContext,
-      topic: "quiz_generation",
-      context: ctx,
+      context: { moduleId, problemId },
     });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
     res.json(result);
   } catch (err) {
     console.error("[ai/mentor] quiz error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Interview practice ──────────────────────────────────────────────────
+router.post("/interview", roleRateLimit, async (req, res) => {
+  try {
+    const { topic, difficulty = "medium", type = "coding" } = req.body;
+
+    const interviewMessage = `I'm practicing for a technical interview. Give me a ${difficulty} difficulty ${type} question${topic ? ` about ${topic}` : ""}. 
+
+First, present the question. Then wait for my answer before giving feedback.
+
+Question requirements:
+- Clear problem statement
+- Example input/output
+- Constraints
+- (if coding) Starter function signature in Python
+- Evaluation criteria`;
+
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "chat",
+      message: interviewMessage,
+      context: { topic: "interview_practice" },
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] interview error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Session reflection / summary ────────────────────────────────────────
+router.post("/reflect", roleRateLimit, async (req, res) => {
+  try {
+    const { sessionId, problemId } = req.body;
+
+    const result = await routeAndRespond({
+      userId: req.userId,
+      userRole: req.userRole,
+      action: "learning-summary",
+      sessionId,
+      context: { problemId },
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[ai/mentor] reflect error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -191,10 +448,8 @@ router.get("/learning-path", async (req, res) => {
   try {
     let lp = await LearningPath.findOne({ userId: req.userId }).lean();
 
-    // Analyze if not recently done
     if (!lp || !lp.lastAnalyzed || Date.now() - new Date(lp.lastAnalyzed).getTime() > 3600000) {
       const submissions = await Submission.find({ userId: req.userId }).sort({ createdAt: -1 }).lean();
-      const User = require("../models/User");
       const Module = require("../models/Module");
 
       const weakMap = {};
@@ -227,18 +482,21 @@ router.get("/learning-path", async (req, res) => {
         .slice(0, 5)
         .map(([topic]) => topic);
 
-      const aiContext = { weakAreas, strengths, recentSubmissions: submissions.slice(0, 5).map(s => ({ problemId: s.problemId, verdict: s.verdict })) };
-      const aiMessage = `Based on my learning data, suggest the next 3-5 topics I should focus on and specific practice recommendations:\n\nWeak areas: ${weakAreas.map(w => w.topic).join(", ")}\nStrengths: ${strengths.join(", ")}\nTotal problems attempted: ${submissions.length}\nRecent verdicts: ${submissions.slice(0, 10).map(s => s.verdict).join(", ")}`;
-
-      const result = await chat(req.userId, { message: aiMessage, topic: "learning_path_analysis", context: {} });
+      const aiResult = await routeAndRespond({
+        userId: req.userId,
+        userRole: req.userRole,
+        action: "learning-summary",
+        message: `Based on my learning data, suggest the next 3-5 topics I should focus on and specific practice recommendations:\n\nWeak areas: ${weakAreas.map(w => w.topic).join(", ")}\nStrengths: ${strengths.join(", ")}\nTotal problems attempted: ${submissions.length}`,
+        context: { weakAreas, strengths },
+      });
 
       lp = await LearningPath.findOneAndUpdate(
         { userId: req.userId },
         {
           $set: {
             weakAreas, strengths, lastAnalyzed: new Date(),
-            recommendations: result.response ? [{
-              type: "next_topic", reason: result.response.substring(0, 500), priority: 100,
+            recommendations: aiResult.response ? [{
+              type: "next_topic", reason: aiResult.response.substring(0, 500), priority: 100,
             }] : [],
           },
         },
@@ -249,56 +507,6 @@ router.get("/learning-path", async (req, res) => {
     res.json(lp);
   } catch (err) {
     console.error("[ai/mentor] learning-path error:", err.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// ── Interview practice ──────────────────────────────────────────────────
-router.post("/interview", async (req, res) => {
-  try {
-    const { topic, difficulty = "medium", type = "coding" } = req.body;
-
-    const interviewMessage = `I'm practicing for a technical interview. Give me a ${difficulty} difficulty ${type} question${topic ? ` about ${topic}` : ""}. 
-
-First, present the question. Then wait for my answer before giving feedback.
-
-Question requirements:
-- Clear problem statement
-- Example input/output
-- Constraints
-- (if coding) Starter function signature in Python
-- Evaluation criteria`;
-
-    const result = await chat(req.userId, {
-      message: interviewMessage,
-      topic: "interview_practice",
-      context: {},
-    });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
-    res.json(result);
-  } catch (err) {
-    console.error("[ai/mentor] interview error:", err.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// ── Session reflection / summary ────────────────────────────────────────
-router.post("/reflect", async (req, res) => {
-  try {
-    const { sessionId, problemId } = req.body;
-    const ctx = { sessionId, problemId };
-
-    const reflectMessage = `Summarize my learning session. Cover:\n1. Topics covered\n2. Concepts I seem to understand well\n3. Mistakes I made and what I learned from them\n4. Areas I should review\n5. Suggested next steps or topics`;
-
-    const result = await chat(req.userId, {
-      message: reflectMessage,
-      topic: "session_reflection",
-      context: ctx,
-    });
-    if (result.error) return res.status(result.fallback ? 200 : 500).json(result);
-    res.json(result);
-  } catch (err) {
-    console.error("[ai/mentor] reflect error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -334,86 +542,226 @@ router.get("/insights", requireRole(["admin", "super_admin"]), async (req, res) 
       { $limit: 20 },
     ]);
 
-    res.json({
-      totalUsers, totalSubmissions, passRate,
-      commonErrors, topFailedProblems, completionRates,
-    });
+    res.json({ totalUsers, totalSubmissions, passRate, commonErrors, topFailedProblems, completionRates });
   } catch (err) {
     console.error("[ai/mentor] insights error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ── Code Review (contextual) ────────────────────────────────────────────
-router.post("/code-review-contextual", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+// ══════════════════════════════════════════════════════════════════════════
+// INSTRUCTOR AI ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════
+
+router.post("/instructor/curriculum", roleRateLimit, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const { code, language, problemId } = req.body;
-    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
-    const { getCodeReview } = require("../ai/llmOrchestrator");
-    const result = await getCodeReview({ userId: req.userId, problemId, code, language: language || "python" });
-    res.json(result);
+    const { message, courses, moduleData } = req.body;
+    const client = getLLMClient();
+    const prompt = buildCurriculumPrompt({ message, courses, moduleData });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
   } catch (err) {
-    console.error("[ai/mentor] code-review-contextual error:", err.message);
+    console.error("[ai/instructor] curriculum error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ── Oracle Comparison (post-acceptance) ──────────────────────────────────
-router.post("/oracle-comparison", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/instructor/assessment", roleRateLimit, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const { code, language, problemId } = req.body;
-    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
-    const { getOracleComparison } = require("../ai/llmOrchestrator");
-    const result = await getOracleComparison({ userId: req.userId, problemId, code, language: language || "python" });
-    res.json(result);
+    const { message, problems, moduleData, assessmentType } = req.body;
+    const client = getLLMClient();
+    const prompt = buildAssessmentPrompt({ message, problems, moduleData, assessmentType });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
   } catch (err) {
-    console.error("[ai/mentor] oracle-comparison error:", err.message);
+    console.error("[ai/instructor] assessment error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ── Learning Summary ─────────────────────────────────────────────────────
-router.post("/learning-summary", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/instructor/insights", roleRateLimit, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const { sessionId } = req.body;
-    const { getLearningSummary } = require("../ai/llmOrchestrator");
-    const result = await getLearningSummary({ userId: req.userId, sessionId });
-    res.json(result);
+    const { message, studentData, classData } = req.body;
+    const client = getLLMClient();
+    const prompt = buildInsightsPrompt({ message, studentData, classData });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
   } catch (err) {
-    console.error("[ai/mentor] learning-summary error:", err.message);
+    console.error("[ai/instructor] insights error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ── Context-Aware Hint ───────────────────────────────────────────────────
-router.post("/contextual-hint", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/instructor/problem-author", roleRateLimit, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
   try {
-    const { code, language, problemId, sessionId } = req.body;
-    if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
-    const { getAIResponse } = require("../ai/llmOrchestrator");
-    const result = await getAIResponse({
-      userId: req.userId, problemId, sessionId, code, language: language || "python",
-      explicitAgent: "hint",
+    const { message, category, difficulty, existingProblems } = req.body;
+    const client = getLLMClient();
+    const prompt = buildProblemAuthorPrompt({ message, category, difficulty, existingProblems });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
+  } catch (err) {
+    console.error("[ai/instructor] problem-author error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// ADMIN AI ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════
+
+router.get("/admin/platform-intel", roleRateLimit, requireRole(["admin", "super_admin"]), async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalSubmissions = await Submission.countDocuments();
+    const passRate = totalSubmissions > 0
+      ? Math.round((await Submission.countDocuments({ verdict: "pass" })) / totalSubmissions * 100) : 0;
+
+    const courseStats = await Submission.aggregate([
+      { $group: { _id: "$problemId", total: { $sum: 1 }, passed: { $sum: { $cond: [{ $eq: ["$verdict", "pass"] }, 1, 0] } } } },
+      { $addFields: { passRate: { $multiply: [{ $divide: ["$passed", "$total"] }, 100] } } },
+      { $sort: { total: -1 } },
+      { $limit: 20 },
+    ]);
+
+    const client = getLLMClient();
+    const prompt = buildPlatformIntelPrompt({
+      message: req.query.message || "Give me a platform health overview.",
+      platformStats: { totalUsers, totalSubmissions, passRate },
+      problemStats: courseStats.map(c => ({ problemId: c._id, failureRate: 100 - c.passRate, totalAttempts: c.total })),
     });
-    res.json(result);
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response, stats: { totalUsers, totalSubmissions, passRate } });
   } catch (err) {
-    console.error("[ai/mentor] contextual-hint error:", err.message);
+    console.error("[ai/admin] platform-intel error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ── Confidence Report ────────────────────────────────────────────────────
-router.post("/confidence", requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/admin/content-quality", roleRateLimit, requireRole(["admin", "super_admin"]), async (req, res) => {
   try {
-    const { code, language, problemId } = req.body;
-    if (!code) return res.status(400).json({ error: "code is required" });
-    const { analyzeStudentCode } = require("../ai/codeAnalyzer");
-    const { getConfidenceReport } = require("../ai/llmOrchestrator");
-    const codeAnalysis = analyzeStudentCode(code, language || "python");
-    const result = await getConfidenceReport({ code, language: language || "python", codeAnalysis });
-    res.json(result);
+    const { message, problems } = req.body;
+    const client = getLLMClient();
+    const prompt = buildContentQualityPrompt({ message, problems });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
   } catch (err) {
-    console.error("[ai/mentor] confidence error:", err.message);
+    console.error("[ai/admin] content-quality error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/admin/moderation", roleRateLimit, requireRole(["admin", "super_admin"]), async (req, res) => {
+  try {
+    const { message, flaggedContent, submissionPatterns } = req.body;
+    const client = getLLMClient();
+    const prompt = buildModerationPrompt({ message, flaggedContent, submissionPatterns });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
+  } catch (err) {
+    console.error("[ai/admin] moderation error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// SUPER ADMIN AI ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════════
+
+router.get("/super-admin/health", roleRateLimit, requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const mongoose = require("mongoose");
+    const dbState = ["disconnected", "connected", "connecting", "disconnecting"];
+    const dbStats = {
+      connectionState: dbState[mongoose.connection.readyState] || "unknown",
+      collections: Object.keys(mongoose.connection.collections).length,
+    };
+
+    const totalUsers = await User.countDocuments();
+    const totalSubmissions = await Submission.countDocuments();
+
+    const client = getLLMClient();
+    const prompt = buildHealthPrompt({
+      message: req.query.message || "System health summary",
+      dbStats,
+      apiStats: { activeSessions: totalUsers },
+    });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response, dbStats });
+  } catch (err) {
+    console.error("[ai/super-admin] health error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/super-admin/security", roleRateLimit, requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const { message } = req.body;
+    const FailedLogin = require("../models/FailedLogin");
+    const failedLogins = await FailedLogin.find({}).sort({ timestamp: -1 }).limit(20).lean();
+    const failedCount24h = await FailedLogin.countDocuments({ timestamp: { $gte: new Date(Date.now() - 86400000) } });
+
+    const client = getLLMClient();
+    const prompt = buildSecurityPrompt({
+      message: message || "Security overview",
+      failedLogins: failedLogins.map(f => ({ email: f.email, ip: f.ip, reason: f.reason, timestamp: f.timestamp })),
+      securityOverview: { failedLogins24h: failedCount24h },
+    });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
+  } catch (err) {
+    console.error("[ai/super-admin] security error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/super-admin/governance", roleRateLimit, requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const { message } = req.body;
+    const roles = await User.aggregate([
+      { $group: { _id: "$role", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    const client = getLLMClient();
+    const prompt = buildGovernancePrompt({
+      message: message || "Review role configuration",
+      roles: roles.map(r => ({ name: r._id, userCount: r.count, permissionCount: 0 })),
+    });
+    const response = await client.chat(prompt.system, prompt.user);
+    res.json({ response });
+  } catch (err) {
+    console.error("[ai/super-admin] governance error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── AI Usage Stats (for admins) ─────────────────────────────────────────
+router.get("/usage-stats", requireRole(["admin", "super_admin"]), async (req, res) => {
+  try {
+    const AIUsage = require("../models/AIUsage");
+    const days = parseInt(req.query.days) || 7;
+    const since = new Date(Date.now() - days * 86400000);
+
+    const stats = await AIUsage.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: { action: "$action", role: "$role" },
+          count: { $sum: 1 },
+          avgLatency: { $avg: "$latencyMs" },
+          errors: { $sum: { $cond: ["$success", 0, 1] } },
+          totalTokens: { $sum: "$totalTokens" },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]);
+
+    const totalRequests = stats.reduce((sum, s) => sum + s.count, 0);
+    const totalErrors = stats.reduce((sum, s) => sum + s.errors, 0);
+
+    res.json({ stats, totalRequests, totalErrors, period: `${days}d` });
+  } catch (err) {
+    console.error("[ai/usage-stats] error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

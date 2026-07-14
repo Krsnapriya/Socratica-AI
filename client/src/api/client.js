@@ -1,4 +1,5 @@
 import axios from 'axios';
+import API from '../endpoints.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -7,7 +8,7 @@ let csrfToken = null;
 
 async function fetchCsrfToken() {
   try {
-    const { data } = await axios.get(`${API_URL}/csrf-token`);
+    const { data } = await axios.get(`${API_URL}${API.CSRF_TOKEN}`);
     csrfToken = data.token;
     return csrfToken;
   } catch {

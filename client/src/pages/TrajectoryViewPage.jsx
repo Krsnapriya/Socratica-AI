@@ -3,13 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import { fetchSession } from '../api/api.js';
-
-const TRAJECTORY_SIDEBAR = [
-  { to: '/workspace', icon: 'code', label: 'Workspace' },
-  { to: '/trajectory', icon: 'account_tree', label: 'Trajectory', end: true },
-  { to: '/analytics', icon: 'insights', label: 'Analytics' },
-  { to: '/archive', icon: 'archive', label: 'Archive' },
-];
+import { TRAJECTORY_SIDEBAR } from '../navigation';
 
 function CodeLine({ num, content, type }) {
   const lineClass = type === 'highlight'

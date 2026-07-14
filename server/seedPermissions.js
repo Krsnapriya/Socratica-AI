@@ -1,5 +1,6 @@
 const Permission = require("./models/Permission");
 const SystemConfig = require("./models/SystemConfig");
+const config = require("./config");
 
 const defaults = [
   // super_admin — full access to everything (middleware bypasses checks for this role)
@@ -41,8 +42,8 @@ const defaults = [
 ];
 
 const defaultConfigs = [
-  { key: "compiler", value: { languages: { python: { enabled: true, memoryMb: 256, timeoutMs: 8000 }, cpp: { enabled: true, memoryMb: 512, timeoutMs: 12000 }, javascript: { enabled: true, memoryMb: 256, timeoutMs: 8000 } }, defaultTimeoutMs: 10000, defaultMemoryMb: 256 } },
-  { key: "ai", value: { provider: "nvidia", model: process.env.NVIDIA_MODEL || "nvidia/nemotron-3-ultra-550b-a55b", baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1", maxTokens: 4096, temperature: 0.7, topP: 0.95, enabled: true, rateLimitPerMinute: 10, hasApiKey: !!process.env.NVIDIA_API_KEY } },
+  { key: "compiler", value: { languages: { python: { enabled: true, memoryMb: config.sandbox.languages.python.memoryMb, timeoutMs: config.sandbox.languages.python.timeoutMs }, cpp: { enabled: true, memoryMb: config.sandbox.languages.cpp.memoryMb, timeoutMs: config.sandbox.languages.cpp.timeoutMs }, javascript: { enabled: true, memoryMb: config.sandbox.languages.javascript.memoryMb, timeoutMs: config.sandbox.languages.javascript.timeoutMs } }, defaultTimeoutMs: 10000, defaultMemoryMb: 256 } },
+  { key: "ai", value: { provider: "nvidia", model: process.env.NVIDIA_MODEL || config.llm.model, baseUrl: process.env.NVIDIA_BASE_URL || config.llm.baseUrl, maxTokens: config.llm.maxTokens, temperature: config.llm.temperature, topP: config.llm.topP, enabled: true, rateLimitPerMinute: config.rateLimits.compiler.max, hasApiKey: !!process.env.NVIDIA_API_KEY } },
   { key: "platform", value: { siteName: "Socratica AI", maintenanceMode: false, allowRegistration: true, defaultRole: "student", sessionDurationHours: 24 } },
 ];
 

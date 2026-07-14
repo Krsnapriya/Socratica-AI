@@ -2,15 +2,16 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("./models/User");
+const config = require("./config");
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 const testUsers = [
-  { email: "super@socratica.ai", role: "super_admin", displayName: "Super Admin" },
-  { email: "admin@socratica.ai", role: "admin", displayName: "System Admin" },
-  { email: "instructor@socratica.ai", role: "instructor", displayName: "Instructor Jane" },
-  { email: "student@socratica.ai", role: "student", displayName: "Student Bob" },
-  { email: "guest@socratica.ai", role: "guest", displayName: "Guest User" }
+  { email: config.seed.emails.super_admin, role: "super_admin", displayName: "Super Admin" },
+  { email: config.seed.emails.admin, role: "admin", displayName: "System Admin" },
+  { email: config.seed.emails.instructor, role: "instructor", displayName: "Instructor Jane" },
+  { email: config.seed.emails.student, role: "student", displayName: "Student Bob" },
+  { email: config.seed.emails.guest, role: "guest", displayName: "Guest User" },
 ];
 
 async function seedUsers() {

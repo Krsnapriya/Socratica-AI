@@ -1,15 +1,14 @@
 import { NavLink } from 'react-router-dom';
 import Icon from './ui/Icon.jsx';
 import Button from './ui/Button.jsx';
+import { WORKSPACE_NAV } from '../navigation';
 
-const NAV_LINKS = [
-  { to: '/', icon: 'home', label: 'Curriculum', end: true },
-  { to: '/modules', icon: 'view_module', label: 'Modules' },
-  { to: '/workspace', icon: 'code', label: 'Workspace' },
-  { to: '/trajectory', icon: 'timeline', label: 'Trajectory' },
-  { to: '/analytics', icon: 'insights', label: 'Analytics' },
-  { to: '/settings', icon: 'settings', label: 'Settings' },
-];
+const NAV_LINKS = WORKSPACE_NAV.map(item => ({
+  ...item,
+  icon: item.icon || 'code',
+  label: item.label,
+  end: item.to === '/',
+}));
 
 export default function MobileNav({ isOpen, onClose, onLogout }) {
   return (

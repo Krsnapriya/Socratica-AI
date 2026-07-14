@@ -14,17 +14,28 @@ import {
   aiLearningSummary,
   aiContextualHint,
   aiConfidence,
+  aiGuestChat,
+  aiInstructorCurriculum,
+  aiInstructorAssessment,
+  aiInstructorInsights,
+  aiAdminPlatformIntel,
+  aiSuperAdminHealth,
+  aiSuperAdminSecurity,
+  aiSuperAdminGovernance,
 } from '../api/api.js';
+import { ROLES, ROLE_AI_ACTIONS, ROLE_AI_PLACEHOLDER, ROLE_AI_WELCOME } from '../constants';
 
-const QUICK_ACTIONS = [
-  { id: 'review', label: 'Code Review', icon: 'rate_review', color: 'text-secondary' },
-  { id: 'quiz', label: 'Quiz Me', icon: 'quiz', color: 'text-tertiary' },
-  { id: 'explain', label: 'Explain Approach', icon: 'lightbulb', color: 'text-primary' },
-  { id: 'reflect', label: 'Reflect', icon: 'psychology', color: 'text-secondary' },
-  { id: 'oracle', label: 'Compare to Gold', icon: 'compare_arrows', color: 'text-tertiary' },
-  { id: 'hint', label: 'Contextual Hint', icon: 'tips_and_updates', color: 'text-primary' },
-  { id: 'confidence', label: 'Confidence Check', icon: 'speed', color: 'text-secondary' },
-];
+function getActionsForRole(role) {
+  return ROLE_AI_ACTIONS[role] || ROLE_AI_ACTIONS[ROLES.STUDENT];
+}
+
+function getPlaceholderForRole(role) {
+  return ROLE_AI_PLACEHOLDER[role] || ROLE_AI_PLACEHOLDER[ROLES.STUDENT];
+}
+
+function getWelcomeTextForRole(role) {
+  return ROLE_AI_WELCOME[role] || ROLE_AI_WELCOME[ROLES.STUDENT];
+}
 
 function MarkdownText({ text }) {
   if (!text) return null;
@@ -42,13 +53,17 @@ function MarkdownText({ text }) {
   );
 }
 
-export default function AIMentorPanel({ code, language, problemId, problemDetail }) {
+export default function AIMentorPanel({ code, language, problemId, problemDetail, userRole }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+
+  const QUICK_ACTIONS = getActionsForRole(userRole);
+  const welcomeText = getWelcomeTextForRole(userRole);
+  const placeholder = getPlaceholderForRole(userRole);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -230,6 +245,126 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
         }
         break;
       }
+      // ── Instructor actions ───────────────────────────────────────────────
+      case 'curriculum': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Design Curriculum]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiInstructorCurriculum({ message: 'Help me design a curriculum for this course. What topics should I cover and in what order?' });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No curriculum generated.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'assessment': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Generate Assessment]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiInstructorAssessment({ message: 'Generate a quiz for this module', assessmentType: 'quiz' });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No assessment generated.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'insights': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Class Insights]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiInstructorInsights({ message: 'Give me insights on student performance and class engagement.' });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No insights available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      // ── Admin actions ────────────────────────────────────────────────────
+      case 'platform-intel': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Platform Intelligence]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiAdminPlatformIntel();
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No platform data available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      // ── Super Admin actions ──────────────────────────────────────────────
+      case 'health': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[System Health Check]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiSuperAdminHealth();
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No health data available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'security': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Security Review]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiSuperAdminSecurity({ message: 'Give me a security overview of the platform.' });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No security data available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'governance': {
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Governance Review]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiSuperAdminGovernance({ message: 'Review our role and permission configuration.' });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No governance data available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      // ── Guest actions ────────────────────────────────────────────────────
+      case 'guest-chat': {
+        sendMessage(input || 'Tell me about Socratica AI and what you can help me with.');
+        break;
+      }
+      case 'guest-syllabus': {
+        if (!problemId) {
+          setMessages(prev => [...prev, { role: 'user', content: '[Explore Topic]', ts: new Date().toISOString() }, { role: 'assistant', content: 'Select a problem first to explore its topic.', ts: new Date().toISOString() }]);
+          return;
+        }
+        setLoading(true);
+        setMessages(prev => [...prev, { role: 'user', content: '[Explore Topic]', ts: new Date().toISOString() }]);
+        try {
+          const res = await aiGuestSyllabus({ problemId });
+          setMessages(prev => [...prev, { role: 'assistant', content: res.response || 'No topic information available.', ts: new Date().toISOString() }]);
+        } catch (err) {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.response?.data?.error || err.message}`, ts: new Date().toISOString() }]);
+        } finally {
+          setLoading(false);
+        }
+        break;
+      }
+      case 'chat': {
+        sendMessage(input || 'I have a question.');
+        break;
+      }
       default:
         break;
     }
@@ -263,9 +398,9 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
               <Icon name="auto_awesome" size={24} className="text-primary" />
             </div>
             <div>
-              <p className="text-on-surface text-sm font-semibold">Your AI Mentor</p>
+              <p className="text-on-surface text-sm font-semibold">{welcomeText.title}</p>
               <p className="text-on-surface-variant text-xs mt-1 max-w-[240px]">
-                Ask questions about algorithms, get hints, or review your approach. I won't give you the code.
+                {welcomeText.desc}
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-[280px]">
@@ -338,7 +473,7 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask your mentor..."
+            placeholder={placeholder}
             rows={1}
             className="flex-1 bg-surface-container-low border border-outline-variant/60 rounded-lg px-3 py-2 text-xs font-mono text-on-surface placeholder:text-outline resize-none focus:outline-none focus:ring-1 focus:ring-primary max-h-24"
             style={{ minHeight: '36px' }}

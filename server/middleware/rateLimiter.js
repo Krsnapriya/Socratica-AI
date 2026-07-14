@@ -1,17 +1,9 @@
-/**
- * rateLimiter.js
- * Redis-backed rate limiters using express-rate-limit + rate-limit-redis.
- *
- * Falls back to the default in-memory store if Redis is unavailable,
- * so the server starts even without Redis during local development.
- */
-
 const rateLimit = require("express-rate-limit");
+const config = require("../config");
 
 let RedisStore;
 let redisClient;
 
-// Only wire up Redis if ioredis + rate-limit-redis are available AND REDIS_URL is set
 if (process.env.REDIS_URL) {
   try {
     const { default: RLS } = require("rate-limit-redis");
@@ -36,38 +28,31 @@ if (process.env.REDIS_URL) {
 
 const storeOrUndefined = (prefix) => (RedisStore ? RedisStore(prefix) : undefined);
 
-// General API rate limit: 100 requests per 15 minutes per IP
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: config.rateLimits.api.windowMs,
+  max: config.rateLimits.api.max,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   store: storeOrUndefined("rl:api:"),
 });
 
-// Compiler / LLM: 10 requests per minute per IP
 const compilerLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
+  windowMs: config.rateLimits.compiler.windowMs,
+  max: config.rateLimits.compiler.max,
   message: { error: "Too many compilation attempts. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,
   store: storeOrUndefined("rl:compiler:"),
 });
 
-// Auth endpoints: 20 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: config.rateLimits.auth.windowMs,
+  max: config.rateLimits.auth.max,
   message: { error: "Too many login attempts. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   store: storeOrUndefined("rl:auth:"),
 });
 
-module.exports = {
-  apiLimiter,
-  compilerLimiter,
-  authLimiter,
-};
+module.exports = { apiLimiter, compilerLimiter, authLimiter };
