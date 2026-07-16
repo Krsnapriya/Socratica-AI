@@ -21,3 +21,6 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfvars
+
+# Local Netlify folder
+.netlify

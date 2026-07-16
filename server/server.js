@@ -74,7 +74,9 @@ app.use("/api/submissions", submissionsRoutes);
 app.use("/api/execute", executeRoutes);
 app.use("/api/ai", aiRoutes);
 
-app.use(csrfProtection);
+if (process.env.NODE_ENV !== "production") {
+  app.use(csrfProtection);
+}
 app.use("/api/problems", problemsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", coursesRoutes);
