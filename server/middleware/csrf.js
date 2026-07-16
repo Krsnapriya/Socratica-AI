@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const config = require("../config");
+const { config } = require("../configLoader");
 
 function csrfProtection(req, res, next) {
   // Skip CSRF for GET, HEAD, OPTIONS

@@ -1,4 +1,8 @@
-const TIME_COMPLEXITY_PATTERNS = {
+// Code Analyzer — detects complexity, bugs, and code smells in student code.
+// Reads patterns from DB (AnalysisPattern collection) with fallback to hardcoded defaults.
+
+// ── Hardcoded defaults ──────────────────────────────────────────────────
+const DEFAULT_TIME_COMPLEXITY = {
   nested_loop: { pattern: /for\s.*\n\s*for\s|while\s.*\n\s*while|for\s.*\n\s*while|while\s.*\n\s*for/, complexity: "O(n²)", description: "Nested loops detected" },
   single_loop: { pattern: /for\s|while\s/, complexity: "O(n)", description: "Single loop" },
   binary_search: { pattern: /while.*<.*\/\s*2|binary.*search|mid\s*=|lo.*hi|left.*right/, complexity: "O(log n)", description: "Binary search pattern" },
@@ -10,7 +14,7 @@ const TIME_COMPLEXITY_PATTERNS = {
   dp_table: { pattern: /dp\s*=\s*\[|dp\s*=\s*\{|dp\s*=\s*Array|memo\s*=\s*[\[{]/, complexity: "O(n²) or O(n)", description: "Dynamic programming table" },
 };
 
-const BUG_PATTERNS = {
+const DEFAULT_BUG_PATTERNS = {
   infinite_loop: { pattern: /while\s+True|while\s+1|for\s+_\s+in\s+range\s*\(\s*\)/, severity: "high", message: "Possible infinite loop detected" },
   unused_variable: { pattern: /(\w+)\s*=\s*.*\n(?:(?!\1).)*$/m, severity: "low", message: "Variable may be assigned but never used" },
   index_out_of_bounds: { pattern: /\[\s*len\s*\(|\[\s*-1\s*\]|\[\s*-\d+\s*\]/, severity: "medium", message: "Potential index out of bounds access" },
@@ -22,7 +26,7 @@ const BUG_PATTERNS = {
   missing_base_case: { pattern: /def\s+(\w+).*\n(?:(?!if\s+.*return).)*\1\(/, severity: "medium", message: "Recursive function may lack base case" },
 };
 
-const CODE_SMELL_PATTERNS = {
+const DEFAULT_CODE_SMELL = {
   long_function: { threshold: 50, message: "Function is very long - consider breaking it into smaller functions" },
   deep_nesting: { threshold: 4, message: "Deeply nested code - consider extracting logic or using early returns" },
   magic_numbers: { pattern: /\b(?:[2-9]\d{2,}|[1-9]\d{3,})\b/, message: "Magic number detected - consider using a named constant" },
@@ -30,9 +34,94 @@ const CODE_SMELL_PATTERNS = {
   god_variable: { pattern: /\b(data|result|res|tmp|temp|val|x|y|z|a|b|c)\s*=/, message: "Non-descriptive variable name" },
 };
 
+// ── DB cache ────────────────────────────────────────────────────────────
+let dbTimePatterns = null;
+let dbBugPatterns = null;
+let dbSmellPatterns = null;
+let dbCacheTimestamp = 0;
+const DB_CACHE_TTL = 60000;
+
+async function loadFromDB() {
+  const now = Date.now();
+  if (dbTimePatterns && now - dbCacheTimestamp < DB_CACHE_TTL) return;
+
+  try {
+    const mongoose = require("mongoose");
+    if (mongoose.connection.readyState !== 1) {
+      dbCacheTimestamp = now;
+      dbTimePatterns = DEFAULT_TIME_COMPLEXITY;
+      dbBugPatterns = DEFAULT_BUG_PATTERNS;
+      dbSmellPatterns = DEFAULT_CODE_SMELL;
+      return;
+    }
+
+    const AnalysisPattern = require("../models/AnalysisPattern");
+    const patterns = await AnalysisPattern.find({ isActive: true }).lean();
+
+    if (patterns.length === 0) {
+      dbCacheTimestamp = now;
+      dbTimePatterns = DEFAULT_TIME_COMPLEXITY;
+      dbBugPatterns = DEFAULT_BUG_PATTERNS;
+      dbSmellPatterns = DEFAULT_CODE_SMELL;
+      return;
+    }
+
+    const timePatterns = {};
+    const bugPatterns = {};
+    const smellPatterns = {};
+
+    for (const p of patterns) {
+      try {
+        const regex = new RegExp(p.regex, "i");
+        const entry = { pattern: regex, description: p.description || p.name, severity: p.severity };
+
+        if (p.type === "timeComplexity") {
+          entry.complexity = p.complexity || "O(n)";
+          timePatterns[p.name] = entry;
+        } else if (p.type === "bug") {
+          entry.message = p.description || p.name;
+          bugPatterns[p.name] = entry;
+        } else if (p.type === "codeSmell") {
+          entry.message = p.description || p.name;
+          smellPatterns[p.name] = entry;
+        }
+      } catch {
+        // Skip invalid regex
+      }
+    }
+
+    // Merge with defaults
+    for (const [k, v] of Object.entries(DEFAULT_TIME_COMPLEXITY)) {
+      if (!timePatterns[k]) timePatterns[k] = v;
+    }
+    for (const [k, v] of Object.entries(DEFAULT_BUG_PATTERNS)) {
+      if (!bugPatterns[k]) bugPatterns[k] = v;
+    }
+    for (const [k, v] of Object.entries(DEFAULT_CODE_SMELL)) {
+      if (!smellPatterns[k]) smellPatterns[k] = v;
+    }
+
+    dbCacheTimestamp = now;
+    dbTimePatterns = timePatterns;
+    dbBugPatterns = bugPatterns;
+    dbSmellPatterns = smellPatterns;
+  } catch {
+    dbCacheTimestamp = now;
+    dbTimePatterns = DEFAULT_TIME_COMPLEXITY;
+    dbBugPatterns = DEFAULT_BUG_PATTERNS;
+    dbSmellPatterns = DEFAULT_CODE_SMELL;
+  }
+}
+
+function getTimePatterns() { return dbTimePatterns || DEFAULT_TIME_COMPLEXITY; }
+function getBugPatterns() { return dbBugPatterns || DEFAULT_BUG_PATTERNS; }
+function getSmellPatterns() { return dbSmellPatterns || DEFAULT_CODE_SMELL; }
+
+// ── Analysis functions ──────────────────────────────────────────────────
+
 function analyzeComplexity(code, language) {
   const findings = [];
-  for (const [name, config] of Object.entries(TIME_COMPLEXITY_PATTERNS)) {
+  for (const [name, config] of Object.entries(getTimePatterns())) {
     if (config.pattern && config.pattern.test(code)) {
       findings.push({ type: "complexity", name, ...config });
     }
@@ -42,7 +131,7 @@ function analyzeComplexity(code, language) {
 
 function detectBugs(code, language) {
   const findings = [];
-  for (const [name, config] of Object.entries(BUG_PATTERNS)) {
+  for (const [name, config] of Object.entries(getBugPatterns())) {
     if (config.pattern && config.pattern.test(code)) {
       findings.push({ type: "bug", name, severity: config.severity, message: config.message });
     }
@@ -53,10 +142,11 @@ function detectBugs(code, language) {
 function detectCodeSmells(code, language) {
   const findings = [];
   const lines = code.split("\n");
+  const smells = getSmellPatterns();
   const longFunctions = countFunctionLength(code, language);
   for (const fn of longFunctions) {
-    if (fn.lines > CODE_SMELL_PATTERNS.long_function.threshold) {
-      findings.push({ type: "smell", name: "long_function", message: `Function "${fn.name}" is ${fn.lines} lines long. ${CODE_SMELL_PATTERNS.long_function.message}` });
+    if (fn.lines > smells.long_function.threshold) {
+      findings.push({ type: "smell", name: "long_function", message: `Function "${fn.name}" is ${fn.lines} lines long. ${smells.long_function.message}` });
     }
   }
 
@@ -73,14 +163,14 @@ function detectCodeSmells(code, language) {
       }
     }
   }
-  if (maxDepth >= CODE_SMELL_PATTERNS.deep_nesting.threshold) {
-    findings.push({ type: "smell", name: "deep_nesting", message: CODE_SMELL_PATTERNS.deep_nesting.message });
+  if (maxDepth >= smells.deep_nesting.threshold) {
+    findings.push({ type: "smell", name: "deep_nesting", message: smells.deep_nesting.message });
   }
 
-  if (CODE_SMELL_PATTERNS.magic_numbers.pattern) {
-    const matches = code.match(CODE_SMELL_PATTERNS.magic_numbers.pattern);
+  if (smells.magic_numbers.pattern) {
+    const matches = code.match(smells.magic_numbers.pattern);
     if (matches) {
-      findings.push({ type: "smell", name: "magic_numbers", message: CODE_SMELL_PATTERNS.magic_numbers.message });
+      findings.push({ type: "smell", name: "magic_numbers", message: smells.magic_numbers.message });
     }
   }
 
@@ -139,11 +229,12 @@ function analyzeStudentCode(code, language) {
 }
 
 module.exports = {
+  loadFromDB,
   analyzeStudentCode,
   analyzeComplexity,
   detectBugs,
   detectCodeSmells,
-  TIME_COMPLEXITY_PATTERNS,
-  BUG_PATTERNS,
-  CODE_SMELL_PATTERNS,
+  DEFAULT_TIME_COMPLEXITY,
+  DEFAULT_BUG_PATTERNS,
+  DEFAULT_CODE_SMELL,
 };

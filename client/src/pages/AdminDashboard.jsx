@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import {
   fetchAdminUsers, fetchAdminStats, updateAdminUserRole, fetchAdminLogs,
   createAdminUser, deleteAdminUser,
@@ -14,7 +14,23 @@ import Icon from '../components/ui/Icon.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
 import { ADMIN_TABS } from '../navigation';
 import { SOLUTION_VARIANTS } from '../constants';
-import { AdminErrorBoundary, DashboardTab, UsersTab, CoursesTab, ProblemsTab, CompilerTab, AITab, AuditTab, SecurityTab, SettingsTab, NotificationsTab, PermissionsTab } from './admin/index.js';
+import { AdminErrorBoundary } from './admin/index.js';
+
+const DashboardTab = lazy(() => import('./admin/DashboardTab.jsx'));
+const UsersTab = lazy(() => import('./admin/UsersTab.jsx'));
+const CoursesTab = lazy(() => import('./admin/CoursesTab.jsx'));
+const ProblemsTab = lazy(() => import('./admin/ProblemsTab.jsx'));
+const CompilerTab = lazy(() => import('./admin/CompilerTab.jsx'));
+const AITab = lazy(() => import('./admin/AITab.jsx'));
+const AuditTab = lazy(() => import('./admin/AuditTab.jsx'));
+const SecurityTab = lazy(() => import('./admin/SecurityTab.jsx'));
+const SettingsTab = lazy(() => import('./admin/SettingsTab.jsx'));
+const NotificationsTab = lazy(() => import('./admin/NotificationsTab.jsx'));
+const PermissionsTab = lazy(() => import('./admin/PermissionsTab.jsx'));
+
+function TabSkeleton() {
+  return <div className="space-y-4 p-4"><div className="h-8 bg-surface-container-low rounded w-1/3 animate-pulse" /><div className="h-40 bg-surface-container-low rounded animate-pulse" /></div>;
+}
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState('dashboard');
@@ -282,17 +298,19 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {tab === 'dashboard' && <DashboardTab stats={stats} recentLogs={recentLogs} loading={loading} />}
-        {tab === 'users' && <UsersTab users={users} userPage={userPage} userTotalPages={userTotalPages} userSearch={userSearch} setUserSearch={setUserSearch} setUserPage={setUserPage} onSearch={loadUsers} onAdd={handleCreateUser} onDelete={handleDeleteUser} onRoleChange={handleRoleChange} loading={loading} />}
-        {tab === 'courses' && <CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} />}
-        {tab === 'problems' && <ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} />}
-        {tab === 'compiler' && <CompilerTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-        {tab === 'ai' && <AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-        {tab === 'audit' && <AuditTab auditLogs={auditLogs} auditPage={auditPage} auditTotalPages={auditTotalPages} setAuditPage={setAuditPage} logFilter={logFilter} setLogFilter={setLogFilter} onFilter={loadAuditLogs} loading={loading} />}
-        {tab === 'security' && <SecurityTab secOverview={secOverview} failedLogins={failedLogins} onForceLogout={handleForceLogout} loading={loading} />}
-        {tab === 'settings' && <SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-        {tab === 'notifications' && <NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} />}
-        {tab === 'permissions' && <PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} />}
+        <Suspense fallback={<TabSkeleton />}>
+          {tab === 'dashboard' && <DashboardTab stats={stats} recentLogs={recentLogs} loading={loading} />}
+          {tab === 'users' && <UsersTab users={users} userPage={userPage} userTotalPages={userTotalPages} userSearch={userSearch} setUserSearch={setUserSearch} setUserPage={setUserPage} onSearch={loadUsers} onAdd={handleCreateUser} onDelete={handleDeleteUser} onRoleChange={handleRoleChange} loading={loading} />}
+          {tab === 'courses' && <CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} />}
+          {tab === 'problems' && <ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} />}
+          {tab === 'compiler' && <CompilerTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
+          {tab === 'ai' && <AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
+          {tab === 'audit' && <AuditTab auditLogs={auditLogs} auditPage={auditPage} auditTotalPages={auditTotalPages} setAuditPage={setAuditPage} logFilter={logFilter} setLogFilter={setLogFilter} onFilter={loadAuditLogs} loading={loading} />}
+          {tab === 'security' && <SecurityTab secOverview={secOverview} failedLogins={failedLogins} onForceLogout={handleForceLogout} loading={loading} />}
+          {tab === 'settings' && <SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
+          {tab === 'notifications' && <NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} />}
+          {tab === 'permissions' && <PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} />}
+        </Suspense>
       </div>
     </AdminErrorBoundary>
   );

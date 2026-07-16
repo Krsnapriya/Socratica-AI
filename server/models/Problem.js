@@ -1,12 +1,12 @@
 const mongoose = require("mongoose");
 
 const problemSchema = new mongoose.Schema({
-  problemId: { type: String, required: true, unique: true, index: true },
+  problemId: { type: String, required: true, unique: true },
   title: { type: String, required: true },
   statement: { type: String, required: true },
   description: { type: String, default: "" },
   category: { type: String, default: "General" },
-  difficulty: { type: String, required: true, enum: ["easy", "medium", "hard"] },
+  difficulty: { type: String, required: true },
   tags: { type: [String], default: [] },
   estimatedMinutes: { type: Number, default: 30 },
   timeLimitMs: { type: Number, default: 8000 },
@@ -32,7 +32,7 @@ const problemSchema = new mongoose.Schema({
     type: Map,
     of: {
       driverCode: { type: String },
-      wrapperType: { type: String, enum: ["function_call", "stdin_stdout", "custom"], default: "function_call" },
+      wrapperType: { type: String, default: "function_call" },
       functionName: { type: String, default: "" },
     },
     default: {},

@@ -18,7 +18,7 @@ const weakAreaSchema = new mongoose.Schema({
 });
 
 const learningPathSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
   weakAreas: [weakAreaSchema],
   recommendations: [recommendationSchema],
   strengths: [{ type: String }],

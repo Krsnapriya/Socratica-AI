@@ -1,18 +1,17 @@
 const mongoose = require("mongoose");
 
 const submissionSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   problemId: { type: String, required: true, index: true },
-  sessionId: { type: String, required: true, index: true },
+  sessionId: { type: String, required: true },
   code: { type: String, required: true },
-  language: { type: String, required: true, enum: ["python", "cpp", "javascript"] },
+  language: { type: String, required: true },
   round: { type: Number, required: true, min: 1, max: 5 },
   verdict: {
     type: String,
     required: true,
-    enum: ["pass", "fail", "compile_error", "timeout", "memory_exceeded", "recursion_limit_exceeded", "system_judge_error"],
   },
-  tier: { type: Number, enum: [1, 2] },
+  tier: { type: Number },
   traceLog: { type: mongoose.Schema.Types.Mixed },
   divergenceStep: { type: Number },
   tier2Result: {
@@ -46,7 +45,6 @@ const submissionSchema = new mongoose.Schema({
   diffOutput: { type: String },
   executionMode: {
     type: String,
-    enum: ["run", "samples", "submit"],
     default: "submit",
   },
   customInputUsed: { type: Boolean, default: false },

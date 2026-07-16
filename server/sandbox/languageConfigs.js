@@ -1,4 +1,4 @@
-const config = require("../config");
+const { config } = require("../configLoader");
 
 const LANGUAGE_CONFIGS = {};
 for (const [lang, cfg] of Object.entries(config.sandbox.languages)) {

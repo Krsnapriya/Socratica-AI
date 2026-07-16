@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from '../../components/ui/Icon.jsx';
-import { CATEGORIES, DIFFICULTIES, LANGUAGE_IDS, SOLUTION_VARIANTS, DIFFICULTY_STYLES } from '../../constants';
+import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
+import { CATEGORIES as FALLBACK_CATEGORIES, DIFFICULTIES, LANGUAGE_IDS as FALLBACK_LANG_IDS, SOLUTION_VARIANTS, DIFFICULTY_STYLES } from '../../constants';
 import { SkeletonTable } from './Skeletons.jsx';
 import { Modal, FormActions, EditDeleteButtons } from './AdminUI.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -8,6 +9,9 @@ import ConfirmModal from './ConfirmModal.jsx';
 export default function ProblemsTab({ problems, editingProblem, setEditingProblem, refSolutions, editingRefSol, setEditingRefSol, showRefSolPanel, setShowRefSolPanel, onSaveProblem, onDeleteProblem, onSaveRefSol, onDeleteRefSol, loading }) {
   const [confirmProblemId, setConfirmProblemId] = useState(null);
   const [confirmRefSolId, setConfirmRefSolId] = useState(null);
+  const pc = usePublicConfig();
+  const categories = pc?.topics?.filter(t => t.category === 'fundamentals' || t.category === 'algorithms' || t.category === 'data_structures')?.map(t => t.name) || FALLBACK_CATEGORIES;
+  const languageIds = pc?.languages?.map(l => l.id) || FALLBACK_LANG_IDS;
 
   if (loading) return <SkeletonTable rows={5} cols={4} colSpan={5} />;
 
@@ -46,7 +50,7 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
               <div className="flex gap-3">
                 <select name="category" defaultValue={editingProblem.category || ''} required className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
                   <option value="">Category</option>
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  {categories.map(c => <option key={c}>{c}</option>)}
                 </select>
                 <select name="difficulty" defaultValue={editingProblem.difficulty || ''} required className="w-32 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
                   <option value="">Difficulty</option>
@@ -55,12 +59,12 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
                 <input name="tags" defaultValue={(editingProblem.tags || []).join(', ')} placeholder="Tags (comma sep)" className="flex-1 bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono" />
               </div>
               <details className="border border-outline-variant rounded-lg"><summary className="px-3 py-2 cursor-pointer font-mono text-xs text-on-surface-variant hover:text-on-surface">Starter Code</summary>
-                <div className="p-3 space-y-2">{LANGUAGE_IDS.map(lang => (
+                <div className="p-3 space-y-2">{languageIds.map(lang => (
                   <textarea key={lang} name={`${lang}_starter`} defaultValue={editingProblem.starterCode?.[lang] || ''} placeholder={`${lang} starter code`} rows={2} className="w-full bg-surface-container border border-outline-variant rounded px-3 py-2 text-xs font-mono text-on-surface" />
                 ))}</div>
               </details>
               <details className="border border-outline-variant rounded-lg"><summary className="px-3 py-2 cursor-pointer font-mono text-xs text-on-surface-variant hover:text-on-surface">Oracle Solutions</summary>
-                <div className="p-3 space-y-2">{LANGUAGE_IDS.map(lang => (
+                <div className="p-3 space-y-2">{languageIds.map(lang => (
                   <textarea key={lang} name={`${lang}_oracle`} defaultValue={editingProblem.oracleSolutions?.[lang] || ''} placeholder={`${lang} oracle`} rows={2} className="w-full bg-surface-container border border-outline-variant rounded px-3 py-2 text-xs font-mono text-on-surface" />
                 ))}</div>
               </details>

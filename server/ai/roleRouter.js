@@ -1,7 +1,9 @@
 // Role Router — determines which agents handle requests based on user role + context
-const config = require("../config");
+// Reads from DB (AgentRoute collection) with fallback to hardcoded defaults.
+const { config } = require("../configLoader");
 
-const AGENT_ROUTES = {
+// ── Hardcoded defaults ──────────────────────────────────────────────────
+const DEFAULT_AGENT_ROUTES = {
   guest: {
     chat: ["guestTutor"],
     "code-review": ["guestTutor"],
@@ -55,8 +57,86 @@ const AGENT_ROUTES = {
   },
 };
 
+const DEFAULT_GATES = {
+  oracleSolution: ["student", "guest"],
+  hiddenTests: ["student", "guest", "instructor"],
+  studentEmail: ["guest"],
+  submissionHistory: ["guest"],
+  aiMemory: ["guest"],
+  systemMetrics: ["guest", "student", "instructor"],
+  securityLogs: ["guest", "student", "instructor", "admin"],
+  costData: ["guest", "student", "instructor"],
+};
+
+// ── DB cache ────────────────────────────────────────────────────────────
+let dbRoutes = null;
+let dbGates = null;
+let dbCacheTimestamp = 0;
+const DB_CACHE_TTL = 60000;
+
+async function loadFromDB() {
+  const now = Date.now();
+  if (dbRoutes && now - dbCacheTimestamp < DB_CACHE_TTL) return;
+
+  try {
+    const mongoose = require("mongoose");
+    if (mongoose.connection.readyState !== 1) {
+      dbCacheTimestamp = now;
+      dbRoutes = DEFAULT_AGENT_ROUTES;
+      dbGates = DEFAULT_GATES;
+      return;
+    }
+
+    const AgentRoute = require("../models/AgentRoute");
+    const routes = await AgentRoute.find({ isActive: true }).lean();
+
+    if (routes.length === 0) {
+      dbCacheTimestamp = now;
+      dbRoutes = DEFAULT_AGENT_ROUTES;
+      dbGates = DEFAULT_GATES;
+      return;
+    }
+
+    // Build routes map from DB
+    const routesMap = {};
+    let gatesFromDB = null;
+
+    for (const route of routes) {
+      if (!routesMap[route.role]) routesMap[route.role] = {};
+      routesMap[route.role][route.action] = route.agents;
+      if (route.gates && !gatesFromDB) gatesFromDB = route.gates;
+    }
+
+    // Merge with defaults (DB overrides, defaults fill gaps)
+    for (const [role, actions] of Object.entries(DEFAULT_AGENT_ROUTES)) {
+      if (!routesMap[role]) routesMap[role] = {};
+      for (const [action, agents] of Object.entries(actions)) {
+        if (!routesMap[role][action]) routesMap[role][action] = agents;
+      }
+    }
+
+    dbCacheTimestamp = now;
+    dbRoutes = routesMap;
+    dbGates = gatesFromDB || DEFAULT_GATES;
+  } catch {
+    dbCacheTimestamp = now;
+    dbRoutes = DEFAULT_AGENT_ROUTES;
+    dbGates = DEFAULT_GATES;
+  }
+}
+
+function getRoutes() {
+  return dbRoutes || DEFAULT_AGENT_ROUTES;
+}
+
+function getGates() {
+  return dbGates || DEFAULT_GATES;
+}
+
+// ── Public API ──────────────────────────────────────────────────────────
+
 function getAgentsForRequest(role, action, context = {}) {
-  const roleRoutes = AGENT_ROUTES[role] || AGENT_ROUTES.student;
+  const roleRoutes = getRoutes()[role] || getRoutes().student;
 
   if (context.executionResult?.error === "compile_error") return roleRoutes.compile_error || roleRoutes.default;
   if (context.executionResult?.error === "runtime_error") return roleRoutes.runtime_error || roleRoutes.default;
@@ -69,16 +149,7 @@ function getAgentsForRequest(role, action, context = {}) {
 }
 
 function shouldGateContent(role, contentType) {
-  const gates = {
-    oracleSolution: ["student", "guest"],
-    hiddenTests: ["student", "guest", "instructor"],
-    studentEmail: ["guest"],
-    submissionHistory: ["guest"],
-    aiMemory: ["guest"],
-    systemMetrics: ["guest", "student", "instructor"],
-    securityLogs: ["guest", "student", "instructor", "admin"],
-    costData: ["guest", "student", "instructor"],
-  };
+  const gates = getGates();
   const blocked = gates[contentType] || [];
   return blocked.includes(role);
 }
@@ -112,4 +183,4 @@ function getPersonaStyle(role, userContext = {}) {
   return { tone: "mentoring", detail: "moderate" };
 }
 
-module.exports = { getAgentsForRequest, shouldGateContent, getRateLimit, getPersonaStyle, AGENT_ROUTES };
+module.exports = { loadFromDB, getAgentsForRequest, shouldGateContent, getRateLimit, getPersonaStyle, DEFAULT_AGENT_ROUTES };

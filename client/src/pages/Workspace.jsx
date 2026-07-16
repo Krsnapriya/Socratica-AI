@@ -302,12 +302,17 @@ export default function Workspace() {
             <div className="flex-1 min-h-0">
               <Editor
                 height="100%"
-                theme="vs-dark"
+                theme={(() => {
+                  const t = user?.preferences?.theme || 'Socratica Dark';
+                  if (t.includes('Light')) return 'vs';
+                  if (t.includes('High Contrast')) return 'hc-black';
+                  return 'vs-dark';
+                })()}
                 language={lang === 'cpp' ? 'cpp' : lang === 'javascript' ? 'javascript' : 'python'}
                 value={code}
                 onChange={val => setCode(val || '')}
                 options={{
-                  fontSize: 14,
+                  fontSize: parseInt(user?.preferences?.fontSize) || 14,
                   fontFamily: 'JetBrains Mono, monospace',
                   minimap: { enabled: false },
                   lineNumbers: 'on',
@@ -315,6 +320,7 @@ export default function Workspace() {
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
                   padding: { top: 12 },
+                  tabSize: parseInt(user?.preferences?.tabSize) || 4,
                 }}
               />
             </div>

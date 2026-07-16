@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema({
-  type: { type: String, enum: ["broadcast", "info", "warning", "announcement"], default: "broadcast" },
+  type: { type: String, default: "broadcast" },
   title: { type: String, required: true },
   message: { type: String, required: true },
-  audience: { type: String, enum: ["all", "students", "instructors", "admins"], default: "all" },
+  audience: { type: String, default: "all" },
   link: { type: String },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   active: { type: Boolean, default: true },

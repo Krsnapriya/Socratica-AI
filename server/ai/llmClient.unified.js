@@ -1,23 +1,52 @@
 // Unified LLM Client — single source of truth for all AI calls
-const config = require("../config");
+const { config } = require("../configLoader");
+const redis = require("../redis");
 
 const NVIDIA_URL = process.env.NVIDIA_API_URL || `${config.llm.baseUrl}/chat/completions`;
 const API_KEY = process.env.NVIDIA_API_KEY || process.env.OPENROUTER_API_KEY || "";
 const DEFAULT_MODEL = process.env.LLM_MODEL || config.llm.model;
 
-// ── Circuit Breaker ─────────────────────────────────────────────────────────
-const cb = { failures: 0, openedAt: 0, threshold: config.llm.circuitBreaker.threshold, resetMs: config.llm.circuitBreaker.resetMs };
+// ── Circuit Breaker (Redis-backed) ─────────────────────────────────────────
+const cbThreshold = config.llm.circuitBreaker.threshold;
+const cbResetMs = config.llm.circuitBreaker.resetMs;
+const CB_FAILURES_KEY = "cb:failures";
+const CB_OPENED_KEY = "cb:openedAt";
 
-function cbIsOpen() {
-  if (cb.failures < cb.threshold) return false;
-  if (Date.now() - cb.openedAt > cb.resetMs) { cb.failures = 0; return false; }
+// In-memory fallback for circuit breaker
+const cbMem = { failures: 0, openedAt: 0 };
+
+async function cbIsOpen() {
+  if (redis.isConnected()) {
+    const failures = parseInt(await redis.get(CB_FAILURES_KEY)) || 0;
+    const openedAt = parseInt(await redis.get(CB_OPENED_KEY)) || 0;
+    if (failures < cbThreshold) return false;
+    if (Date.now() - openedAt > cbResetMs) { await redis.del(CB_FAILURES_KEY); return false; }
+    return true;
+  }
+  // In-memory fallback
+  if (cbMem.failures < cbThreshold) return false;
+  if (Date.now() - cbMem.openedAt > cbResetMs) { cbMem.failures = 0; return false; }
   return true;
 }
 
-function cbRecordSuccess() { cb.failures = 0; }
-function cbRecordFailure() {
-  cb.failures++;
-  if (cb.failures >= cb.threshold) cb.openedAt = Date.now();
+async function cbRecordSuccess() {
+  if (redis.isConnected()) {
+    await redis.del(CB_FAILURES_KEY);
+  } else {
+    cbMem.failures = 0;
+  }
+}
+
+async function cbRecordFailure() {
+  if (redis.isConnected()) {
+    const failures = await redis.incr(CB_FAILURES_KEY, cbResetMs);
+    if (failures >= cbThreshold) {
+      await redis.set(CB_OPENED_KEY, Date.now().toString(), cbResetMs);
+    }
+  } else {
+    cbMem.failures++;
+    if (cbMem.failures >= cbThreshold) cbMem.openedAt = Date.now();
+  }
 }
 
 // ── Response Safety ─────────────────────────────────────────────────────────
@@ -47,10 +76,12 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
-// ── Response Cache ──────────────────────────────────────────────────────────
-const cache = new Map();
+// ── Response Cache (Redis-backed with in-memory fallback) ────────────────────
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const CACHE_MAX = 200;
+
+// In-memory fallback cache
+const memCache = new Map();
 
 function cacheKey(system, user) {
   let h = 0;
@@ -59,19 +90,27 @@ function cacheKey(system, user) {
   return h.toString(36);
 }
 
-function cacheGet(key) {
-  const entry = cache.get(key);
+async function cacheGet(key) {
+  if (redis.isConnected()) {
+    const raw = await redis.get(`cache:${key}`);
+    return raw ? JSON.parse(raw) : null;
+  }
+  const entry = memCache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) { cache.delete(key); return null; }
+  if (Date.now() - entry.ts > CACHE_TTL) { memCache.delete(key); return null; }
   return entry.value;
 }
 
-function cacheSet(key, value) {
-  if (cache.size >= CACHE_MAX) {
-    const oldest = cache.keys().next().value;
-    cache.delete(oldest);
+async function cacheSet(key, value) {
+  if (redis.isConnected()) {
+    await redis.set(`cache:${key}`, JSON.stringify(value), CACHE_TTL);
+    return;
   }
-  cache.set(key, { value, ts: Date.now() });
+  if (memCache.size >= CACHE_MAX) {
+    const oldest = memCache.keys().next().value;
+    memCache.delete(oldest);
+  }
+  memCache.set(key, { value, ts: Date.now() });
 }
 
 // ── Main Call Function ──────────────────────────────────────────────────────
@@ -90,7 +129,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
     return { text: "", error: "No LLM API key configured", cached: false, tokens: { in: 0, out: 0 } };
   }
 
-  if (cbIsOpen()) {
+  if (await cbIsOpen()) {
     return { text: "", error: "Circuit breaker open — LLM temporarily unavailable", cached: false, tokens: { in: 0, out: 0 } };
   }
 
@@ -102,7 +141,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
 
   if (useCache) {
     const key = cacheKey(systemContent, userContent);
-    const cached = cacheGet(key);
+    const cached = await cacheGet(key);
     if (cached) return { ...cached, cached: true };
   }
 
@@ -146,7 +185,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
         text = "I can help you think through this problem. What approach are you considering?";
       }
 
-      cbRecordSuccess();
+      await cbRecordSuccess();
       const result = {
         text,
         cached: false,
@@ -157,7 +196,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
 
       if (useCache) {
         const key = cacheKey(systemContent, userContent);
-        cacheSet(key, result);
+        await cacheSet(key, result);
       }
 
       return result;
@@ -170,7 +209,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
     }
   }
 
-  cbRecordFailure();
+  await cbRecordFailure();
   return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 } };
 }
 
@@ -189,7 +228,7 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
     return { text: "", error: "No LLM API key configured", cached: false, tokens: { in: 0, out: 0 } };
   }
 
-  if (cbIsOpen()) {
+  if (await cbIsOpen()) {
     return { text: "", error: "Circuit breaker open", cached: false, tokens: { in: 0, out: 0 } };
   }
 
@@ -233,7 +272,7 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
         text = "I can help you think through this. What have you tried so far?";
       }
 
-      cbRecordSuccess();
+      await cbRecordSuccess();
       return { text, cached: false, tokens: { in: inputTokens, out: outTokens }, model: data.model || model };
     } catch (err) {
       lastErr = err;
@@ -241,17 +280,25 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
     }
   }
 
-  cbRecordFailure();
+  await cbRecordFailure();
   return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 } };
 }
 
 // ── Health Check ────────────────────────────────────────────────────────────
-function getClientStatus() {
+async function getClientStatus() {
+  const cbFailures = redis.isConnected()
+    ? parseInt(await redis.get(CB_FAILURES_KEY)) || 0
+    : cbMem.failures;
+  const cbIsOpenNow = await cbIsOpen();
+  const cacheSize = redis.isConnected()
+    ? "?" // Redis manages its own memory
+    : memCache.size;
+
   return {
     hasApiKey: !!API_KEY,
     model: DEFAULT_MODEL,
-    circuitBreaker: { failures: cb.failures, isOpen: cbIsOpen(), threshold: cb.threshold },
-    cacheSize: cache.size,
+    circuitBreaker: { failures: cbFailures, isOpen: cbIsOpenNow, threshold: cbThreshold },
+    cacheSize,
   };
 }
 
@@ -288,10 +335,7 @@ function getLLMClient() {
   return {
     model: DEFAULT_MODEL,
     chat: async (systemPrompt, userPrompt) => {
-      const result = await callLLM([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ]);
+      const result = await callLLM(systemPrompt, userPrompt);
       return result.text;
     },
     chatWithHistory: async (messages) => {

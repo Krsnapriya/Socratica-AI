@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
   displayName: { type: String, default: "" },
   bio: { type: String, default: "" },
@@ -15,9 +15,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["super_admin", "admin", "instructor", "student", "guest"],
-    default: "student",
-    index: true
+    default: "student"
   },
   emailVerified: { type: Boolean, default: false, index: true },
   emailVerifyToken: { type: String, index: true },

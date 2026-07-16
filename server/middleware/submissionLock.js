@@ -1,23 +1,27 @@
 // submissionLock.js
 // Prevents concurrent submissions for the same sessionId to avoid race conditions.
+// Uses Redis when available, falls back to in-memory Set.
 
-const activeSessions = new Set();
+const redis = require("../redis");
 
-function submissionLock(req, res, next) {
+const LOCK_TTL_MS = 30000; // auto-expire after 30s
+
+async function submissionLock(req, res, next) {
   const { sessionId } = req.body;
   if (!sessionId) {
     return next();
   }
 
-  if (activeSessions.has(sessionId)) {
+  const lockKey = `lock:${sessionId}`;
+  const acquired = await redis.setNX(lockKey, "1", LOCK_TTL_MS);
+
+  if (!acquired) {
     return res.status(429).json({ error: "Another submission is already in progress for this session." });
   }
 
-  activeSessions.add(sessionId);
-
   // Helper function to safely release the lock
   res.releaseLock = () => {
-    activeSessions.delete(sessionId);
+    redis.del(lockKey).catch(() => {});
   };
 
   // Ensure lock is released on completion or failure

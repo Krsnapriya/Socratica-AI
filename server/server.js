@@ -25,6 +25,11 @@ const aiRoutes = require("./routes/ai");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const cookieParser = require("cookie-parser");
 const { csrfProtection, csrfToken } = require("./middleware/csrf");
+const configLoader = require("./configLoader");
+const knowledgeGraph = require("./ai/knowledgeGraph");
+const roleRouter = require("./ai/roleRouter");
+const codeAnalyzer = require("./ai/codeAnalyzer");
+const oracleComparator = require("./ai/oracleComparator");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +51,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:4173'],
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173'],
   credentials: true,
 }));
 app.use(cookieParser());
@@ -76,12 +81,27 @@ app.use("/api/courses", coursesRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-app.get(["/api/health", "/health"], (_req, res) => {
+app.get(["/api/health", "/health"], async (_req, res) => {
   const dbState = ["disconnected", "connected", "connecting", "disconnecting"];
-  res.json({
-    status: "ok",
-    mongo: dbState[mongoose.connection.readyState] || "unknown",
+  const mongoStatus = dbState[mongoose.connection.readyState] || "unknown";
+  const redisOk = require("./redis").isConnected();
+
+  let mongoPing = false;
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.db.admin().ping();
+      mongoPing = true;
+    }
+  } catch (_) {}
+
+  const healthy = mongoPing && mongoStatus === "connected";
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? "ok" : "degraded",
+    mongo: mongoStatus,
+    mongoPing,
+    redis: redisOk ? "connected" : "in-memory",
     uptime: process.uptime().toFixed(1) + "s",
+    pid: process.pid,
   });
 });
 
@@ -94,6 +114,16 @@ if (Sentry.setupExpressErrorHandler) {
 app.use("/api/*", (_req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
+
+const path = require("path");
+const fs = require("fs");
+const clientDist = path.join(__dirname, "../client/dist");
+if (process.env.NODE_ENV === "production" && fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
 
 let cachedDb = null;
 async function connectDB() {
@@ -108,15 +138,40 @@ async function connectDB() {
   return cachedDb;
 }
 
-// Auto-seed permissions and configs on first run
+// Auto-seed permissions, configs, roles, languages, topics, prompts, patterns, routes on first run
 let seeded = false;
 async function autoSeed() {
   if (seeded) return;
   seeded = true;
   try {
     await connectDB();
+
+    // Load config from DB (so admin changes take effect)
+    await configLoader.loadFromDB();
+    console.log("[server] Config loaded from DB");
+
+    // Load knowledge graph from DB
+    await knowledgeGraph.loadFromDB();
+    console.log("[server] Knowledge graph loaded from DB");
+
+    // Load AI subsystem configs from DB
+    await roleRouter.loadFromDB();
+    console.log("[server] Role router loaded from DB");
+
+    await codeAnalyzer.loadFromDB();
+    console.log("[server] Code analyzer loaded from DB");
+
+    await oracleComparator.loadFromDB();
+    console.log("[server] Oracle comparator loaded from DB");
+
     const Permission = require("./models/Permission");
     const SystemConfig = require("./models/SystemConfig");
+    const Role = require("./models/Role");
+    const Language = require("./models/Language");
+    const Topic = require("./models/Topic");
+    const AIPrompt = require("./models/AIPrompt");
+
+    // Seed permissions
     const newResources = ["users", "courses", "modules", "problems", "permissions", "analytics", "audit_logs"];
     const hasNew = await Permission.countDocuments({ resource: { $in: newResources } });
     if (hasNew === 0) {
@@ -124,26 +179,112 @@ async function autoSeed() {
       await Permission.deleteMany({});
       await require("./seedPermissions")();
     }
+
+    // Seed SystemConfig
     const cfgCount = await SystemConfig.countDocuments();
     if (cfgCount === 0) {
       console.log("[server] No system configs found — seeding defaults...");
       const { seedConfigs } = require("./seedPermissions");
       await seedConfigs();
     }
+
+    // Seed Roles
+    const roleCount = await Role.countDocuments();
+    if (roleCount === 0) {
+      console.log("[server] No roles found — seeding defaults...");
+      await require("./seedRoles")();
+    }
+
+    // Seed Languages
+    const langCount = await Language.countDocuments();
+    if (langCount === 0) {
+      console.log("[server] No languages found — seeding defaults...");
+      await require("./seedLanguages")();
+    }
+
+    // Seed Topics (knowledge graph)
+    const topicCount = await Topic.countDocuments();
+    if (topicCount === 0) {
+      console.log("[server] No topics found — seeding defaults...");
+      await require("./seedTopics")();
+      await knowledgeGraph.loadFromDB(); // reload after seed
+    }
+
+    // Seed AI Prompts
+    const promptCount = await AIPrompt.countDocuments();
+    if (promptCount === 0) {
+      console.log("[server] No AI prompts found — seeding defaults...");
+      await require("./seedAIPrompts")();
+    }
+
+    // Seed Analysis Patterns
+    const AnalysisPattern = require("./models/AnalysisPattern");
+    const patternCount = await AnalysisPattern.countDocuments();
+    if (patternCount === 0) {
+      console.log("[server] No analysis patterns found — seeding defaults...");
+      await require("./seedAnalysisPatterns")();
+    }
+
+    // Seed Agent Routes
+    const AgentRoute = require("./models/AgentRoute");
+    const routeCount = await AgentRoute.countDocuments();
+    if (routeCount === 0) {
+      console.log("[server] No agent routes found — seeding defaults...");
+      await require("./seedAgentRoutes")();
+    }
+
+    // Reload AI subsystem caches after all seeds
+    await roleRouter.loadFromDB();
+    await codeAnalyzer.loadFromDB();
+    await oracleComparator.loadFromDB();
+    console.log("[server] All AI subsystem configs reloaded");
+
   } catch (err) {
     console.warn("[server] Auto-seed error:", err.message);
   }
 }
-
-
 
 // Only listen when run directly
 if (require.main === module || !process.env.VERCEL) {
   (async () => {
     await connectDB();
     await autoSeed();
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`[server] Listening on http://localhost:${PORT}`);
+    });
+
+    // Graceful shutdown
+    let shuttingDown = false;
+    async function shutdown(signal) {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.log(`\n[server] ${signal} received — shutting down gracefully...`);
+
+      server.close(async () => {
+        console.log("[server] HTTP server closed");
+        try {
+          await mongoose.connection.close(false);
+          console.log("[server] MongoDB connection closed");
+        } catch (_) {}
+        try {
+          const redis = require("./redis");
+          if (redis.disconnect) redis.disconnect();
+        } catch (_) {}
+        console.log("[server] Cleanup complete — exiting");
+        process.exit(0);
+      });
+
+      // Force kill after 10s
+      setTimeout(() => {
+        console.error("[server] Forced shutdown after timeout");
+        process.exit(1);
+      }, 10000).unref();
+    }
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("unhandledRejection", (err) => {
+      console.error("[server] Unhandled rejection:", err);
     });
   })();
 }

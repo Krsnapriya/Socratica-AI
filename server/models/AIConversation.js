@@ -8,8 +8,8 @@ const messageSchema = new mongoose.Schema({
 });
 
 const aiConversationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  sessionId: { type: String, required: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  sessionId: { type: String, required: true },
   topic: { type: String, default: "general" },
   messages: [messageSchema],
   metadata: {

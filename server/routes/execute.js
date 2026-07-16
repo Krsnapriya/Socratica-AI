@@ -5,7 +5,7 @@ const { validate } = require("../middleware/validate");
 const { compilerLimiter } = require("../middleware/rateLimiter");
 const submissionLock = require("../middleware/submissionLock");
 const { runCode, runSamples, submitSolution } = require("../engine/execute");
-const config = require("../config");
+const { config } = require("../configLoader");
 
 const router = express.Router();
 

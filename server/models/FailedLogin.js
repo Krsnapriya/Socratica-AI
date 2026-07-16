@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 
 const failedLoginSchema = new mongoose.Schema({
-  email: { type: String, required: true, index: true },
+  email: { type: String, required: true },
   ip: { type: String, required: true },
   userAgent: { type: String },
   reason: { type: String, default: "invalid_password" },
-  timestamp: { type: Date, default: Date.now, index: true },
+  timestamp: { type: Date, default: Date.now },
 }, { timestamps: false });
 
 failedLoginSchema.index({ timestamp: -1 });

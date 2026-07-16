@@ -1,4 +1,4 @@
-const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver } = require("./sandbox");
+const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback } = require("./sandbox");
 const { isCompileError, formatCompileError } = require("../sandbox/compileErrorHandler");
 const { analyzeTraces } = require("../tracer/traceAligner");
 const { getAIResponse } = require("../ai/orchestrator");
@@ -49,6 +49,26 @@ async function runCode({ code, language, customInput, problemId }) {
       steps: result.steps || 0,
     };
   } catch (err) {
+    if (err.message === "system_judge_error") {
+      // Docker unavailable — fallback to local execution
+      const result = await runFallback({
+        code: codeWithDriver,
+        language,
+        stdin: customInput || "",
+        timeLimitMs: problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs,
+      });
+      return {
+        mode: "run",
+        stdout: result.stdout || "",
+        stderr: "",
+        error: result.error || null,
+        elapsed_ms: result.elapsed_ms || 0,
+        max_memory_bytes: result.max_memory_bytes || 0,
+        exitCode: null,
+        steps: 0,
+        fallback: true,
+      };
+    }
     if (err.message === "container_timeout") {
       return { mode: "run", stdout: "", stderr: "", error: "timeout", elapsed_ms: 0, max_memory_bytes: 0, exitCode: null, steps: 0 };
     }
@@ -73,19 +93,27 @@ async function runSamples({ code, language, problemId }) {
   const driverConfig = problem.driverConfig?.get?.(language) || problem.driverConfig?.[language] || null;
   const codeWithDriver = buildStudentCodeWithDriver(code, driverConfig, language);
   const results = [];
+  let useFallback = false;
 
   for (const tc of testCases) {
     try {
-      const result = await executeInContainer({
-        code: codeWithDriver,
-        language,
-        stdin: tc.input,
-        timeLimitMs: tc.timeLimitMs || problem.timeLimitMs,
-        memoryLimitMb: tc.memoryLimitMb || problem.memoryLimitMb,
-        compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
-      });
+      const result = useFallback
+        ? await runFallback({
+            code: codeWithDriver,
+            language,
+            stdin: tc.input,
+            timeLimitMs: tc.timeLimitMs || problem.timeLimitMs,
+          })
+        : await executeInContainer({
+            code: codeWithDriver,
+            language,
+            stdin: tc.input,
+            timeLimitMs: tc.timeLimitMs || problem.timeLimitMs,
+            memoryLimitMb: tc.memoryLimitMb || problem.memoryLimitMb,
+            compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
+          });
 
-      if (isCompileError(result)) {
+      if (!useFallback && isCompileError(result)) {
         const formatted = formatCompileError(result);
         return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
       }
@@ -107,7 +135,47 @@ async function runSamples({ code, language, problemId }) {
         error: result.error || null,
       });
     } catch (err) {
-      if (err.message === "container_timeout") {
+      if (err.message === "system_judge_error") {
+        // Docker unavailable — switch to fallback for remaining tests
+        useFallback = true;
+        // Re-run this test case with fallback
+        try {
+          const result = await runFallback({
+            code: codeWithDriver,
+            language,
+            stdin: tc.input,
+            timeLimitMs: tc.timeLimitMs || problem.timeLimitMs,
+          });
+          const actualOutput = (result.stdout || "").trim();
+          const expectedOutput = (tc.expectedOutput || "").trim();
+          const passed = actualOutput === expectedOutput && actualOutput !== "";
+          results.push({
+            input: tc.input,
+            expectedOutput,
+            actualOutput,
+            passed,
+            visible: tc.visibility === "public",
+            description: tc.description || "",
+            category: tc.category || "sample",
+            elapsed_ms: result.elapsed_ms || 0,
+            max_memory_bytes: result.max_memory_bytes || 0,
+            error: result.error || null,
+          });
+        } catch (_) {
+          results.push({
+            input: tc.input,
+            expectedOutput: tc.expectedOutput || "",
+            actualOutput: "",
+            passed: false,
+            visible: tc.visibility === "public",
+            description: tc.description || "",
+            category: tc.category || "sample",
+            elapsed_ms: 0,
+            max_memory_bytes: 0,
+            error: "fallback_error",
+          });
+        }
+      } else if (err.message === "container_timeout") {
         results.push({
           input: tc.input,
           expectedOutput: tc.expectedOutput,
@@ -164,6 +232,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   const codeWithDriver = buildStudentCodeWithDriver(code, driverConfig, language);
 
   let runResult;
+  let useFallback = false;
   try {
     runResult = await executeWithOracle({
       studentCode: codeWithDriver,
@@ -174,7 +243,15 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
     });
   } catch (err) {
-    if (err.message === "container_timeout") {
+    if (err.message === "system_judge_error") {
+      // Docker unavailable — fallback: run both student and oracle separately
+      useFallback = true;
+      const [studentResult, oracleResult] = await Promise.all([
+        runFallback({ code: codeWithDriver, language, timeLimitMs: problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs }),
+        runFallback({ code: oracleCode, language, timeLimitMs: problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs }),
+      ]);
+      runResult = { student: studentResult, oracle: oracleResult };
+    } else if (err.message === "container_timeout") {
       const sub = await Submission.create({
         userId, problemId, sessionId: sId, code, language, round: roundNum,
         verdict: "timeout", tier: 2,

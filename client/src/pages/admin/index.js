@@ -1,12 +1,1 @@
-export { default as DashboardTab } from './DashboardTab.jsx';
-export { default as UsersTab } from './UsersTab.jsx';
-export { default as CoursesTab } from './CoursesTab.jsx';
-export { default as ProblemsTab } from './ProblemsTab.jsx';
-export { default as CompilerTab } from './CompilerTab.jsx';
-export { default as AITab } from './AITab.jsx';
-export { default as AuditTab } from './AuditTab.jsx';
-export { default as SecurityTab } from './SecurityTab.jsx';
-export { default as SettingsTab } from './SettingsTab.jsx';
-export { default as NotificationsTab } from './NotificationsTab.jsx';
-export { default as PermissionsTab } from './PermissionsTab.jsx';
 export { default as AdminErrorBoundary } from './AdminErrorBoundary.jsx';

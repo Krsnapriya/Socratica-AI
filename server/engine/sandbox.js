@@ -1,6 +1,6 @@
 const Docker = require("dockerode");
 const { getDockerRunArgs } = require("../sandbox/languageConfigs");
-const config = require("../config");
+const { config } = require("../configLoader");
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 const DOCKER_HOST = process.env.DOCKER_HOST || null;
@@ -14,20 +14,68 @@ try {
   console.warn("[engine] Docker unavailable:", err.message);
 }
 
-function demuxDockerStream(buffer) {
+function demuxDockerStream(buffer, streamType) {
   let offset = 0;
   const chunks = [];
-  while (offset < buffer.length) {
-    if (offset + 8 > buffer.length) break;
+  while (offset + 8 <= buffer.length) {
+    const type = buffer.readUInt8(offset);
     const size = buffer.readUInt32BE(offset + 4);
-    if (offset + 8 + size > buffer.length) {
-      chunks.push(buffer.subarray(offset + 8));
-      break;
+    const frameEnd = offset + 8 + size;
+    if (type === streamType) {
+      if (frameEnd <= buffer.length) {
+        chunks.push(buffer.subarray(offset + 8, frameEnd));
+      }
     }
-    chunks.push(buffer.subarray(offset + 8, offset + 8 + size));
-    offset += 8 + size;
+    offset = frameEnd > offset ? frameEnd : offset + 1;
   }
-  return Buffer.concat(chunks);
+  return Buffer.concat(chunks).toString("utf8").trim();
+}
+
+async function fetchContainerLogs(container) {
+  const logsBuffer = await container.logs({ stdout: true, stderr: true, follow: false, });
+  const stdoutText = demuxDockerStream(logsBuffer, 1);
+  const stderrText = demuxDockerStream(logsBuffer, 2);
+  return { stdoutText, stderrText };
+}
+
+function parseContainerOutput(stdoutText, stderrText) {
+  const candidates = [stdoutText, stderrText];
+  for (const text of candidates) {
+    if (!text) continue;
+    const lastBrace = text.lastIndexOf("}");
+    if (lastBrace === -1) continue;
+    const trimmed = text.slice(0, lastBrace + 1);
+    const firstBrace = trimmed.indexOf("{");
+    if (firstBrace === -1) continue;
+    const candidate = trimmed.slice(firstBrace);
+    try {
+      return JSON.parse(candidate);
+    } catch (_) {}
+  }
+  return null;
+}
+
+function createContainerConfig({ image, envVars, memoryMb, dockerArgs }) {
+  return {
+    Image: image,
+    Env: envVars,
+    AttachStdout: true,
+    AttachStderr: true,
+    HostConfig: {
+      Memory: memoryMb * 1024 * 1024,
+      MemorySwap: memoryMb * 1024 * 1024,
+      CpuQuota: dockerArgs.cpuQuota,
+      CpuPeriod: dockerArgs.cpuPeriod,
+      PidsLimit: dockerArgs.pidsLimit,
+      NetworkMode: "none",
+      ReadonlyRootfs: true,
+      SecurityOpt: ["no-new-privileges:true"],
+      CapDrop: ["ALL"],
+      Tmpfs: { "/tmp": `rw,exec,nosuid,size=${config.sandbox.tmpfsSizeMb}m` },
+      OomKillDisable: false,
+    },
+    User: config.sandbox.containerUser,
+  };
 }
 
 function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
@@ -62,18 +110,17 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
 
   const dockerArgs = getDockerRunArgs(language);
   const finalTimeLimit = timeLimitMs || dockerArgs.timeout;
-  const finalMemory = memoryLimitMb ? `${memoryLimitMb}m` : dockerArgs.memory;
-  finalMemory.replace('m', '');
+  const memoryMb = memoryLimitMb || parseInt(dockerArgs.memory);
 
   const codeB64 = Buffer.from(code).toString("base64");
   const stdinB64 = stdin ? Buffer.from(stdin).toString("base64") : "";
 
   const envVars = [
     `STUDENT_CODE_B64=${codeB64}`,
-    `ORACLE_CODE_B64=`,  // empty for run_code mode
+    `ORACLE_CODE_B64=`,
     `LANGUAGE=${language}`,
     `TIMEOUT_MS=${finalTimeLimit}`,
-    `MEMORY_MB=${(memoryLimitMb || parseInt(dockerArgs.memory))}`,
+    `MEMORY_MB=${memoryMb}`,
     `COMPILE_TIMEOUT_MS=${compileTimeoutMs || dockerArgs.compileTimeout}`,
     `EXEC_MODE=single`,
   ];
@@ -84,48 +131,28 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
 
   let container;
   try {
-    container = await docker.createContainer({
-      Image: dockerArgs.image,
-      Env: envVars,
-      HostConfig: {
-        Memory: (memoryLimitMb || parseInt(dockerArgs.memory)) * 1024 * 1024,
-        MemorySwap: (memoryLimitMb || parseInt(dockerArgs.memory)) * 1024 * 1024,
-        CpuQuota: dockerArgs.cpuQuota,
-        CpuPeriod: dockerArgs.cpuPeriod,
-        PidsLimit: dockerArgs.pidsLimit,
-        NetworkMode: "none",
-        ReadonlyRootfs: true,
-        SecurityOpt: ["no-new-privileges:true"],
-        CapDrop: ["ALL"],
-        Tmpfs: { "/tmp": `rw,exec,nosuid,size=${config.sandbox.tmpfsSizeMb}m` },
-        OomKillDisable: false,
-      },
-      User: config.sandbox.containerUser,
-    });
-
+    container = await docker.createContainer(createContainerConfig({
+      image: dockerArgs.image, envVars, memoryMb, dockerArgs,
+    }));
     await container.start();
 
-    const waitPromise = container.wait();
-    const timeoutPromise = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + config.sandbox.graceTimeoutMs)
-    );
-    await Promise.race([waitPromise, timeoutPromise]);
+    const timeoutMs = finalTimeLimit + config.sandbox.graceTimeoutMs;
+    await Promise.race([
+      container.wait(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("container_timeout")), timeoutMs)),
+    ]);
 
-    const logsBuffer = await container.logs({ stdout: true, stderr: false, follow: false });
-    const rawOutput = demuxDockerStream(logsBuffer).toString("utf8").trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawOutput);
-    } catch (err) {
-      console.error("[engine] Failed to parse output:", rawOutput.slice(0, 300));
+    const { stdoutText, stderrText } = await fetchContainerLogs(container);
+    const parsed = parseContainerOutput(stdoutText, stderrText);
+    if (!parsed) {
+      console.error("[engine] Sandbox parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));
       throw new Error("Sandbox output parse error");
     }
-
-    return parsed;
+    return parsed.student || parsed;
   } catch (err) {
     if (err.message === "container_timeout") throw new Error("container_timeout");
-    console.error("[engine] Docker exception:", err);
+    if (err.message === "Sandbox output parse error") throw err;
+    console.error("[engine] Docker exception:", err.message || err);
     throw new Error("system_judge_error");
   } finally {
     if (container) {
@@ -141,7 +168,7 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
 
   const dockerArgs = getDockerRunArgs(language);
   const finalTimeLimit = timeLimitMs || dockerArgs.timeout;
-  const finalMemoryMb = memoryLimitMb || parseInt(dockerArgs.memory);
+  const memoryMb = memoryLimitMb || parseInt(dockerArgs.memory);
 
   const studentB64 = Buffer.from(studentCode).toString("base64");
   const oracleB64 = Buffer.from(oracleCode).toString("base64");
@@ -152,7 +179,7 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
     `ORACLE_CODE_B64=${oracleB64}`,
     `LANGUAGE=${language}`,
     `TIMEOUT_MS=${finalTimeLimit}`,
-    `MEMORY_MB=${finalMemoryMb}`,
+    `MEMORY_MB=${memoryMb}`,
     `COMPILE_TIMEOUT_MS=${compileTimeoutMs || dockerArgs.compileTimeout}`,
     `EXEC_MODE=dual`,
   ];
@@ -163,48 +190,28 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
 
   let container;
   try {
-    container = await docker.createContainer({
-      Image: dockerArgs.image,
-      Env: envVars,
-      HostConfig: {
-        Memory: finalMemoryMb * 1024 * 1024,
-        MemorySwap: finalMemoryMb * 1024 * 1024,
-        CpuQuota: dockerArgs.cpuQuota,
-        CpuPeriod: dockerArgs.cpuPeriod,
-        PidsLimit: dockerArgs.pidsLimit,
-        NetworkMode: "none",
-        ReadonlyRootfs: true,
-        SecurityOpt: ["no-new-privileges:true"],
-        CapDrop: ["ALL"],
-        Tmpfs: { "/tmp": `rw,exec,nosuid,size=${config.sandbox.tmpfsSizeMb}m` },
-        OomKillDisable: false,
-      },
-      User: config.sandbox.containerUser,
-    });
-
+    container = await docker.createContainer(createContainerConfig({
+      image: dockerArgs.image, envVars, memoryMb, dockerArgs,
+    }));
     await container.start();
 
-    const waitPromise = container.wait();
-    const timeoutPromise = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("container_timeout")), finalTimeLimit + config.sandbox.graceTimeoutMs)
-    );
-    await Promise.race([waitPromise, timeoutPromise]);
+    const timeoutMs = finalTimeLimit + config.sandbox.graceTimeoutMs;
+    await Promise.race([
+      container.wait(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("container_timeout")), timeoutMs)),
+    ]);
 
-    const logsBuffer = await container.logs({ stdout: true, stderr: false, follow: false });
-    const rawOutput = demuxDockerStream(logsBuffer).toString("utf8").trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(rawOutput);
-    } catch (err) {
-      console.error("[engine] Failed to parse output:", rawOutput.slice(0, 300));
+    const { stdoutText, stderrText } = await fetchContainerLogs(container);
+    const parsed = parseContainerOutput(stdoutText, stderrText);
+    if (!parsed) {
+      console.error("[engine] Oracle parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));
       throw new Error("Sandbox output parse error");
     }
-
     return parsed;
   } catch (err) {
     if (err.message === "container_timeout") throw new Error("container_timeout");
-    console.error("[engine] Docker exception:", err);
+    if (err.message === "Sandbox output parse error") throw err;
+    console.error("[engine] Docker oracle exception:", err.message || err);
     throw new Error("system_judge_error");
   } finally {
     if (container) {
@@ -213,4 +220,63 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
   }
 }
 
-module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver };
+async function runFallback({ code, language, stdin, timeLimitMs }) {
+  const { execSync } = require("child_process");
+  const fs = require("fs");
+  const path = require("path");
+  const os = require("os");
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "socratica-fb-"));
+  const ext = { python: ".py", javascript: ".js", cpp: ".cpp" }[language] || ".txt";
+  const codeFile = path.join(tmpDir, `solution${ext}`);
+
+  let codeToRun = code;
+  if (language === "cpp") {
+    const hasInclude = code.includes("#include");
+    const hasMain = code.includes("int main");
+    if (!hasInclude) codeToRun = "#include <bits/stdc++.h>\nusing namespace std;\n" + code;
+    if (!hasMain) codeToRun += "\nint main() { return 0; }\n";
+  }
+
+  fs.writeFileSync(codeFile, codeToRun);
+
+  const timeout = Math.min(timeLimitMs || 10000, 10000);
+  const start = Date.now();
+  let stdout = "";
+  let error = null;
+
+  try {
+    if (language === "python") {
+      const cmd = stdin
+        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | python3 ${codeFile}`
+        : `python3 ${codeFile}`;
+      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+    } else if (language === "javascript") {
+      const cmd = stdin
+        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | node ${codeFile}`
+        : `node ${codeFile}`;
+      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+    } else if (language === "cpp") {
+      const outBin = path.join(tmpDir, "solution");
+      execSync(`g++ -o ${outBin} ${codeFile} -std=c++17`, { timeout: 10000 });
+      const cmd = stdin
+        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${outBin}`
+        : outBin;
+      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+    }
+  } catch (err) {
+    if (err.killed) error = "timeout";
+    else if (err.status === 137) error = "oom";
+    else error = err.stderr?.toString()?.slice(0, 500) || err.message;
+  }
+
+  const elapsed = Date.now() - start;
+
+  try {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  } catch (_) {}
+
+  return { stdout, error, elapsed_ms: elapsed, max_memory_bytes: 0 };
+}
+
+module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback };

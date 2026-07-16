@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const referenceSolutionSchema = new mongoose.Schema({
-  problemId: { type: String, required: true, index: true },
+  problemId: { type: String, required: true },
   language: { type: String, required: true, enum: ["python", "cpp", "javascript"] },
   variant: {
     type: String,

@@ -16,7 +16,6 @@ function requirePermission(resource, action = "access") {
         req.user = user;
       }
 
-      // Super_admin always allowed
       if (req.user.role === "super_admin") {
         return next();
       }

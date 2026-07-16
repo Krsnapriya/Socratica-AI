@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import Icon from '../../components/ui/Icon.jsx';
-import { ROLE_OPTIONS, ROLE_BADGE_STYLES, PERMISSION_ACTIONS, PERMISSION_RESOURCES } from '../../constants';
+import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
+import { ROLE_OPTIONS as FALLBACK_ROLES, ROLE_BADGE_STYLES, PERMISSION_ACTIONS, PERMISSION_RESOURCES } from '../../constants';
 import { SkeletonTable } from './Skeletons.jsx';
 import { Modal, FormActions, EditDeleteButtons } from './AdminUI.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
 
 export default function PermissionsTab({ permissions, editingPerm, setEditingPerm, onSave, onDelete, loading }) {
   const [confirmId, setConfirmId] = useState(null);
+  const pc = usePublicConfig();
+  const roleOptions = pc?.roles?.map(r => r.name) || FALLBACK_ROLES;
   if (loading) return <SkeletonTable rows={5} cols={3} colSpan={4} />;
   return (
     <>
@@ -38,7 +41,7 @@ export default function PermissionsTab({ permissions, editingPerm, setEditingPer
           <Modal title={editingPerm._id ? 'Edit Permission' : 'Create Permission'} onClose={() => setEditingPerm(null)}>
             <form onSubmit={onSave} className="space-y-3">
               <select name="role" defaultValue={editingPerm.role || ''} required className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
-                {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
               </select>
               <select name="resource" defaultValue={editingPerm.resource || ''} required className="w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface font-mono">
                 <option value="">Select Resource</option>

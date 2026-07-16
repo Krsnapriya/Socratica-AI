@@ -22,25 +22,16 @@ const { buildCurriculumPrompt } = require("../ai/agents/definitions/instructor/c
 const { buildAssessmentPrompt } = require("../ai/agents/definitions/instructor/assessment");
 const { buildInsightsPrompt } = require("../ai/agents/definitions/instructor/insights");
 const { buildProblemAuthorPrompt } = require("../ai/agents/definitions/instructor/problemAuthor");
+const redis = require("../redis");
 
-// ── Rate limit store (in-memory, per-role) ───────────────────────────────
-const rateLimitStore = new Map();
-
-function roleRateLimit(req, res, next) {
+// ── Rate limit store (Redis-backed, per-role) ────────────────────────────
+async function roleRateLimit(req, res, next) {
   const role = req.userRole || "guest";
   const limit = getRateLimit(role);
-  const key = `${role}:${req.userId || req.ip}`;
-  const now = Date.now();
+  const key = `rl:${role}:${req.userId || req.ip}`;
 
-  const record = rateLimitStore.get(key) || { count: 0, windowStart: now };
-  if (now - record.windowStart > limit.windowMs) {
-    record.count = 0;
-    record.windowStart = now;
-  }
-  record.count++;
-  rateLimitStore.set(key, record);
-
-  if (record.count > limit.requests) {
+  const count = await redis.incr(key, limit.windowMs);
+  if (count > limit.requests) {
     return res.status(429).json({ error: "Rate limit exceeded. Try again shortly." });
   }
   next();

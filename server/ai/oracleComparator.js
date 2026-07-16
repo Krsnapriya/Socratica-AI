@@ -1,4 +1,8 @@
-const ALGORITHM_STRATEGIES = {
+// Oracle Comparator — compares student solution with reference implementation.
+// Reads strategies from DB (ProblemStrategy collection) with fallback to hardcoded defaults.
+
+// ── Hardcoded defaults ──────────────────────────────────────────────────
+const DEFAULT_ALGORITHM_STRATEGIES = {
   "two-sum": {
     hash_map: { name: "Hash Map", complexity: "O(n)", space: "O(n)", description: "Uses hash map for O(1) lookup" },
     brute_force: { name: "Brute Force", complexity: "O(n²)", space: "O(1)", description: "Checks all pairs" },
@@ -64,8 +68,66 @@ const ALGORITHM_STRATEGIES = {
   },
 };
 
+// ── DB cache ────────────────────────────────────────────────────────────
+let dbStrategies = null;
+let dbCacheTimestamp = 0;
+const DB_CACHE_TTL = 60000;
+
+async function loadFromDB() {
+  const now = Date.now();
+  if (dbStrategies && now - dbCacheTimestamp < DB_CACHE_TTL) return;
+
+  try {
+    const mongoose = require("mongoose");
+    if (mongoose.connection.readyState !== 1) {
+      dbCacheTimestamp = now;
+      dbStrategies = DEFAULT_ALGORITHM_STRATEGIES;
+      return;
+    }
+
+    const ProblemStrategy = require("../models/ProblemStrategy");
+    const strategies = await ProblemStrategy.find({ isActive: true }).lean();
+
+    if (strategies.length === 0) {
+      dbCacheTimestamp = now;
+      dbStrategies = DEFAULT_ALGORITHM_STRATEGIES;
+      return;
+    }
+
+    const map = {};
+    for (const s of strategies) {
+      map[s.problemId] = {};
+      for (const strat of (s.strategies || [])) {
+        map[s.problemId][strat.name.toLowerCase().replace(/\s+/g, "_")] = {
+          name: strat.name,
+          complexity: strat.timeComplexity,
+          space: strat.spaceComplexity,
+          description: strat.description,
+        };
+      }
+    }
+
+    // Merge with defaults
+    for (const [k, v] of Object.entries(DEFAULT_ALGORITHM_STRATEGIES)) {
+      if (!map[k]) map[k] = v;
+    }
+
+    dbCacheTimestamp = now;
+    dbStrategies = map;
+  } catch {
+    dbCacheTimestamp = now;
+    dbStrategies = DEFAULT_ALGORITHM_STRATEGIES;
+  }
+}
+
+function getStrategies() {
+  return dbStrategies || DEFAULT_ALGORITHM_STRATEGIES;
+}
+
+// ── Detection functions ─────────────────────────────────────────────────
+
 function detectAlgorithmStrategy(code, language, problemId) {
-  const strategies = ALGORITHM_STRATEGIES[problemId] || {};
+  const strategies = getStrategies()[problemId] || {};
   const detected = [];
   const lowerCode = code.toLowerCase();
 
@@ -170,4 +232,4 @@ function compareSolutions(studentCode, oracleCode, problemId, language) {
   };
 }
 
-module.exports = { compareSolutions, detectAlgorithmStrategy, ALGORITHM_STRATEGIES };
+module.exports = { loadFromDB, compareSolutions, detectAlgorithmStrategy, DEFAULT_ALGORITHM_STRATEGIES };

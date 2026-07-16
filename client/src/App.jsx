@@ -9,6 +9,7 @@ import TopNavLayout from './components/TopNavLayout.jsx';
 import MainLayout from './components/MainLayout.jsx';
 import SettingsLayout from './components/SettingsLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import { PublicConfigProvider } from './contexts/PublicConfigContext.jsx';
 
 import DashboardPage from './pages/DashboardPage.jsx';
 import ModulesPage from './pages/ModulesPage.jsx';
@@ -69,7 +70,8 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <PublicConfigProvider>
+      <BrowserRouter>
       <Routes>
         {/* Public routes — no auth required */}
         <Route path="/verify-email" element={<EmailVerificationPage />} />
@@ -108,6 +110,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </PublicConfigProvider>
   );
 }

@@ -261,19 +261,6 @@ router.get("/session/:sessionId/analysis", requireAuth, requireRole(["student", 
   }
 });
 
-router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
-  try {
-    const submission = await Submission.findById(req.params.id).lean();
-    if (!submission) return res.status(404).json({ error: "Submission not found" });
-    if (submission.userId.toString() !== req.userId && !["admin", "super_admin"].includes(req.userRole)) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    res.json(submission);
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 router.get("/stats", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
     const userId = req.userId;
@@ -376,6 +363,19 @@ router.get("/solved", requireAuth, requireRole(["student", "instructor", "admin"
     res.json({ count: problems.length, problems });
   } catch (err) {
     console.error("[submissions] solved error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id).lean();
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+    if (submission.userId.toString() !== req.userId && !["admin", "super_admin"].includes(req.userRole)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    res.json(submission);
+  } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
 });

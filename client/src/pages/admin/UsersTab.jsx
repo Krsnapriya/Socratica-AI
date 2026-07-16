@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from '../../components/ui/Icon.jsx';
-import { ROLE_OPTIONS, DEFAULT_ROLE } from '../../constants';
+import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
+import { ROLE_OPTIONS as FALLBACK_ROLES, DEFAULT_ROLE } from '../../constants';
 import { SkeletonTable } from './Skeletons.jsx';
 import { Pagination } from './AdminUI.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -9,6 +10,8 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: DEFAULT_ROLE });
   const [confirmId, setConfirmId] = useState(null);
+  const pc = usePublicConfig();
+  const roleOptions = pc?.roles?.map(r => r.name) || FALLBACK_ROLES;
 
   const handleCreate = (e) => {
     e.preventDefault();
@@ -35,7 +38,7 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
           <input placeholder="Password" type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} required className="bg-surface-container border border-outline-variant rounded px-3 py-1.5 font-mono text-xs text-on-surface" />
           <input placeholder="Display Name" value={newUser.displayName} onChange={e => setNewUser({...newUser, displayName: e.target.value})} className="bg-surface-container border border-outline-variant rounded px-3 py-1.5 font-mono text-xs text-on-surface" />
           <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})} className="bg-surface-container border border-outline-variant rounded px-3 py-1.5 font-mono text-xs text-on-surface">
-            {ROLE_OPTIONS.filter(r => r !== 'guest').map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+            {roleOptions.filter(r => r !== 'guest').map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
           </select>
           <div className="flex gap-2">
             <button type="submit" className="font-mono text-xs px-3 py-1.5 bg-primary text-white rounded hover:opacity-90">Create</button>
@@ -51,7 +54,7 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
           {users.map(u => (
             <tr key={u._id} className="hover:bg-surface-container-low group">
               <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">{(u.displayName || u.email)[0].toUpperCase()}</div><div className="min-w-0"><div className="font-sans font-medium text-on-surface truncate">{u.displayName || 'No Name'}</div><div className="text-xs text-on-surface-variant truncate">{u.email}</div></div></div></td>
-              <td className="px-6 py-4"><select value={u.role} onChange={e => onRoleChange(u._id, e.target.value)} className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary">{ROLE_OPTIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}</select></td>
+              <td className="px-6 py-4"><select value={u.role} onChange={e => onRoleChange(u._id, e.target.value)} className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary">{roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}</select></td>
               <td className="px-6 py-4 text-right text-on-surface">{u.submissionsCount || 0}</td>
               <td className="px-6 py-4 text-right text-on-surface-variant text-xs">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : '—'}</td>
               <td className="px-6 py-4 text-on-surface-variant text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>

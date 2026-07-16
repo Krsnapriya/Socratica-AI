@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
-    python3-minimal \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r sandbox --gid=1000 && \

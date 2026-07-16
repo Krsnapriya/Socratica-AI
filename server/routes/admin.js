@@ -10,13 +10,48 @@ const SystemConfig = require("../models/SystemConfig");
 const FailedLogin = require("../models/FailedLogin");
 const Session = require("../models/Session");
 const Notification = require("../models/Notification");
-const config = require("../config");
+const configLoader = require("../configLoader");
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
 const requirePermission = require("../middleware/requirePermission");
 const { validate, schemas } = require("../middleware/validate");
 
 const router = express.Router();
+
+// ── Public Config API (no auth required) ────────────────────────────────
+const Role = require("../models/Role");
+const Language = require("../models/Language");
+const Topic = require("../models/Topic");
+
+router.get("/public", async (req, res) => {
+  try {
+    const [roles, languages, topics] = await Promise.all([
+      Role.find({ isActive: true }).sort({ order: 1 }).select("name displayName config").lean(),
+      Language.find({ isActive: true }).sort({ order: 1 }).select("id label ext").lean(),
+      Topic.find({ isActive: true }).select("name category").lean(),
+    ]);
+
+    res.json({
+      roles,
+      languages,
+      topics,
+      branding: {
+        siteName: "Socratica AI",
+        tagline: "AI-Powered Computer Science Learning Operating System",
+      },
+      features: {
+        aiMentor: true,
+        codeExecution: true,
+        learningPaths: true,
+        quizzes: true,
+        interviewPractice: true,
+      },
+    });
+  } catch (err) {
+    console.error("[admin] GET /public error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // ── Protect all admin routes ──────────────────────────────────────────────────
 router.use(requireAuth, requireRole(["admin", "super_admin"]));
@@ -64,7 +99,8 @@ router.get("/users", requirePermission("users", "read"), async (req, res) => {
 router.put("/users/:id/role", requirePermission("users", "update"), async (req, res) => {
   try {
     const { role } = req.body;
-    if (!config.roles.includes(role)) {
+    const roles = configLoader.get("roles", ["super_admin", "admin", "instructor", "student", "guest"]);
+    if (!roles.includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -723,17 +759,22 @@ router.get("/config/:key", requirePermission("compiler", "read"), async (req, re
 router.put("/config/:key", requirePermission("compiler", "update"), async (req, res) => {
   try {
     const { value } = req.body;
-    const config = await SystemConfig.findOneAndUpdate(
+    const configDoc = await SystemConfig.findOneAndUpdate(
       { key: req.params.key },
       { value },
       { new: true, upsert: true, runValidators: true }
     );
+
+    // Invalidate configLoader cache so runtime picks up the new value
+    const configLoader = require("../configLoader");
+    configLoader.invalidate();
+
     await AuditLog.create({
       userId: req.userObjectId, action: "config_update", resource: "config", resourceId: req.params.key,
       ip: req.ip, userAgent: req.headers["user-agent"], success: true,
       metadata: { key: req.params.key },
     });
-    res.json(config);
+    res.json(configDoc);
   } catch (err) {
     console.error("[admin] PUT /config error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -1036,6 +1077,380 @@ router.delete("/reference-solutions/:id", requirePermission("problems", "delete"
     res.json({ message: "Reference solution deleted" });
   } catch (err) {
     console.error("[admin] reference-solutions delete error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Roles CRUD ───────────────────────────────────────────────────────────
+router.get("/roles", requirePermission("permissions", "read"), async (req, res) => {
+  try {
+    const roles = await Role.find().sort({ order: 1 }).lean();
+    res.json(roles);
+  } catch (err) {
+    console.error("[admin] GET /roles error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/roles", requirePermission("permissions", "create"), async (req, res) => {
+  try {
+    const { name, displayName, description, permissions, config: roleConfig } = req.body;
+    if (!name || !displayName) return res.status(400).json({ error: "name and displayName are required" });
+    const role = await Role.create({ name, displayName, description, permissions, config: roleConfig });
+    res.status(201).json(role);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Role already exists" });
+    console.error("[admin] POST /roles error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/roles/:id", requirePermission("permissions", "update"), async (req, res) => {
+  try {
+    const role = await Role.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!role) return res.status(404).json({ error: "Role not found" });
+    res.json(role);
+  } catch (err) {
+    console.error("[admin] PUT /roles error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/roles/:id", requirePermission("permissions", "delete"), async (req, res) => {
+  try {
+    const role = await Role.findByIdAndDelete(req.params.id);
+    if (!role) return res.status(404).json({ error: "Role not found" });
+    res.json({ message: "Role deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /roles error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Languages CRUD ───────────────────────────────────────────────────────
+router.get("/languages", requirePermission("compiler", "read"), async (req, res) => {
+  try {
+    const languages = await Language.find().sort({ order: 1 }).lean();
+    res.json(languages);
+  } catch (err) {
+    console.error("[admin] GET /languages error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/languages", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const { id, label, ext, image, memoryMb, cpuQuota, timeoutMs, compileTimeoutMs, compile, run } = req.body;
+    if (!id || !label || !ext || !run) return res.status(400).json({ error: "id, label, ext, and run are required" });
+    const lang = await Language.create({ id, label, ext, image, memoryMb, cpuQuota, timeoutMs, compileTimeoutMs, compile, run });
+    res.status(201).json(lang);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Language already exists" });
+    console.error("[admin] POST /languages error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/languages/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const lang = await Language.findOneAndUpdate({ id: req.params.id }, { $set: req.body }, { new: true, runValidators: true });
+    if (!lang) return res.status(404).json({ error: "Language not found" });
+    res.json(lang);
+  } catch (err) {
+    console.error("[admin] PUT /languages error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/languages/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const lang = await Language.findOneAndDelete({ id: req.params.id });
+    if (!lang) return res.status(404).json({ error: "Language not found" });
+    res.json({ message: "Language deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /languages error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Topics (Knowledge Graph) CRUD ────────────────────────────────────────
+router.get("/topics", requirePermission("courses", "read"), async (req, res) => {
+  try {
+    const topics = await Topic.find().sort({ category: 1, name: 1 }).lean();
+    res.json(topics);
+  } catch (err) {
+    console.error("[admin] GET /topics error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/topics", requirePermission("courses", "create"), async (req, res) => {
+  try {
+    const { name, category, dependsOn, description } = req.body;
+    if (!name || !category) return res.status(400).json({ error: "name and category are required" });
+    const topic = await Topic.create({ name, category, dependsOn, description });
+    res.status(201).json(topic);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Topic already exists" });
+    console.error("[admin] POST /topics error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/topics/:id", requirePermission("courses", "update"), async (req, res) => {
+  try {
+    const topic = await Topic.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    res.json(topic);
+  } catch (err) {
+    console.error("[admin] PUT /topics error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/topics/:id", requirePermission("courses", "delete"), async (req, res) => {
+  try {
+    const topic = await Topic.findByIdAndDelete(req.params.id);
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    res.json({ message: "Topic deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /topics error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── AI Prompts CRUD ───────────────────────────────────────────────────
+const AIPrompt = require("../models/AIPrompt");
+
+router.get("/ai-prompts", requirePermission("compiler", "read"), async (req, res) => {
+  try {
+    const { agentType } = req.query;
+    const filter = agentType ? { agentType } : {};
+    const prompts = await AIPrompt.find(filter).sort({ agentType: 1, version: -1 }).lean();
+    res.json(prompts);
+  } catch (err) {
+    console.error("[admin] GET /ai-prompts error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/ai-prompts", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const { agentType, systemPrompt, description } = req.body;
+    if (!agentType || !systemPrompt) return res.status(400).json({ error: "agentType and systemPrompt are required" });
+
+    // Auto-increment version
+    const last = await AIPrompt.findOne({ agentType }).sort({ version: -1 }).lean();
+    const version = last ? last.version + 1 : 1;
+
+    const prompt = await AIPrompt.create({ agentType, version, systemPrompt, description, isActive: true });
+    res.status(201).json(prompt);
+  } catch (err) {
+    console.error("[admin] POST /ai-prompts error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/ai-prompts/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const prompt = await AIPrompt.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!prompt) return res.status(404).json({ error: "Prompt not found" });
+    res.json(prompt);
+  } catch (err) {
+    console.error("[admin] PUT /ai-prompts error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/ai-prompts/:id/activate", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const target = await AIPrompt.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: "Prompt not found" });
+
+    // Deactivate all other versions of this agentType
+    await AIPrompt.updateMany(
+      { agentType: target.agentType, _id: { $ne: target._id } },
+      { $set: { isActive: false } }
+    );
+    target.isActive = true;
+    await target.save();
+
+    res.json(target);
+  } catch (err) {
+    console.error("[admin] POST /ai-prompts/activate error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/ai-prompts/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const prompt = await AIPrompt.findByIdAndDelete(req.params.id);
+    if (!prompt) return res.status(404).json({ error: "Prompt not found" });
+    res.json({ message: "Prompt deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /ai-prompts error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Seed Agent Routes ──────────────────────────────────────────────────
+const AgentRoute = require("../models/AgentRoute");
+
+router.get("/agent-routes", requirePermission("compiler", "read"), async (req, res) => {
+  try {
+    const { role } = req.query;
+    const filter = role ? { role } : {};
+    const routes = await AgentRoute.find(filter).sort({ role: 1, action: 1 }).lean();
+    res.json(routes);
+  } catch (err) {
+    console.error("[admin] GET /agent-routes error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/agent-routes", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const { role, action, agents, gates } = req.body;
+    if (!role || !action || !agents) return res.status(400).json({ error: "role, action, and agents are required" });
+    const route = await AgentRoute.create({ role, action, agents, gates });
+    res.status(201).json(route);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Route already exists for this role/action" });
+    console.error("[admin] POST /agent-routes error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/agent-routes/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const route = await AgentRoute.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!route) return res.status(404).json({ error: "Route not found" });
+    res.json(route);
+  } catch (err) {
+    console.error("[admin] PUT /agent-routes error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/agent-routes/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const route = await AgentRoute.findByIdAndDelete(req.params.id);
+    if (!route) return res.status(404).json({ error: "Route not found" });
+    res.json({ message: "Route deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /agent-routes error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/seed-agent-routes", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedAgentRoutes")();
+    res.json({ message: "Agent routes seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-agent-routes error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Analysis Patterns CRUD ──────────────────────────────────────────────
+const AnalysisPattern = require("../models/AnalysisPattern");
+
+router.get("/analysis-patterns", requirePermission("compiler", "read"), async (req, res) => {
+  try {
+    const { type } = req.query;
+    const filter = type ? { type } : {};
+    const patterns = await AnalysisPattern.find(filter).sort({ type: 1, name: 1 }).lean();
+    res.json(patterns);
+  } catch (err) {
+    console.error("[admin] GET /analysis-patterns error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/analysis-patterns", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const { type, name, regex, severity, complexity, description } = req.body;
+    if (!type || !name || !regex) return res.status(400).json({ error: "type, name, and regex are required" });
+    const pattern = await AnalysisPattern.create({ type, name, regex, severity, complexity, description });
+    res.status(201).json(pattern);
+  } catch (err) {
+    if (err.code === 11000) return res.status(409).json({ error: "Pattern already exists" });
+    console.error("[admin] POST /analysis-patterns error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.put("/analysis-patterns/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const pattern = await AnalysisPattern.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!pattern) return res.status(404).json({ error: "Pattern not found" });
+    res.json(pattern);
+  } catch (err) {
+    console.error("[admin] PUT /analysis-patterns error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/analysis-patterns/:id", requirePermission("compiler", "update"), async (req, res) => {
+  try {
+    const pattern = await AnalysisPattern.findByIdAndDelete(req.params.id);
+    if (!pattern) return res.status(404).json({ error: "Pattern not found" });
+    res.json({ message: "Pattern deleted" });
+  } catch (err) {
+    console.error("[admin] DELETE /analysis-patterns error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/seed-analysis-patterns", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedAnalysisPatterns")();
+    res.json({ message: "Analysis patterns seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-analysis-patterns error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Seed AI Prompts ─────────────────────────────────────────────────────
+router.post("/seed-ai-prompts", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedAIPrompts")();
+    res.json({ message: "AI prompts seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-ai-prompts error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Seed Roles/Languages/Topics ──────────────────────────────────────────
+router.post("/seed-roles", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedRoles")();
+    res.json({ message: "Roles seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-roles error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/seed-languages", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedLanguages")();
+    res.json({ message: "Languages seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-languages error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/seed-topics", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedTopics")();
+    res.json({ message: "Topics seeded", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-topics error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

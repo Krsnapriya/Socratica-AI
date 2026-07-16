@@ -19,6 +19,7 @@ const { buildModerationPrompt } = require("./definitions/admin/moderation");
 const { buildHealthPrompt } = require("./definitions/superAdmin/health");
 const { buildSecurityPrompt } = require("./definitions/superAdmin/security");
 const { buildGovernancePrompt } = require("./definitions/superAdmin/governance");
+const { buildDifferentialPrompt } = require("./definitions/differential");
 
 const AGENT_BUILDERS = {
   // Guest
@@ -32,7 +33,7 @@ const AGENT_BUILDERS = {
   wrongAnswerAgent: buildWrongAnswerPrompt,
   correctAnswerAgent: buildCorrectAnswerPrompt,
   hintAgent: buildHintPrompt,
-  differentialAgent: null,
+  differentialAgent: buildDifferentialPrompt,
   summaryAgent: buildSummaryPrompt,
 
   // Instructor

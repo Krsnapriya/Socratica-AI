@@ -1,6 +1,27 @@
 import client, { setTokens, clearTokens } from './client.js';
 import API from '../endpoints.js';
 
+// ── Public Config (no auth) ──────────────────────────────────────────────
+let _publicConfigCache = null;
+let _publicConfigTs = 0;
+const PUBLIC_CONFIG_TTL = 60000; // 60s
+
+export async function getPublicConfig() {
+  const now = Date.now();
+  if (_publicConfigCache && now - _publicConfigTs < PUBLIC_CONFIG_TTL) {
+    return _publicConfigCache;
+  }
+  const { data } = await client.get(API.PUBLIC_CONFIG);
+  _publicConfigCache = data;
+  _publicConfigTs = now;
+  return data;
+}
+
+export function invalidatePublicConfig() {
+  _publicConfigCache = null;
+  _publicConfigTs = 0;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export async function login(email, password) {
   const { data } = await client.post(API.AUTH.LOGIN, { email, password });

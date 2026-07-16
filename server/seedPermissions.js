@@ -18,7 +18,7 @@ const defaults = [
   { role: "admin", resource: "audit_logs", resourceId: "*", actions: ["read"] },
   { role: "admin", resource: "compiler", resourceId: "*", actions: ["read", "update"] },
   { role: "admin", resource: "ai", resourceId: "*", actions: ["read", "update"] },
-  { role: "admin", resource: "notifications", resourceId: "*", actions: ["create"] },
+  { role: "admin", resource: "notifications", resourceId: "*", actions: ["create", "read", "delete"] },
 
   // instructor — read on content, access on tools
   { role: "instructor", resource: "courses", resourceId: "*", actions: ["read"] },
@@ -61,6 +61,7 @@ async function seedConfigs() {
 
 async function seedPermissions() {
   let created = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const perm of defaults) {
@@ -70,14 +71,21 @@ async function seedPermissions() {
       resourceId: perm.resourceId,
     });
     if (existing) {
-      skipped++;
+      const needsUpdate = JSON.stringify(existing.actions.sort()) !== JSON.stringify(perm.actions.sort());
+      if (needsUpdate) {
+        existing.actions = perm.actions;
+        await existing.save();
+        updated++;
+      } else {
+        skipped++;
+      }
     } else {
       await Permission.create(perm);
       created++;
     }
   }
 
-  console.log(`[seedPermissions] ${created} created, ${skipped} already exist`);
+  console.log(`[seedPermissions] ${created} created, ${updated} updated, ${skipped} unchanged`);
   await seedConfigs();
 }
 

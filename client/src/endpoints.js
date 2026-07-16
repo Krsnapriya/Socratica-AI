@@ -91,6 +91,9 @@ const API = {
     INSIGHTS: "/ai/insights",
   },
 
+  // ── Public Config (no auth) ──────────────────────────────────────────────
+  PUBLIC_CONFIG: "/admin/public",
+
   // ── Admin ─────────────────────────────────────────────────────────────────
   ADMIN: {
     USERS: {
@@ -202,6 +205,60 @@ const API = {
         if (filters?.finalVerdict) params.set("finalVerdict", filters.finalVerdict);
         return `/admin/sessions?${params}`;
       },
+    },
+    ROLES: {
+      LIST: "/admin/roles",
+      CREATE: "/admin/roles",
+      UPDATE: (id) => `/admin/roles/${id}`,
+      DELETE: (id) => `/admin/roles/${id}`,
+    },
+    LANGUAGES: {
+      LIST: "/admin/languages",
+      CREATE: "/admin/languages",
+      UPDATE: (id) => `/admin/languages/${id}`,
+      DELETE: (id) => `/admin/languages/${id}`,
+    },
+    TOPICS: {
+      LIST: "/admin/topics",
+      CREATE: "/admin/topics",
+      UPDATE: (id) => `/admin/topics/${id}`,
+      DELETE: (id) => `/admin/topics/${id}`,
+    },
+    AI_PROMPTS: {
+      LIST: (agentType) => {
+        const params = agentType ? `?agentType=${agentType}` : "";
+        return `/admin/ai-prompts${params}`;
+      },
+      CREATE: "/admin/ai-prompts",
+      UPDATE: (id) => `/admin/ai-prompts/${id}`,
+      ACTIVATE: (id) => `/admin/ai-prompts/${id}/activate`,
+      DELETE: (id) => `/admin/ai-prompts/${id}`,
+    },
+    AGENT_ROUTES: {
+      LIST: (role) => {
+        const params = role ? `?role=${role}` : "";
+        return `/admin/agent-routes${params}`;
+      },
+      CREATE: "/admin/agent-routes",
+      UPDATE: (id) => `/admin/agent-routes/${id}`,
+      DELETE: (id) => `/admin/agent-routes/${id}`,
+    },
+    ANALYSIS_PATTERNS: {
+      LIST: (type) => {
+        const params = type ? `?type=${type}` : "";
+        return `/admin/analysis-patterns${params}`;
+      },
+      CREATE: "/admin/analysis-patterns",
+      UPDATE: (id) => `/admin/analysis-patterns/${id}`,
+      DELETE: (id) => `/admin/analysis-patterns/${id}`,
+    },
+    SEED: {
+      ROLES: "/admin/seed-roles",
+      LANGUAGES: "/admin/seed-languages",
+      TOPICS: "/admin/seed-topics",
+      AI_PROMPTS: "/admin/seed-ai-prompts",
+      AGENT_ROUTES: "/admin/seed-agent-routes",
+      ANALYSIS_PATTERNS: "/admin/seed-analysis-patterns",
     },
   },
 };

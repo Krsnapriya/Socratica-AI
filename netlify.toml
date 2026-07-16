@@ -1,15 +1,12 @@
 [build]
-  command = "cd client && npm ci && npm run build"
-  publish = "client/dist"
-
-[build.environment]
-  CI = "true"
-  NODE_VERSION = "20"
+  base = "client"
+  command = "npm install && npm run build"
+  publish = "dist"
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Set env VITE_API_URL to your backend URL in production
-# Backend runs on Vercel (free, no credit card needed)
+[build.environment]
+  NODE_VERSION = "20"

@@ -1,8 +1,11 @@
 import Icon from '../../components/ui/Icon.jsx';
-import { ROLE_OPTIONS, DEFAULT_ROLE, SESSION_DURATION_HOURS } from '../../constants';
+import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
+import { ROLE_OPTIONS as FALLBACK_ROLES, DEFAULT_ROLE, SESSION_DURATION_HOURS } from '../../constants';
 import { SkeletonTable } from './Skeletons.jsx';
 
 export default function SettingsTab({ config, setConfig, onSave, savingConfig, loading }) {
+  const pc = usePublicConfig();
+  const roleOptions = pc?.roles?.map(r => r.name) || FALLBACK_ROLES;
   if (loading) return <SkeletonTable rows={4} cols={2} colSpan={2} />;
   return (
     <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
@@ -30,7 +33,7 @@ export default function SettingsTab({ config, setConfig, onSave, savingConfig, l
             <h3 className="font-sans text-sm font-semibold text-on-surface">Defaults</h3>
             <div><label className="font-mono text-[10px] text-on-surface-variant uppercase">Default Role</label>
               <select value={config?.platform?.defaultRole || DEFAULT_ROLE} onChange={e => setConfig({ ...config, platform: { ...config.platform, defaultRole: e.target.value } })} className="w-full bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-xs font-mono text-on-surface mt-1">
-                {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
               </select></div>
             <div><label className="font-mono text-[10px] text-on-surface-variant uppercase">Session Duration (hours)</label>
               <input type="number" value={config?.platform?.sessionDurationHours || SESSION_DURATION_HOURS} onChange={e => setConfig({ ...config, platform: { ...config.platform, sessionDurationHours: parseInt(e.target.value) } })} className="w-full bg-surface-container-low border border-outline-variant rounded px-2 py-1.5 text-xs font-mono text-on-surface mt-1" /></div>

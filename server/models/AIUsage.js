@@ -3,7 +3,7 @@
 const mongoose = require("mongoose");
 
 const aiUsageSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   role: { type: String, enum: ["guest", "student", "instructor", "admin", "super_admin"], index: true },
   action: { type: String, required: true, index: true },
   agentType: { type: String },
