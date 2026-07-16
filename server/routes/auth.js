@@ -17,6 +17,19 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// One-time setup: promote first user to admin if no admin exists
+router.post("/setup-admin", async (req, res) => {
+  try {
+    const adminCount = await User.countDocuments({ role: { $in: ["admin", "super_admin"] } });
+    if (adminCount > 0) return res.status(400).json({ error: "Admin already exists" });
+    const user = await User.findOneAndUpdate({ email: req.body.email }, { role: "admin" }, { new: true });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ message: "Admin promoted", email: user.email, role: user.role });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 /** Sign a JWT with a unique jti so individual tokens can be revoked */
 async function signToken(userId) {
   const user = await User.findById(userId).lean();
@@ -67,6 +80,12 @@ router.post("/register", validate(schemas.register), async (req, res) => {
       emailVerifyTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
       emailVerified: false,
     });
+
+    const adminCount = await User.countDocuments({ role: { $in: ["admin", "super_admin"] } });
+    if (adminCount === 0) {
+      user.role = "admin";
+      await user.save();
+    }
 
     sendVerificationEmail(email, emailVerifyToken);
 
