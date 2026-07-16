@@ -1,19 +1,11 @@
 import axios from 'axios';
-import API from '../endpoints.js';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-// CSRF token handling
-let csrfToken = null;
+// CSRF not needed — backend uses JWT auth, not cookie sessions
 
 async function fetchCsrfToken() {
-  try {
-    const { data } = await axios.get(`${API_URL}${API.CSRF_TOKEN}`);
-    csrfToken = data.token;
-    return csrfToken;
-  } catch {
-    // CSRF token fetch is non-critical for initial load
-  }
+  return null;
 }
 
 const client = axios.create({
@@ -54,9 +46,6 @@ function clearTokens() {
 
 client.interceptors.request.use(
   (config) => {
-    if (csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(config.method.toUpperCase())) {
-      config.headers['X-CSRF-Token'] = csrfToken;
-    }
     const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

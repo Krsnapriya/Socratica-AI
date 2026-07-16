@@ -37,16 +37,7 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica"
 
 if (Sentry.Handlers) app.use(Sentry.Handlers.requestHandler());
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "cdn.jsdelivr.net", "unpkg.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "unpkg.com"],
-      fontSrc: ["'self'", "cdn.jsdelivr.net"],
-      connectSrc: ["'self'"],
-      imgSrc: ["'self'", "data:"],
-    },
-  },
+  contentSecurityPolicy: false,
 }));
 app.use(cors({
   origin: process.env.CORS_ORIGIN
@@ -74,9 +65,8 @@ app.use("/api/submissions", submissionsRoutes);
 app.use("/api/execute", executeRoutes);
 app.use("/api/ai", aiRoutes);
 
-if (process.env.NODE_ENV !== "production") {
-  app.use(csrfProtection);
-}
+// CSRF disabled — JWT auth makes CSRF checks unnecessary
+// app.use(csrfProtection);
 app.use("/api/problems", problemsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", coursesRoutes);
