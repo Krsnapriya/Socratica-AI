@@ -8,7 +8,7 @@ const Problem = require("../models/Problem");
 const Submission = require("../models/Submission");
 const LearningPath = require("../models/LearningPath");
 const { getAgentsForRequest, shouldGateContent, getRateLimit, getPersonaStyle } = require("../ai/roleRouter");
-const { routeAndRespond } = require("../ai/orchestrator");
+const { routeAndRespond, trackRoleInteraction } = require("../ai/orchestrator");
 const { getLLMClient } = require("../ai/llmClient.unified");
 const { buildAgentPrompt, getHintLevel } = require("../ai/agents");
 const { buildMemoryContext, updateLearningMemory } = require("../ai/memoryAgent");
@@ -272,10 +272,26 @@ router.post("/oracle-comparison", roleRateLimit, requireRole(["student", "instru
     if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
 
     const Problem = require("../models/Problem");
+    const ReferenceSolution = require("../models/ReferenceSolution");
     const problem = await Problem.findOne({ problemId }).lean();
-    const referenceSolutions = problem?.referenceSolutions?.filter(
-      s => s.language === (language || "python") && s.status === "approved"
-    ) || [];
+
+    // Try ReferenceSolution collection first, fall back to inline oracleSolutions
+    let referenceSolutions = await ReferenceSolution.find({
+      problemId,
+      language: language || "python",
+      verified: true,
+    }).sort({ isPrimary: -1, createdAt: 1 }).lean();
+
+    if (referenceSolutions.length === 0 && problem?.oracleSolutions?.[language]) {
+      referenceSolutions = [{
+        problemId,
+        language,
+        code: problem.oracleSolutions[language],
+        variant: "primary",
+        isPrimary: true,
+        verified: true,
+      }];
+    }
 
     const result = await routeAndRespond({
       userId: req.userId,
@@ -549,8 +565,14 @@ router.post("/instructor/curriculum", roleRateLimit, requireRole(["instructor", 
     const { message, courses, moduleData } = req.body;
     const client = getLLMClient();
     const prompt = buildCurriculumPrompt({ message, courses, moduleData });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `instr-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "curriculum-design",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "instructorCurriculumAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/instructor] curriculum error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -562,8 +584,14 @@ router.post("/instructor/assessment", roleRateLimit, requireRole(["instructor", 
     const { message, problems, moduleData, assessmentType } = req.body;
     const client = getLLMClient();
     const prompt = buildAssessmentPrompt({ message, problems, moduleData, assessmentType });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `instr-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "assessment-gen",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "instructorAssessmentAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/instructor] assessment error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -575,8 +603,14 @@ router.post("/instructor/insights", roleRateLimit, requireRole(["instructor", "a
     const { message, studentData, classData } = req.body;
     const client = getLLMClient();
     const prompt = buildInsightsPrompt({ message, studentData, classData });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `instr-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "student-insights",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "instructorInsightsAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/instructor] insights error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -588,8 +622,14 @@ router.post("/instructor/problem-author", roleRateLimit, requireRole(["instructo
     const { message, category, difficulty, existingProblems } = req.body;
     const client = getLLMClient();
     const prompt = buildProblemAuthorPrompt({ message, category, difficulty, existingProblems });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `instr-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "problem-author",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "instructorProblemAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/instructor] problem-author error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -620,8 +660,14 @@ router.get("/admin/platform-intel", roleRateLimit, requireRole(["admin", "super_
       platformStats: { totalUsers, totalSubmissions, passRate },
       problemStats: courseStats.map(c => ({ problemId: c._id, failureRate: 100 - c.passRate, totalAttempts: c.total })),
     });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response, stats: { totalUsers, totalSubmissions, passRate } });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `admin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "platform-intel",
+      message: req.query.message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "adminPlatformAgent",
+    });
+    res.json({ response: result.text, stats: { totalUsers, totalSubmissions, passRate } });
   } catch (err) {
     console.error("[ai/admin] platform-intel error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -633,8 +679,14 @@ router.post("/admin/content-quality", roleRateLimit, requireRole(["admin", "supe
     const { message, problems } = req.body;
     const client = getLLMClient();
     const prompt = buildContentQualityPrompt({ message, problems });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `admin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "content-quality",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "adminContentAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/admin] content-quality error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -646,8 +698,14 @@ router.post("/admin/moderation", roleRateLimit, requireRole(["admin", "super_adm
     const { message, flaggedContent, submissionPatterns } = req.body;
     const client = getLLMClient();
     const prompt = buildModerationPrompt({ message, flaggedContent, submissionPatterns });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `admin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "moderation",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "adminModerationAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/admin] moderation error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -676,8 +734,14 @@ router.get("/super-admin/health", roleRateLimit, requireRole(["super_admin"]), a
       dbStats,
       apiStats: { activeSessions: totalUsers },
     });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response, dbStats });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `sadmin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "system-health",
+      message: req.query.message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "superAdminHealthAgent",
+    });
+    res.json({ response: result.text, dbStats });
   } catch (err) {
     console.error("[ai/super-admin] health error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -697,8 +761,14 @@ router.post("/super-admin/security", roleRateLimit, requireRole(["super_admin"])
       failedLogins: failedLogins.map(f => ({ email: f.email, ip: f.ip, reason: f.reason, timestamp: f.timestamp })),
       securityOverview: { failedLogins24h: failedCount24h },
     });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `sadmin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "security-review",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "superAdminSecurityAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/super-admin] security error:", err.message);
     res.status(500).json({ error: "Internal server error" });
@@ -718,8 +788,14 @@ router.post("/super-admin/governance", roleRateLimit, requireRole(["super_admin"
       message: message || "Review role configuration",
       roles: roles.map(r => ({ name: r._id, userCount: r.count, permissionCount: 0 })),
     });
-    const response = await client.chat(prompt.system, prompt.user);
-    res.json({ response });
+    const result = await client.chat(prompt.system, prompt.user);
+    const sessionId = req.headers["x-session-id"] || `sadmin-${Date.now()}`;
+    trackRoleInteraction({
+      userId: req.userId, userRole: req.userRole, action: "governance",
+      message, response: result.text, tokens: result.tokens, latencyMs: result.latencyMs,
+      sessionId, agentType: "superAdminGovernanceAgent",
+    });
+    res.json({ response: result.text });
   } catch (err) {
     console.error("[ai/super-admin] governance error:", err.message);
     res.status(500).json({ error: "Internal server error" });

@@ -93,7 +93,7 @@ export default function App() {
             {/* Admin Dashboard */}
             <Route path="/admin" element={
               <ProtectedRoute user={user} allowedRoles={['admin', 'super_admin']}>
-                <PageErrorBoundary><AdminDashboard /></PageErrorBoundary>
+                <PageErrorBoundary><AdminDashboard user={user} /></PageErrorBoundary>
               </ProtectedRoute>
             } />
           </Route>

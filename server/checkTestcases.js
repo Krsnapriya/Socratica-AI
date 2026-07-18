@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const TestCase = require('./models/TestCase');
 
 async function check() {
-  await mongoose.connect('mongodb://localhost:27018/socratica');
+  await mongoose.connect('mongodb://localhost:27017/socratica');
   
   const cases = await TestCase.find({}).sort({problemId: 1, language: 1, visibility: 1});
   

@@ -24,6 +24,9 @@ function TestCaseRow({ tc, index }) {
           {tc.passed ? '✓' : '✗'}
         </span>
         <span className="font-mono text-xs text-on-surface-variant">Test {index + 1}</span>
+        {tc.category && tc.category !== 'sample' && (
+          <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-surface-container-highest text-outline uppercase">{tc.category}</span>
+        )}
         {tc.description && <span className="font-mono text-[10px] text-outline ml-auto">{tc.description}</span>}
       </div>
       <div className="grid grid-cols-1 gap-2 font-mono text-[11px]">
@@ -42,9 +45,9 @@ function TestCaseRow({ tc, index }) {
           </div>
         </div>
       </div>
-      {tc.elapsed_ms > 0 && (
+      {(tc.elapsed_ms > 0 || tc.max_memory_bytes > 0) && (
         <div className="mt-2 flex gap-3 font-mono text-[10px] text-outline">
-          <span>{tc.elapsed_ms}ms</span>
+          {tc.elapsed_ms > 0 && <span>{tc.elapsed_ms}ms</span>}
           {tc.max_memory_bytes > 0 && <span>{Math.round(tc.max_memory_bytes / 1024)}KB</span>}
         </div>
       )}
@@ -391,7 +394,7 @@ export default function Workspace() {
                 ) : output ? (
                   executionMode === 'run' ? (
                     <div className="space-y-3">
-                      {output.error && output.error !== 'timeout' && (
+                      {output.error && output.error !== 'timeout' && output.error !== 'compile_error' && (
                         <div className="bg-error/10 border border-error/30 rounded-lg p-3">
                           <span className="font-mono text-xs text-error font-bold uppercase">Error: {output.error}</span>
                         </div>
@@ -401,20 +404,33 @@ export default function Workspace() {
                           <span className="font-mono text-xs text-tertiary font-bold uppercase">Time Limit Exceeded</span>
                         </div>
                       )}
+                      {output.error === 'compile_error' && (
+                        <div className="bg-error/10 border border-error/30 rounded-lg p-3">
+                          <span className="font-mono text-xs text-error font-bold uppercase">Compilation Failed</span>
+                          <pre className="mt-2 font-mono text-[11px] text-error whitespace-pre-wrap">{output.stderr}</pre>
+                        </div>
+                      )}
                       <div>
-                        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">stdout</span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">stdout</span>
+                          {output.stdout && (
+                            <button onClick={() => navigator.clipboard.writeText(output.stdout)}
+                              className="font-mono text-[10px] text-on-surface-variant hover:text-primary transition-colors">Copy</button>
+                          )}
+                        </div>
                         <pre className="mt-1 p-3 rounded-lg bg-surface-container-lowest text-on-surface font-mono text-xs overflow-x-auto whitespace-pre-wrap min-h-[60px]">{output.stdout || '(no output)'}</pre>
                       </div>
-                      {output.stderr && (
+                      {output.stderr && output.error !== 'compile_error' && (
                         <div>
                           <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">stderr</span>
                           <pre className="mt-1 p-3 rounded-lg bg-error/5 text-error font-mono text-xs overflow-x-auto whitespace-pre-wrap">{output.stderr}</pre>
                         </div>
                       )}
-                      <div className="flex gap-4 font-mono text-[10px] text-outline">
-                        {output.elapsed_ms > 0 && <span>{output.elapsed_ms}ms</span>}
-                        {output.max_memory_bytes > 0 && <span>{Math.round(output.max_memory_bytes / 1024)}KB</span>}
+                      <div className="flex items-center gap-4 font-mono text-[10px] text-outline pt-1 border-t border-outline-variant/30">
+                        {output.elapsed_ms > 0 && <span className="flex items-center gap-1"><Icon name="schedule" size={11} />{output.elapsed_ms}ms</span>}
+                        {output.max_memory_bytes > 0 && <span className="flex items-center gap-1"><Icon name="memory" size={11} />{Math.round(output.max_memory_bytes / 1024)}KB</span>}
                         {output.exitCode != null && <span>exit {output.exitCode}</span>}
+                        {output.fallback && <span className="text-tertiary">(local fallback)</span>}
                       </div>
                     </div>
                   ) : executionMode === 'samples' ? (
@@ -427,21 +443,44 @@ export default function Workspace() {
                           </div>
                         ) : (
                           <>
-                            <div className={`flex items-center gap-2 p-2 rounded-lg ${output.verdict === 'pass' ? 'bg-secondary/10 border border-secondary/30' : 'bg-error/10 border border-error/30'}`}>
-                              <Icon name={output.verdict === 'pass' ? 'check_circle' : 'cancel'} size={16} className={output.verdict === 'pass' ? 'text-secondary' : 'text-error'} />
-                              <span className={`font-mono text-xs font-bold ${output.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
-                                {output.passedTests}/{output.totalTests} tests passed
-                              </span>
+                            <div className={`flex items-center justify-between p-2 rounded-lg ${output.verdict === 'pass' ? 'bg-secondary/10 border border-secondary/30' : 'bg-error/10 border border-error/30'}`}>
+                              <div className="flex items-center gap-2">
+                                <Icon name={output.verdict === 'pass' ? 'check_circle' : 'cancel'} size={16} className={output.verdict === 'pass' ? 'text-secondary' : 'text-error'} />
+                                <span className={`font-mono text-xs font-bold ${output.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
+                                  {output.passedTests}/{output.totalTests} tests passed
+                                </span>
+                              </div>
+                              {output.results && (
+                                <span className="font-mono text-[10px] text-outline">
+                                  {output.results.reduce((sum, r) => sum + (r.elapsed_ms || 0), 0)}ms total
+                                </span>
+                              )}
                             </div>
+                            {/* Progress bar */}
+                            {output.totalTests > 0 && (
+                              <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${output.verdict === 'pass' ? 'bg-secondary' : 'bg-error'}`}
+                                  style={{ width: `${(output.passedTests / output.totalTests) * 100}%` }} />
+                              </div>
+                            )}
                             {(output.results || []).map((tc, i) => <TestCaseRow key={i} tc={tc} index={i} />)}
                           </>
                         )}
                       </div>
                     ) : (
-                      <div>
-                        <pre className="p-3 rounded-lg bg-surface-container-lowest text-on-surface font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-                          {output.results?.find(r => !r.passed)?.actualOutput || output.results?.[0]?.actualOutput || '(no output)'}
-                        </pre>
+                      <div className="space-y-2">
+                        {(output.results || []).map((tc, i) => (
+                          <div key={i} className="rounded-lg border border-outline-variant/30 p-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${tc.passed ? 'bg-secondary text-white' : 'bg-error text-white'}`}>
+                                {tc.passed ? '✓' : '✗'}
+                              </span>
+                              <span className="font-mono text-[10px] text-on-surface-variant">Test {i + 1}</span>
+                              {tc.elapsed_ms > 0 && <span className="font-mono text-[9px] text-outline ml-auto">{tc.elapsed_ms}ms</span>}
+                            </div>
+                            <pre className="p-2 rounded bg-surface-container-lowest text-on-surface font-mono text-[11px] overflow-x-auto whitespace-pre-wrap">{tc.actualOutput || tc.error || '(no output)'}</pre>
+                          </div>
+                        ))}
                       </div>
                     )
                   ) : executionMode === 'submit' ? (

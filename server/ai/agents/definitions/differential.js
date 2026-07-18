@@ -18,15 +18,22 @@ FORMAT:
 **Trade-offs:** [comparison]`;
 
 function buildDifferentialPrompt(context = {}) {
-  const { code, language, referenceSolutions, problemTitle, oracleComparison } = context;
+  const { code, language, referenceSolutions, problemTitle, oracleComparison, curriculum, problem } = context;
 
-  let userContent = `## Problem: ${problemTitle || "Unknown"}\n\n`;
+  let userContent = `## Problem: ${problemTitle || problem?.title || "Unknown"}\n\n`;
   userContent += `## Student's Code (${language})\n\`\`\`\n${(code || "").slice(0, 2000)}\n\`\`\`\n\n`;
 
-  if (referenceSolutions?.length > 0) {
-    userContent += `## Reference Solutions\n`;
-    referenceSolutions.forEach((sol, i) => {
-      userContent += `### Reference ${i + 1} (${sol.variant || "default"})\n\`\`\`\n${sol.code.slice(0, 1000)}\n\`\`\`\n\n`;
+  // Use reference solutions from context or curriculum
+  const sols = referenceSolutions?.length > 0 ? referenceSolutions : (curriculum?.referenceSolutions || []);
+  if (sols.length > 0) {
+    userContent += `## Reference Approaches\n`;
+    sols.slice(0, 3).forEach((sol, i) => {
+      if (sol.code) {
+        userContent += `### Reference ${i + 1} (${sol.variant || "default"})\n\`\`\`\n${sol.code.slice(0, 1000)}\n\`\`\`\n\n`;
+      } else {
+        userContent += `### Reference ${i + 1}: ${sol.algorithm || sol.variant || "unknown"}\n`;
+        userContent += `Complexity: ${sol.timeComplexity || "unknown"} time, ${sol.spaceComplexity || "unknown"} space\n\n`;
+      }
     });
   }
 

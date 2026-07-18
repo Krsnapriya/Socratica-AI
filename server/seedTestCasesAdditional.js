@@ -2,7 +2,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const TestCase = require("./models/TestCase");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27018/socratica";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 // Additional hidden test cases for JavaScript and C++
 const additionalTestCases = [

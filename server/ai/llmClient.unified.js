@@ -71,9 +71,11 @@ function isAdversarial(text) {
 }
 
 // ── Token Counting (approximate) ────────────────────────────────────────────
+// Improved estimation: ~4 chars per token for English, ~2 for CJK, ~1 for code-heavy text
 function estimateTokens(text) {
   if (!text) return 0;
-  return Math.ceil(text.length / 4);
+  const codeHeavy = /[{}\[\]();]/.test(text) ? 1.5 : 4;
+  return Math.ceil(text.length / codeHeavy);
 }
 
 // ── Response Cache (Redis-backed with in-memory fallback) ────────────────────
@@ -159,6 +161,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
 
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const reqStart = Date.now();
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -179,6 +182,7 @@ async function callLLM(systemContent, userContent, opts = {}) {
       const data = await resp.json();
       const raw = data.choices?.[0]?.message?.content || "";
       const outTokens = data.usage?.completion_tokens || estimateTokens(raw);
+      const inTokens = data.usage?.prompt_tokens || inputTokens;
 
       let text = sanitizeResponse(raw);
       if (isAdversarial(text)) {
@@ -186,12 +190,13 @@ async function callLLM(systemContent, userContent, opts = {}) {
       }
 
       await cbRecordSuccess();
+      const latencyMs = Date.now() - reqStart;
       const result = {
         text,
         cached: false,
-        tokens: { in: inputTokens, out: outTokens },
+        tokens: { in: inTokens, out: outTokens },
         model: data.model || model,
-        latencyMs: 0,
+        latencyMs,
       };
 
       if (useCache) {
@@ -210,7 +215,8 @@ async function callLLM(systemContent, userContent, opts = {}) {
   }
 
   await cbRecordFailure();
-  return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 } };
+  console.error(`[llm] callLLM FAILED after ${retries + 1} attempts: ${lastErr?.message || "unknown"}`);
+  return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 }, latencyMs: 0 };
 }
 
 // ── Multi-turn Conversation Call ────────────────────────────────────────────
@@ -246,6 +252,7 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
 
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const reqStart = Date.now();
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -266,6 +273,7 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
       const data = await resp.json();
       const raw = data.choices?.[0]?.message?.content || "";
       const outTokens = data.usage?.completion_tokens || estimateTokens(raw);
+      const inTokens = data.usage?.prompt_tokens || inputTokens;
 
       let text = sanitizeResponse(raw);
       if (isAdversarial(text)) {
@@ -273,7 +281,8 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
       }
 
       await cbRecordSuccess();
-      return { text, cached: false, tokens: { in: inputTokens, out: outTokens }, model: data.model || model };
+      const latencyMs = Date.now() - reqStart;
+      return { text, cached: false, tokens: { in: inTokens, out: outTokens }, model: data.model || model, latencyMs };
     } catch (err) {
       lastErr = err;
       if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
@@ -281,7 +290,8 @@ async function callLLMWithHistory(systemContent, messages, opts = {}) {
   }
 
   await cbRecordFailure();
-  return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 } };
+  console.error(`[llm] callLLMWithHistory FAILED after ${retries + 1} attempts: ${lastErr?.message || "unknown"}`);
+  return { text: "", error: lastErr?.message || "LLM call failed", cached: false, tokens: { in: 0, out: 0 }, latencyMs: 0 };
 }
 
 // ── Health Check ────────────────────────────────────────────────────────────
@@ -314,19 +324,13 @@ async function generateSocraticHint({ code, language, problemStatement, verdict,
     performanceData: performanceData || {},
     previousHint,
   });
-  const result = await callLLM([
-    { role: "system", content: SYSTEM_SOCRATIC },
-    { role: "user", content: prompt },
-  ]);
+  const result = await callLLM(SYSTEM_SOCRATIC, prompt);
   return result.text;
 }
 
 async function generateCompileHint(code, language, problemStatement, compileError, verdict) {
   const prompt = `The student submitted the following ${language} code for the problem below and received a compile error.\n\nProblem:\n${problemStatement}\n\nCode:\n${code}\n\nCompile Error:\n${compileError}\n\nProvide a short Socratic hint (2-3 sentences) that helps the student understand and fix the compile error on their own. Do not write or suggest code.`;
-  const result = await callLLM([
-    { role: "system", content: SYSTEM_COMPILE },
-    { role: "user", content: prompt },
-  ]);
+  const result = await callLLM(SYSTEM_COMPILE, prompt);
   return result.text;
 }
 
@@ -334,13 +338,18 @@ async function generateCompileHint(code, language, problemStatement, compileErro
 function getLLMClient() {
   return {
     model: DEFAULT_MODEL,
-    chat: async (systemPrompt, userPrompt) => {
-      const result = await callLLM(systemPrompt, userPrompt);
-      return result.text;
+    chat: async (systemPrompt, userPrompt, opts = {}) => {
+      const result = await callLLM(systemPrompt, userPrompt, opts);
+      // Return full result including tokens and latency for orchestrator tracking
+      return { text: result.text, tokens: result.tokens, latencyMs: result.latencyMs, model: result.model, cached: result.cached, error: result.error };
     },
-    chatWithHistory: async (messages) => {
-      const result = await callLLMWithHistory(messages);
-      return result.text;
+    chatWithHistory: async (messages, opts = {}) => {
+      // messages should be [{role, content}...] — extract system message as systemContent
+      const systemMsg = messages.find(m => m.role === "system");
+      const nonSystemMsgs = messages.filter(m => m.role !== "system");
+      const systemContent = systemMsg?.content || "You are a helpful AI assistant.";
+      const result = await callLLMWithHistory(systemContent, nonSystemMsgs, opts);
+      return { text: result.text, tokens: result.tokens, latencyMs: result.latencyMs, model: result.model, cached: result.cached, error: result.error };
     },
     status: getClientStatus,
   };

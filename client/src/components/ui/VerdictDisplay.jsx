@@ -8,7 +8,7 @@ const VERDICT_CONFIG = {
     color: 'text-secondary',
     bg: 'bg-secondary/10',
     border: 'border-secondary/30',
-    description: 'Your solution matches the oracle output.',
+    description: 'All test cases passed!',
   },
   fail: {
     label: 'Wrong Answer',
@@ -16,7 +16,7 @@ const VERDICT_CONFIG = {
     color: 'text-error',
     bg: 'bg-error/10',
     border: 'border-error/30',
-    description: 'Your output did not match the expected result.',
+    description: 'Some test cases did not pass.',
   },
   timeout: {
     label: 'Time Limit Exceeded',

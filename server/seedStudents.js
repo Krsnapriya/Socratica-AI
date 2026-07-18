@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const User = require("./models/User");
 const config = require("./config");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27018/socratica";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 const additionalStudents = [
   {

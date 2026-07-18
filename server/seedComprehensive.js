@@ -15,7 +15,7 @@ const AuditLog = require("./models/AuditLog");
 const ReferenceSolution = require("./models/ReferenceSolution");
 const config = require("./config");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27018/socratica";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 // Helper to random element from array
 const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -174,19 +174,6 @@ async function seedComprehensive() {
       }
     ];
 
-    let createdProblems = 0;
-    for (const p of newProblems) {
-      const existing = await Problem.findOne({ problemId: p.problemId });
-      if (!existing) {
-        await Problem.create(p);
-        createdProblems++;
-      }
-    }
-    console.log(`  Created ${createdProblems} new problems`);
-
-    // Fetch all problems after creating new ones
-    const problems = await Problem.find({});
-
     // 2. Create Reference Solutions for new problems
     console.log("\n[2/9] Creating reference solutions...");
     const refSolutions = [
@@ -301,6 +288,39 @@ async function seedComprehensive() {
       }
     }
     console.log(`  Created ${createdRefs} reference solutions`);
+
+    // 2b. Create/update problems with oracleSolutions
+    console.log("\n[2b/9] Creating problems with oracle solutions...");
+    const oracleSolutionsMap = {};
+    for (const ref of refSolutions) {
+      if (ref.isPrimary) oracleSolutionsMap[ref.problemId] = ref;
+    }
+    let createdProblems = 0;
+    let updatedProblems = 0;
+    for (const p of newProblems) {
+      const existing = await Problem.findOne({ problemId: p.problemId });
+      if (!existing) {
+        const oracle = oracleSolutionsMap[p.problemId];
+        await Problem.create({
+          ...p,
+          oracleSolutions: oracle ? { python: oracle.code, javascript: "", cpp: "" } : undefined,
+        });
+        createdProblems++;
+      } else if (!existing.oracleSolutions?.python) {
+        const oracle = oracleSolutionsMap[p.problemId];
+        if (oracle) {
+          await Problem.updateOne(
+            { _id: existing._id },
+            { $set: { oracleSolutions: { python: oracle.code, javascript: "", cpp: "" } } }
+          );
+          updatedProblems++;
+        }
+      }
+    }
+    console.log(`  Created ${createdProblems} new problems, updated ${updatedProblems} with oracleSolutions`);
+
+    // Fetch all problems after creating new ones
+    const problems = await Problem.find({});
 
     // 3. Enroll students in courses
     console.log("\n[3/9] Creating enrollments...");

@@ -83,10 +83,12 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
 
   const { wrapperType, driverCode } = driverConfig;
 
+  // stdin_stdout mode: student code reads from stdin directly, no driver injection
   if (wrapperType === "stdin_stdout") {
     return studentCode;
   }
 
+  // C++ specific wrapping
   if (language === "cpp") {
     const hasInclude = studentCode.includes("#include");
     const hasMain = studentCode.includes("int main");
@@ -101,9 +103,11 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
     return result;
   }
 
+  // Python/JavaScript: append driver after student code
   return studentCode + "\n" + driverCode + "\n";
 }
 
+// ── Unified container execution ────────────────────────────────────────────
 async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
   if (!docker) throw new Error("system_judge_error");
   if (!code || code.trim().length === 0) throw new Error("Empty submission rejected");
@@ -129,36 +133,7 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
     envVars.push(`CUSTOM_INPUT_B64=${stdinB64}`);
   }
 
-  let container;
-  try {
-    container = await docker.createContainer(createContainerConfig({
-      image: dockerArgs.image, envVars, memoryMb, dockerArgs,
-    }));
-    await container.start();
-
-    const timeoutMs = finalTimeLimit + config.sandbox.graceTimeoutMs;
-    await Promise.race([
-      container.wait(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("container_timeout")), timeoutMs)),
-    ]);
-
-    const { stdoutText, stderrText } = await fetchContainerLogs(container);
-    const parsed = parseContainerOutput(stdoutText, stderrText);
-    if (!parsed) {
-      console.error("[engine] Sandbox parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));
-      throw new Error("Sandbox output parse error");
-    }
-    return parsed.student || parsed;
-  } catch (err) {
-    if (err.message === "container_timeout") throw new Error("container_timeout");
-    if (err.message === "Sandbox output parse error") throw err;
-    console.error("[engine] Docker exception:", err.message || err);
-    throw new Error("system_judge_error");
-  } finally {
-    if (container) {
-      try { await container.remove({ force: true }); } catch (_) {}
-    }
-  }
+  return runContainer({ image: dockerArgs.image, envVars, memoryMb, dockerArgs, timeLimitMs: finalTimeLimit });
 }
 
 async function executeWithOracle({ studentCode, oracleCode, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
@@ -188,14 +163,19 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
     envVars.push(`CUSTOM_INPUT_B64=${stdinB64}`);
   }
 
+  return runContainer({ image: dockerArgs.image, envVars, memoryMb, dockerArgs, timeLimitMs: finalTimeLimit });
+}
+
+// ── Shared container runner (eliminates duplication) ───────────────────────
+async function runContainer({ image, envVars, memoryMb, dockerArgs, timeLimitMs }) {
   let container;
   try {
     container = await docker.createContainer(createContainerConfig({
-      image: dockerArgs.image, envVars, memoryMb, dockerArgs,
+      image, envVars, memoryMb, dockerArgs,
     }));
     await container.start();
 
-    const timeoutMs = finalTimeLimit + config.sandbox.graceTimeoutMs;
+    const timeoutMs = timeLimitMs + config.sandbox.graceTimeoutMs;
     await Promise.race([
       container.wait(),
       new Promise((_, rej) => setTimeout(() => rej(new Error("container_timeout")), timeoutMs)),
@@ -204,14 +184,14 @@ async function executeWithOracle({ studentCode, oracleCode, language, stdin, tim
     const { stdoutText, stderrText } = await fetchContainerLogs(container);
     const parsed = parseContainerOutput(stdoutText, stderrText);
     if (!parsed) {
-      console.error("[engine] Oracle parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));
+      console.error("[engine] Sandbox parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));
       throw new Error("Sandbox output parse error");
     }
     return parsed;
   } catch (err) {
     if (err.message === "container_timeout") throw new Error("container_timeout");
     if (err.message === "Sandbox output parse error") throw err;
-    console.error("[engine] Docker oracle exception:", err.message || err);
+    console.error("[engine] Docker exception:", err.message || err);
     throw new Error("system_judge_error");
   } finally {
     if (container) {
@@ -243,6 +223,7 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
   const timeout = Math.min(timeLimitMs || 10000, 10000);
   const start = Date.now();
   let stdout = "";
+  let stderr = "";
   let error = null;
 
   try {
@@ -267,7 +248,10 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
   } catch (err) {
     if (err.killed) error = "timeout";
     else if (err.status === 137) error = "oom";
-    else error = err.stderr?.toString()?.slice(0, 500) || err.message;
+    else {
+      stderr = err.stderr?.toString()?.slice(0, 500) || "";
+      error = err.status === 1 ? "compile_error" : (stderr || err.message);
+    }
   }
 
   const elapsed = Date.now() - start;
@@ -276,7 +260,7 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch (_) {}
 
-  return { stdout, error, elapsed_ms: elapsed, max_memory_bytes: 0 };
+  return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: error ? 1 : 0 };
 }
 
 module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback };

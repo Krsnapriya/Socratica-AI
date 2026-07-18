@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const TestCase = require("./models/TestCase");
 const DriverTemplate = require("./models/DriverTemplate");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27018/socratica";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 const NEW_PROBLEMS_TEST_CASES = {
   "binary-tree-inorder": {

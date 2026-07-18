@@ -21,10 +21,10 @@ FORMAT your response as:
 
 function buildWrongAnswerPrompt(context = {}) {
   const { code, language, problemTitle, problemStatement, executionResult, studentOutput, oracleOutput,
-          codeAnalysis, attemptHistory, weakTopics, hiddenCategories, hintLevel } = context;
+          codeAnalysis, attemptHistory, weakTopics, hiddenCategories, hintLevel, curriculum, problem } = context;
 
-  let userContent = `## Problem: ${problemTitle || "Unknown"}\n`;
-  if (problemStatement) userContent += `${problemStatement.slice(0, 600)}\n\n`;
+  let userContent = `## Problem: ${problemTitle || problem?.title || "Unknown"}\n`;
+  if (problemStatement || problem?.statement) userContent += `${(problemStatement || problem?.statement || "").slice(0, 600)}\n\n`;
 
   userContent += `## Student's Code (${language})\n\`\`\`\n${(code || "").slice(0, 3000)}\n\`\`\`\n\n`;
 
@@ -34,7 +34,7 @@ function buildWrongAnswerPrompt(context = {}) {
 
   if (hiddenCategories?.length > 0) {
     userContent += `## Hidden Test Categories Failed\n`;
-    hiddenCategories.forEach(c => { userContent += `- ${c.category} (${c.count} tests): ${c.hint}\n`; });
+    hiddenCategories.forEach(c => { userContent += `- ${c.category || "unknown"} (${c.count || 0} tests): ${c.hint}\n`; });
     userContent += "\n";
   }
 
@@ -53,7 +53,14 @@ function buildWrongAnswerPrompt(context = {}) {
   }
 
   if (weakTopics?.length > 0) {
-    userContent += `## Student Weak Areas: ${weakTopics.join(", ")}\n\n`;
+    userContent += `## Student Weak Areas: ${weakTopics.map(t => t.topic || t).join(", ")}\n\n`;
+  }
+
+  // Curriculum context for prerequisite-aware guidance
+  if (curriculum?.knowledgeGraph?.prerequisites?.length > 0) {
+    userContent += `## Prerequisite Topics\n`;
+    userContent += `This problem involves ${curriculum.knowledgeGraph.currentTopic || "unknown"}. Prerequisites: ${curriculum.knowledgeGraph.prerequisites.map(p => `${p.name} (${p.category})`).join(", ")}\n`;
+    userContent += `If the student struggles, consider whether they need to review prerequisite concepts first.\n\n`;
   }
 
   userContent += `Hint level: ${hintLevel || 1}/5. `;

@@ -20,11 +20,11 @@ RULES:
 - Use markdown formatting for readability`;
 
 function buildCodeReviewPrompt(context = {}) {
-  const { code, language, problemTitle, problemStatement, codeAnalysis, skillLevel, weakTopics } = context;
+  const { code, language, problemTitle, problemStatement, codeAnalysis, skillLevel, weakTopics, curriculum, problem } = context;
 
-  let userContent = `## Problem\n${problemTitle || "Unknown"}\n\n`;
-  if (problemStatement) {
-    userContent += `${problemStatement.slice(0, 600)}\n\n`;
+  let userContent = `## Problem\n${problemTitle || problem?.title || "Unknown"}\n\n`;
+  if (problemStatement || problem?.statement) {
+    userContent += `${(problemStatement || problem?.statement || "").slice(0, 600)}\n\n`;
   }
 
   userContent += `## Student's Code (${language || "python"})\n\`\`\`\n${(code || "").slice(0, 3000)}\n\`\`\`\n\n`;
@@ -37,8 +37,17 @@ function buildCodeReviewPrompt(context = {}) {
     userContent += "\n";
   }
 
+  // Reference approaches from curriculum
+  if (curriculum?.referenceSolutions?.length > 0) {
+    userContent += `## Reference Approaches (for comparison, don't reveal to student)\n`;
+    for (const rs of curriculum.referenceSolutions.slice(0, 2)) {
+      userContent += `- ${rs.algorithm || rs.variant}: ${rs.timeComplexity || "unknown"} time\n`;
+    }
+    userContent += "\n";
+  }
+
   if (weakTopics?.length > 0) {
-    userContent += `## Student Context\nWeak areas: ${weakTopics.join(", ")}\n`;
+    userContent += `## Student Context\nWeak areas: ${weakTopics.map(t => t.topic || t).join(", ")}\n`;
     if (skillLevel) userContent += `Skill level: ${skillLevel}\n`;
     userContent += "\n";
   }

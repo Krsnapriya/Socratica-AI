@@ -61,13 +61,13 @@ function getHintLevel(context) {
 
 function buildHintPrompt(context = {}) {
   const { code, language, problemTitle, problemStatement, attemptHistory, weakTopics, hiddenCategories,
-          codeAnalysis, executionResult, hintLevel: forcedLevel, previousHint } = context;
+          codeAnalysis, executionResult, hintLevel: forcedLevel, previousHint, curriculum, problem } = context;
 
   const level = forcedLevel || getHintLevel(context);
   const system = HINT_PROMPTS[level] || HINT_PROMPTS[1];
 
-  let userContent = `## Problem: ${problemTitle || "Unknown"}\n`;
-  if (problemStatement) userContent += `${problemStatement.slice(0, 800)}\n\n`;
+  let userContent = `## Problem: ${problemTitle || problem?.title || "Unknown"}\n`;
+  if (problemStatement || problem?.statement) userContent += `${(problemStatement || problem?.statement || "").slice(0, 800)}\n\n`;
 
   if (code) {
     userContent += `## Student's Current Code (${language})\n\`\`\`\n${code.slice(0, 2500)}\n\`\`\`\n\n`;
@@ -79,7 +79,7 @@ function buildHintPrompt(context = {}) {
 
   if (hiddenCategories?.length > 0) {
     userContent += `## Failed Test Categories\n`;
-    hiddenCategories.forEach(c => { userContent += `- ${c.category}: ${c.hint}\n`; });
+    hiddenCategories.forEach(c => { userContent += `- ${c.category || "unknown"}: ${c.hint}\n`; });
     userContent += "\n";
   }
 
@@ -96,13 +96,19 @@ function buildHintPrompt(context = {}) {
   }
 
   if (weakTopics?.length > 0) {
-    userContent += `## Student Weak Areas: ${weakTopics.join(", ")}\n\n`;
+    userContent += `## Student Weak Areas: ${weakTopics.map(t => t.topic || t).join(", ")}\n\n`;
   }
 
   if (codeAnalysis?.bugs?.length > 0) {
     userContent += `## Code Bugs Found\n`;
     codeAnalysis.bugs.forEach(b => { userContent += `- ${b.type}: ${b.description}\n`; });
     userContent += "\n";
+  }
+
+  // Curriculum context for prerequisite-aware hints
+  if (curriculum?.knowledgeGraph?.prerequisites?.length > 0) {
+    userContent += `## Concept Context\n`;
+    userContent += `This problem uses ${curriculum.knowledgeGraph.currentTopic || "unknown"}. Key prerequisites: ${curriculum.knowledgeGraph.prerequisites.map(p => p.name).join(", ")}\n\n`;
   }
 
   userContent += `Provide a LEVEL ${level} hint. Hint level: ${level}/5 (${HINT_LEVELS[level - 1]?.name}).`;

@@ -32,7 +32,7 @@ function TabSkeleton() {
   return <div className="space-y-4 p-4"><div className="h-8 bg-surface-container-low rounded w-1/3 animate-pulse" /><div className="h-40 bg-surface-container-low rounded animate-pulse" /></div>;
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ user }) {
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
           {tab === 'courses' && <CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} />}
           {tab === 'problems' && <ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} />}
           {tab === 'compiler' && <CompilerTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-          {tab === 'ai' && <AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
+          {tab === 'ai' && <AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} userRole={user?.role} />}
           {tab === 'audit' && <AuditTab auditLogs={auditLogs} auditPage={auditPage} auditTotalPages={auditTotalPages} setAuditPage={setAuditPage} logFilter={logFilter} setLogFilter={setLogFilter} onFilter={loadAuditLogs} loading={loading} />}
           {tab === 'security' && <SecurityTab secOverview={secOverview} failedLogins={failedLogins} onForceLogout={handleForceLogout} loading={loading} />}
           {tab === 'settings' && <SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}

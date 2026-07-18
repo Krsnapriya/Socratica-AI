@@ -3,6 +3,10 @@ const Problem = require("../models/Problem");
 const Submission = require("../models/Submission");
 const Session = require("../models/Session");
 const TestCase = require("../models/TestCase");
+const Course = require("../models/Course");
+const Module = require("../models/Module");
+const Topic = require("../models/Topic");
+const ReferenceSolution = require("../models/ReferenceSolution");
 
 const CATEGORY_LABELS = {
   sample: "Basic sample tests",
@@ -24,31 +28,154 @@ const HIDDEN_CATEGORY_HINTS = {
   sample: "Your solution doesn't pass the sample tests.",
 };
 
+// ── Course/Module/Topic Context ─────────────────────────────────────────────
+async function buildCurriculumContext(problemId) {
+  if (!problemId) return null;
+
+  // Find the module that contains this problem
+  const module = await Module.findOne({ "topics.problemId": problemId })
+    .populate("course", "title description estimatedHours")
+    .populate("prerequisites", "title description")
+    .lean();
+
+  if (!module) return null;
+
+  // Find the course
+  const course = module.course || await Course.findById(module.course).lean();
+
+  // Find all modules in this course for progress tracking
+  const courseModules = course?.modules
+    ? await Module.find({ _id: { $in: course.modules } })
+        .select("title order topics.problemId")
+        .sort({ order: 1 })
+        .lean()
+    : [];
+
+  // Find which topic in the module contains this problem
+  const currentTopic = module.topics?.find(t => t.problemId === problemId);
+
+  // Find prerequisite topics from the knowledge graph
+  // Map problem category to topic names
+  const problem = await Problem.findOne({ problemId }).lean();
+  const categoryToTopic = {
+    "Arrays": "arrays", "Linked Lists": "linked_lists", "Stacks": "stacks",
+    "Queues": "queues", "Hash Maps": "hashing", "Trees": "trees",
+    "Graphs": "graphs", "Dynamic Programming": "dynamic_programming",
+    "Binary Search": "binary_search", "Sorting": "sorting",
+    "Recursion": "recursion", "Backtracking": "backtracking",
+    "Two Pointers": "two_pointers", "Sliding Window": "sliding_window",
+    "Greedy": "greedy", "Bit Manipulation": "bit_manipulation",
+    "Strings": "strings", "Math": "math", "Design": "design",
+  };
+  const topicName = categoryToTopic[problem?.category];
+  let prerequisites = [];
+  if (topicName) {
+    const topicDoc = await Topic.findOne({ name: topicName }).lean();
+    if (topicDoc?.dependsOn?.length > 0) {
+      prerequisites = await Topic.find({ name: { $in: topicDoc.dependsOn } })
+        .select("name category description")
+        .lean();
+    }
+  }
+
+  // Get reference solutions for this problem
+  const referenceSolutions = await ReferenceSolution.find({ problemId, verified: true })
+    .select("language variant code timeComplexity spaceComplexity algorithm isPrimary")
+    .sort({ isPrimary: -1 })
+    .lean();
+
+  return {
+    course: course ? {
+      title: course.title,
+      description: course.description,
+      estimatedHours: course.estimatedHours,
+    } : null,
+    module: {
+      title: module.title,
+      description: module.description,
+      order: module.order,
+      totalTopics: module.topics?.length || 0,
+      currentTopic: currentTopic?.title || null,
+      prerequisites: (module.prerequisites || []).map(p => ({
+        title: p.title,
+        description: p.description,
+      })),
+    },
+    courseModules: courseModules.map(m => ({
+      title: m.title,
+      order: m.order,
+      problemCount: m.topics?.length || 0,
+    })),
+    knowledgeGraph: {
+      currentTopic: topicName || null,
+      prerequisites: prerequisites.map(p => ({
+        name: p.name,
+        category: p.category,
+        description: p.description,
+      })),
+    },
+    referenceSolutions: referenceSolutions.map(rs => ({
+      language: rs.language,
+      variant: rs.variant,
+      timeComplexity: rs.timeComplexity,
+      spaceComplexity: rs.spaceComplexity,
+      algorithm: rs.algorithm,
+      isPrimary: rs.isPrimary,
+      // Never expose oracle code to students — only metadata
+    })),
+  };
+}
+
 async function buildStudentProfile(userId) {
   const user = await User.findById(userId).lean();
   if (!user) return null;
 
-  const totalSubmissions = await Submission.countDocuments({ userId });
-  const passCount = await Submission.countDocuments({ userId, verdict: "pass" });
-  const solvedProblems = await Submission.distinct("problemId", { userId, verdict: "pass" });
+  // Aggregate submission stats in a single query instead of N+1
+  const [stats, recentSubmissions, topicAggregation] = await Promise.all([
+    Submission.aggregate([
+      { $match: { userId: user._id } },
+      { $group: {
+        _id: null,
+        totalSubmissions: { $sum: 1 },
+        passCount: { $sum: { $cond: [{ $eq: ["$verdict", "pass"] }, 1, 0] } },
+        solvedProblems: { $addToSet: { $cond: [{ $eq: ["$verdict", "pass"] }, "$problemId", null] } },
+      }},
+    ]),
+    Submission.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .select("problemId verdict language createdAt tier")
+      .lean(),
+    Submission.aggregate([
+      { $match: { userId: user._id } },
+      { $group: {
+        _id: "$problemId",
+        totalAttempts: { $sum: 1 },
+        passed: { $sum: { $cond: [{ $eq: ["$verdict", "pass"] }, 1, 0] } },
+      }},
+    ]),
+  ]);
 
-  const recentSubmissions = await Submission.find({ userId })
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .select("problemId verdict language createdAt tier")
+  const { totalSubmissions = 0, passCount = 0, solvedProblems = [] } = stats[0] || {};
+  const solvedCount = (solvedProblems || []).filter(Boolean).length;
+  const allProblemIds = topicAggregation.map(t => t._id);
+
+  // Batch-fetch problem metadata for all attempted problems
+  const problems = await Problem.find({ problemId: { $in: allProblemIds } })
+    .select("problemId category difficulty")
     .lean();
+  const problemMap = {};
+  problems.forEach(p => { problemMap[p.problemId] = p; });
 
-  const allProblems = await Submission.distinct("problemId", { userId });
-
+  // Build topic stats without per-problem queries
   const topicStats = {};
-  for (const pid of allProblems) {
-    const problem = await Problem.findOne({ problemId: pid }).select("category difficulty").lean();
+  for (const agg of topicAggregation) {
+    const problem = problemMap[agg._id];
     if (!problem) continue;
     const cat = problem.category || "General";
     if (!topicStats[cat]) topicStats[cat] = { attempted: 0, solved: 0, difficulty: problem.difficulty };
-    topicStats[cat].attempted++;
-    const solved = await Submission.findOne({ userId, problemId: pid, verdict: "pass" }).lean();
-    if (solved) topicStats[cat].solved++;
+    topicStats[cat].attempted += agg.totalAttempts;
+    topicStats[cat].solved += agg.passed;
   }
 
   const weakTopics = Object.entries(topicStats)
@@ -67,6 +194,14 @@ async function buildStudentProfile(userId) {
     tier: s.tier,
   }));
 
+  // Calculate skill level based on pass rate and difficulty progression
+  let skillLevel = "beginner";
+  const overallPassRate = totalSubmissions > 0 ? passCount / totalSubmissions : 0;
+  const hardSolved = Object.entries(topicStats)
+    .filter(([_, s]) => s.difficulty === "hard" && s.solved > 0).length;
+  if (overallPassRate > 0.6 && hardSolved > 0) skillLevel = "advanced";
+  else if (overallPassRate > 0.3 || solvedCount > 3) skillLevel = "intermediate";
+
   return {
     email: user.email,
     role: user.role,
@@ -75,7 +210,8 @@ async function buildStudentProfile(userId) {
     totalSubmissions,
     totalPass: passCount,
     passRate: totalSubmissions > 0 ? Math.round((passCount / totalSubmissions) * 100) : 0,
-    solvedCount: solvedProblems.length,
+    solvedCount,
+    skillLevel,
     topicStats,
     weakTopics,
     strongTopics,
@@ -142,6 +278,13 @@ async function buildTestResults(userId, problemId, sessionId) {
     oracleMemoryMb: latest.tier2Result?.oracleMemMb || 0,
     divergenceStep: latest.divergenceStep,
     hint: latest.hint,
+    // Include oracle output so AI knows correct answer on failure
+    oracleOutput: latest.oracleOutput ? {
+      stdout: latest.oracleOutput.stdout?.substring(0, 2000) || "",
+      stderr: latest.oracleOutput.stderr?.substring(0, 500) || "",
+      exitCode: latest.oracleOutput.exitCode,
+      testResults: latest.oracleOutput.testResults || null,
+    } : null,
   };
 }
 
@@ -156,18 +299,26 @@ async function buildHiddenTestCategories(problemId, language) {
   const categories = {};
   for (const tc of testCases) {
     const cat = tc.category || "hidden";
-    if (!categories[cat]) categories[cat] = { count: 0, descriptions: [] };
+    if (!categories[cat]) categories[cat] = { count: 0 };
     categories[cat].count++;
-    if (tc.description) categories[cat].descriptions.push(tc.description);
   }
 
-  return Object.entries(categories).map(([category, info]) => ({
-    category,
-    label: CATEGORY_LABELS[category] || category,
-    count: info.count,
-    hint: HIDDEN_CATEGORY_HINTS[category] || "",
-    sampleDescriptions: info.descriptions.slice(0, 3),
-  }));
+  // Don't expose category names to AI — only provide aggregate hints
+  const totalHidden = Object.values(categories).reduce((sum, c) => sum + c.count, 0);
+  const failedCategories = Object.entries(categories)
+    .filter(([cat]) => cat !== "sample")
+    .map(([cat, info]) => ({
+      hint: HIDDEN_CATEGORY_HINTS[cat] || "Some test cases failed. Review your approach.",
+      count: info.count,
+    }));
+
+  return {
+    totalHiddenTests: totalHidden,
+    failedCategories,
+    generalHint: failedCategories.length > 0
+      ? failedCategories[0].hint
+      : "Your solution doesn't pass all test cases. Review your approach and edge cases.",
+  };
 }
 
 async function buildConversationHistory(userId, sessionId, limit = 20) {
@@ -186,16 +337,22 @@ async function buildConversationHistory(userId, sessionId, limit = 20) {
 }
 
 async function buildFullContext({ userId, problemId, sessionId, code, language, executionResult, previousHint }) {
-  const [problem, studentProfile, attemptHistory, hiddenCategories] = await Promise.all([
+  // Parallel fetch: problem, student profile, attempt history, hidden categories, curriculum
+  const [problem, studentProfile, attemptHistory, hiddenCategories, curriculum] = await Promise.all([
     Problem.findOne({ problemId }).lean(),
-    buildStudentProfile(userId),
-    buildAttemptHistory(userId, problemId, sessionId),
+    userId ? buildStudentProfile(userId) : Promise.resolve(null),
+    userId && problemId ? buildAttemptHistory(userId, problemId, sessionId) : Promise.resolve([]),
     buildHiddenTestCategories(problemId, language),
+    buildCurriculumContext(problemId),
   ]);
 
-  const conversationHistory = await buildConversationHistory(userId, sessionId);
+  const conversationHistory = userId && sessionId
+    ? await buildConversationHistory(userId, sessionId)
+    : [];
 
-  const testResults = await buildTestResults(userId, problemId, sessionId);
+  const testResults = userId && problemId && sessionId
+    ? await buildTestResults(userId, problemId, sessionId)
+    : null;
 
   return {
     student: studentProfile,
@@ -203,6 +360,7 @@ async function buildFullContext({ userId, problemId, sessionId, code, language, 
       id: problem.problemId,
       title: problem.title,
       statement: problem.statement,
+      description: problem.description,
       category: problem.category,
       difficulty: problem.difficulty,
       tags: problem.tags,
@@ -227,10 +385,14 @@ async function buildFullContext({ userId, problemId, sessionId, code, language, 
       memoryBytes: executionResult.max_memory_bytes || 0,
     } : null,
     testResults,
-    hiddenCategories,
+    // Sanitized hidden test info (no category names exposed to AI)
+    hiddenTestInfo: hiddenCategories,
+    // Curriculum context (course, module, topic, prerequisites, reference solutions)
+    curriculum,
     conversationHistory,
     weakTopics: studentProfile?.weakTopics || [],
     strongTopics: studentProfile?.strongTopics || [],
+    skillLevel: studentProfile?.skillLevel || "intermediate",
     passRate: studentProfile?.passRate || 0,
     streak: studentProfile?.streak || 0,
   };
@@ -242,6 +404,7 @@ module.exports = {
   buildAttemptHistory,
   buildHiddenTestCategories,
   buildConversationHistory,
+  buildCurriculumContext,
   CATEGORY_LABELS,
   HIDDEN_CATEGORY_HINTS,
 };

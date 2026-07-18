@@ -15,6 +15,7 @@ import {
   aiContextualHint,
   aiConfidence,
   aiGuestChat,
+  aiGuestSyllabus,
   aiInstructorCurriculum,
   aiInstructorAssessment,
   aiInstructorInsights,

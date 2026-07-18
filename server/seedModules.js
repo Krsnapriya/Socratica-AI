@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const Course = require("./models/Course");
 const Module = require("./models/Module");
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27018/socratica";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 const newModules = [
   {

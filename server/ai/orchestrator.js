@@ -9,23 +9,9 @@ const { getHintLevel } = require("./agents");
 const { buildAgentPrompt } = require("./agents");
 const { buildMemoryContext, updateLearningMemory } = require("./memoryAgent");
 const { getAgentsForRequest, shouldGateContent, getPersonaStyle } = require("./roleRouter");
-const { getLLMClient, callLLM } = require("./llmClient.unified");
+const { getLLMClient, sanitizeResponse: llmSanitize } = require("./llmClient.unified");
 const AIUsage = require("../models/AIUsage");
-
-function stripCodeBlocks(text) {
-  return text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "").trim();
-}
-
-function sanitizeResponse(text) {
-  let cleaned = stripCodeBlocks(text);
-  const lines = cleaned.split("\n");
-  return lines.filter(line => {
-    const trimmed = line.trim();
-    if (/^(def |class |function |const |let |var |import |from |#include|using |for |while |if |return )/.test(trimmed)) return false;
-    if (trimmed.startsWith(">>>") || trimmed.startsWith("...")) return false;
-    return true;
-  }).join("\n").trim();
-}
+const AIConversation = require("../models/AIConversation");
 
 function isAdversarialResponse(text) {
   const lower = text.toLowerCase();
@@ -34,11 +20,14 @@ function isAdversarialResponse(text) {
     "solution:", "answer:", "fix:"].some(s => lower.includes(s));
 }
 
-async function trackUsage({ userId, role, action, agentType, latencyMs, success, error, problemId, sessionId, cached, model }) {
+async function trackUsage({ userId, role, action, agentType, latencyMs, success, error, problemId, sessionId, cached, model, tokens }) {
   try {
     await AIUsage.create({
       userId, role, action, agentType, latencyMs, success, error,
       problemId, sessionId, cached, model,
+      inputTokens: tokens?.in || 0,
+      outputTokens: tokens?.out || 0,
+      totalTokens: (tokens?.in || 0) + (tokens?.out || 0),
     });
   } catch (err) {
     console.error("[orchestrator] Usage tracking failed:", err.message);
@@ -51,6 +40,9 @@ async function routeAndRespond({
 }) {
   const startTime = Date.now();
   const role = userRole || "student";
+  const reqId = `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  console.log(`[ai:${reqId}] START role=${role} action=${action} agent=${explicitAgent || "auto"} user=${userId || "anon"}`);
 
   // Get memory context for students
   const memoryContext = role === "student" ? await buildMemoryContext(userId) : null;
@@ -65,8 +57,8 @@ async function routeAndRespond({
   // Build persona
   const persona = getPersonaStyle(role, extraContext || {});
 
-  // Build context
-  const fullContext = {
+  // Build context — enrich with full problem/submission/test data when problemId available
+  let fullContext = {
     ...extraContext,
     code,
     language: language || "python",
@@ -77,6 +69,29 @@ async function routeAndRespond({
     persona,
     message,
   };
+
+  // When we have a problemId and userId, build rich context from DB
+  // This gives the AI access to problem statement, submission history, test results, etc.
+  if (problemId && userId && (action === "chat" || action === "hint" || action === "contextual-hint" || action === "code-review" || action === "code-review-contextual")) {
+    try {
+      const richContext = await buildFullContext({
+        userId, problemId, sessionId, code, language: language || "python", executionResult,
+      });
+      // Merge rich context — don't overwrite fields already set by the route
+      fullContext = {
+        ...richContext,
+        ...fullContext, // Route-provided fields take precedence
+        problem: richContext.problem || fullContext.problem,
+        submission: richContext.submission || fullContext.submission,
+        testResults: richContext.testResults || fullContext.testResults,
+        hiddenTestInfo: richContext.hiddenTestInfo || fullContext.hiddenTestInfo,
+        weakTopics: richContext.weakTopics?.length ? richContext.weakTopics : fullContext.weakTopics,
+        strongTopics: richContext.strongTopics?.length ? richContext.strongTopics : fullContext.strongTopics,
+      };
+    } catch (err) {
+      console.error(`[ai:${reqId}] Context build failed (non-fatal):`, err.message);
+    }
+  }
 
   // Static analysis if code provided
   if (code) {
@@ -92,34 +107,95 @@ async function routeAndRespond({
     prompt = buildAgentPrompt(agentType, fullContext);
   }
 
+  console.log(`[ai:${reqId}] PROMPT system=${prompt.system?.length || 0}chars user=${prompt.user?.length || 0}chars`);
+
   // Call LLM
   const client = getLLMClient();
-  const rawResponse = await client.chat(prompt.system, prompt.user);
+  const llmResult = await client.chat(prompt.system, prompt.user);
 
-  // Sanitize
-  let response = sanitizeResponse(rawResponse);
+  // Sanitize using unified sanitizer
+  let response = llmSanitize(llmResult.text);
   if (isAdversarialResponse(response)) {
-    console.warn("[orchestrator] Adversarial response detected");
+    console.warn(`[ai:${reqId}] ADVERSARIAL response detected — neutralizing`);
     response = null;
   }
   if (!response || response.length < 10) {
+    console.warn(`[ai:${reqId}] SHORT response (${response?.length || 0} chars) — using fallback`);
     response = "Look at the difference between your output and the expected output. Walk through your logic step by step with a small example.";
   }
 
-  // Track usage
-  const latencyMs = Date.now() - startTime;
+  // Track usage with token data from actual LLM call
+  const latencyMs = llmResult.latencyMs || (Date.now() - startTime);
   trackUsage({
-    userId, role, action, agentType, latencyMs, success: true,
-    problemId, sessionId, cached: false, model: client.model,
+    userId, role, action, agentType, latencyMs, success: !llmResult.error,
+    problemId, sessionId, cached: llmResult.cached || false, model: llmResult.model || client.model,
+    tokens: llmResult.tokens || { in: 0, out: 0 },
   });
+
+  console.log(`[ai:${reqId}] DONE latency=${latencyMs}ms tokens=${llmResult.tokens?.in || 0}+${llmResult.tokens?.out || 0} cached=${llmResult.cached || false} response=${response?.length || 0}chars`);
+
+  // Save conversation to AIConversation
+  if (userId && sessionId) {
+    saveConversation(userId, sessionId, action, message, response, problemId, role).catch(err => {
+      console.error(`[ai:${reqId}] Conversation save failed:`, err.message);
+    });
+  }
+
+  // Update learning memory after execution (pass/fail)
+  if (executionResult?.verdict && userId && problemId) {
+    const Problem = require("../models/Problem");
+    const problem = await Problem.findOne({ problemId }).lean().catch(() => null);
+    const codeAnalysis = code ? analyzeStudentCode(code, language || "python") : null;
+    updateLearningMemory(userId, { verdict: executionResult.verdict, problemId }, problem, codeAnalysis).catch(err => {
+      console.error(`[ai:${reqId}] Memory update failed:`, err.message);
+    });
+  }
 
   return {
     response,
     agent: agentType,
     role,
     latencyMs,
-    cached: false,
+    cached: llmResult.cached || false,
   };
+}
+
+// ── Conversation Persistence ─────────────────────────────────────────────
+async function saveConversation(userId, sessionId, action, userMessage, aiResponse, problemId, role) {
+  const topicMap = {
+    chat: "general",
+    syllabus: "syllabus",
+    debug: "debug",
+    quiz: "quiz",
+    interview: "interview_practice",
+    "code-review": "code_review",
+    "code-review-contextual": "code_review",
+    "oracle-comparison": "oracle_comparison",
+    "learning-summary": "learning_summary",
+    "contextual-hint": "hint",
+  };
+
+  const update = {
+    $push: {
+      messages: {
+        $each: [
+          { role: "user", content: userMessage?.substring(0, 5000) || "", timestamp: new Date() },
+          { role: "assistant", content: aiResponse?.substring(0, 5000) || "", timestamp: new Date() },
+        ],
+      },
+    },
+    $set: { updatedAt: new Date() },
+  };
+
+  if (problemId) {
+    update.$set["metadata.problemId"] = problemId;
+  }
+
+  await AIConversation.findOneAndUpdate(
+    { userId, sessionId, active: true },
+    update,
+    { upsert: true, new: true }
+  );
 }
 
 // ── High-Level API Methods ────────────────────────────────────────────────
@@ -140,12 +216,32 @@ async function getCodeReview({ userId, userRole, problemId, code, language }) {
 
 async function getOracleComparison({ userId, userRole, problemId, code, language }) {
   const Problem = require("../models/Problem");
-  const problem = await Problem.findOne({ problemId }).lean();
-  const referenceSolutions = problem?.referenceSolutions?.filter(
-    s => s.language === (language || "python") && s.status === "approved"
-  ) || [];
+  const ReferenceSolution = require("../models/ReferenceSolution");
 
-  const comparison = compareSolutions(code, referenceSolutions[0]?.code || "", problemId, language);
+  const problem = await Problem.findOne({ problemId }).lean();
+  if (!problem) return { error: "Problem not found" };
+
+  // Try ReferenceSolution collection first, fall back to inline oracleSolutions
+  let referenceSolutions = await ReferenceSolution.find({
+    problemId,
+    language: language || "python",
+    verified: true,
+  }).sort({ isPrimary: -1, createdAt: 1 }).lean();
+
+  // If no ReferenceSolution entries, use the inline oracle from the Problem doc
+  if (referenceSolutions.length === 0 && problem.oracleSolutions?.[language]) {
+    referenceSolutions = [{
+      problemId,
+      language,
+      code: problem.oracleSolutions[language],
+      variant: "primary",
+      isPrimary: true,
+      verified: true,
+    }];
+  }
+
+  const oracleCode = referenceSolutions[0]?.code || "";
+  const comparison = compareSolutions(code, oracleCode, problemId, language);
 
   const result = await routeAndRespond({
     userId, userRole, action: "oracle-comparison", code, language, problemId,
@@ -175,6 +271,23 @@ async function getConfidenceReport({ userId, userRole, code, language, execution
   };
 }
 
+// ── Lightweight tracking for role-specific endpoints (instructor/admin/etc) ──
+// Routes that use specialized prompts but still need usage tracking + conversation saves
+async function trackRoleInteraction({ userId, userRole, action, message, response, tokens, latencyMs, sessionId, problemId, agentType }) {
+  // Track usage
+  trackUsage({
+    userId, role: userRole, action, agentType: agentType || `${userRole}Agent`,
+    latencyMs: latencyMs || 0, success: !!response,
+    problemId, sessionId, cached: false, model: "default",
+    tokens: tokens || { in: 0, out: 0 },
+  }).catch(() => {});
+
+  // Save conversation
+  if (userId && sessionId) {
+    saveConversation(userId, sessionId, action, message, response, problemId, userRole).catch(() => {});
+  }
+}
+
 module.exports = {
   getAIResponse,
   getCodeReview,
@@ -183,4 +296,5 @@ module.exports = {
   getConfidenceReport,
   routeAndRespond,
   trackUsage,
+  trackRoleInteraction,
 };

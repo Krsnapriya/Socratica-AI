@@ -48,9 +48,7 @@ jobs:
       - run: node -c models/Permission.js
       - run: node -c models/Course.js
       - run: node -c models/Module.js
-      - run: node -c sandbox/runInContainer.js
       - run: node -c sandbox/languageConfigs.js
-      - run: node -c sandbox/problemDrivers.js
       - run: node -c sandbox/compileErrorHandler.js
       - run: node -c ai/llmClient.js
       - run: node -c ai/socraticPrompt.js

@@ -1008,6 +1008,17 @@ router.post("/drivers", requirePermission("problems", "create"), async (req, res
   }
 });
 
+router.put("/drivers/:id", requirePermission("problems", "update"), async (req, res) => {
+  try {
+    const driver = await DriverTemplate.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!driver) return res.status(404).json({ error: "Driver not found" });
+    res.json(driver);
+  } catch (err) {
+    console.error("[admin] drivers update error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.delete("/drivers/:id", requirePermission("problems", "delete"), async (req, res) => {
   try {
     const driver = await DriverTemplate.findByIdAndDelete(req.params.id);
@@ -1221,6 +1232,7 @@ router.delete("/topics/:id", requirePermission("courses", "delete"), async (req,
 
 // ── AI Prompts CRUD ───────────────────────────────────────────────────
 const AIPrompt = require("../models/AIPrompt");
+const { invalidateDBPromptCache } = require("../ai/agents/index");
 
 router.get("/ai-prompts", requirePermission("compiler", "read"), async (req, res) => {
   try {
@@ -1244,6 +1256,7 @@ router.post("/ai-prompts", requirePermission("compiler", "update"), async (req, 
     const version = last ? last.version + 1 : 1;
 
     const prompt = await AIPrompt.create({ agentType, version, systemPrompt, description, isActive: true });
+    invalidateDBPromptCache(agentType);
     res.status(201).json(prompt);
   } catch (err) {
     console.error("[admin] POST /ai-prompts error:", err.message);
@@ -1255,6 +1268,7 @@ router.put("/ai-prompts/:id", requirePermission("compiler", "update"), async (re
   try {
     const prompt = await AIPrompt.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     if (!prompt) return res.status(404).json({ error: "Prompt not found" });
+    invalidateDBPromptCache(prompt.agentType);
     res.json(prompt);
   } catch (err) {
     console.error("[admin] PUT /ai-prompts error:", err.message);
@@ -1274,6 +1288,7 @@ router.post("/ai-prompts/:id/activate", requirePermission("compiler", "update"),
     );
     target.isActive = true;
     await target.save();
+    invalidateDBPromptCache(target.agentType);
 
     res.json(target);
   } catch (err) {
@@ -1286,6 +1301,7 @@ router.delete("/ai-prompts/:id", requirePermission("compiler", "update"), async 
   try {
     const prompt = await AIPrompt.findByIdAndDelete(req.params.id);
     if (!prompt) return res.status(404).json({ error: "Prompt not found" });
+    invalidateDBPromptCache(prompt.agentType);
     res.json({ message: "Prompt deleted" });
   } catch (err) {
     console.error("[admin] DELETE /ai-prompts error:", err.message);
@@ -1417,6 +1433,7 @@ router.post("/seed-analysis-patterns", requireRole(["super_admin"]), async (req,
 router.post("/seed-ai-prompts", requireRole(["super_admin"]), async (req, res) => {
   try {
     const result = await require("../seedAIPrompts")();
+    invalidateDBPromptCache();
     res.json({ message: "AI prompts seeded", ...result });
   } catch (err) {
     console.error("[admin] POST /seed-ai-prompts error:", err.message);
