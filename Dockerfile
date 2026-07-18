@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
+COPY server/package.json server/package-lock.json* ./server/
 COPY client/package.json client/package-lock.json* ./client/
-RUN npm ci --omit=dev && cd client && npm ci
+RUN npm ci --omit=dev && cd server && npm ci --omit=dev && cd ../client && npm ci
 
 COPY server/ ./server/
 COPY client/src/ ./client/src/
