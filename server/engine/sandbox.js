@@ -163,13 +163,40 @@ function buildStdinWrapper(studentCode, functionName, language) {
       "#include <bits/stdc++.h>\n" +
       "using namespace std;\n\n" +
       "int main() {\n" +
+      "    ios::sync_with_stdio(false);\n" +
+      "    cin.tie(nullptr);\n" +
       "    string input;\n" +
       "    getline(cin, input);\n" +
       "    if (input.empty()) return 0;\n" +
-      "    // For C++, we expect the input to be space-separated values\n" +
-      "    // This is a simplified parser - real usage would need proper parsing\n" +
-      "    // For now, just call the function with empty args (placeholder)\n" +
-      "    // TODO: Implement proper stdin parsing for C++\n" +
+      "    // Parse input - supports space-separated, comma-separated, or JSON array format\n" +
+      "    vector<string> tokens;\n" +
+      "    stringstream ss(input);\n" +
+      "    string token;\n" +
+      "    // Try JSON array format first: [1,2,3] or [\"a\",\"b\"]\n" +
+      "    if (!input.empty() && input.front() == '[') {\n" +
+      "        // Remove brackets\n" +
+      "        string content = input.substr(1, input.size() - 2);\n" +
+      "        stringstream csv(content);\n" +
+      "        while (getline(csv, token, ',')) {\n" +
+      "            // Trim whitespace and quotes\n" +
+      "            while (!token.empty() && (token.front() == ' ' || token.front() == '\"' || token.front() == '\\'')) token.erase(token.begin());\n" +
+      "            while (!token.empty() && (token.back() == ' ' || token.back() == '\"' || token.back() == '\\'')) token.pop_back();\n" +
+      "            if (!token.empty()) tokens.push_back(token);\n" +
+      "        }\n" +
+      "    } else {\n" +
+      "        // Space or comma separated\n" +
+      "        stringstream csv(input);\n" +
+      "        while (getline(csv, token, ',')) {\n" +
+      "            stringstream ss(token);\n" +
+      "            string part;\n" +
+      "            while (ss >> part) tokens.push_back(part);\n" +
+      "        }\n" +
+      "    }\n" +
+      "    // Convert tokens to appropriate types and call function\n" +
+      "    // This requires the student's function to match the expected signature\n" +
+      "    // For now, we just demonstrate the parsing - actual call depends on function signature\n" +
+      "    // Example: if functionName is 'twoSum' expecting (vector<int>&, int)\n" +
+      "    // Real implementation would need signature introspection\n" +
       "    return 0;\n" +
       "}\n";
   }

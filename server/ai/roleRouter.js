@@ -40,12 +40,12 @@ const DEFAULT_AGENT_ROUTES = {
     chat: ["instructorCurriculumAgent"],
     default: ["instructorCurriculumAgent"],
   },
-  admin: {
+admin: {
     "platform-intel": ["adminPlatformAgent"],
     "content-quality": ["adminContentAgent"],
     moderation: ["adminModerationAgent"],
     "anomaly-report": ["adminPlatformAgent"],
-    chat: ["adminPlatformAgent"],
+    chat: ["tutorAgent"],  // In workspace, admin acts as tutor
     default: ["adminPlatformAgent"],
   },
   super_admin: {

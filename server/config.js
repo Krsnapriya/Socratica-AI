@@ -50,7 +50,7 @@ const config = {
   },
 
   // ── LLM / AI ────────────────────────────────────────────────────────────
-  llm: {
+llm: {
     baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
     model: process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct",
     temperature: parseFloat(process.env.LLM_TEMPERATURE) || 0.7,
@@ -59,9 +59,10 @@ const config = {
     timeoutMs: parseInt(process.env.LLM_TIMEOUT) || 15000,
     maxRetries: parseInt(process.env.LLM_MAX_RETRIES) || 2,
     circuitBreaker: {
-      threshold: parseInt(process.env.LLM_CB_THRESHOLD) || 5,
-      resetMs: parseInt(process.env.LLM_CB_RESET_MS) || 30000,
+      threshold: parseInt(process.env.LLM_CB_THRESHOLD) || 20,
+      resetMs: parseInt(process.env.LLM_CB_RESET_MS) || 10000,
     },
+  },
   },
 
   // ── Rate Limiting ────────────────────────────────────────────────────────
