@@ -81,11 +81,16 @@ function createContainerConfig({ image, envVars, memoryMb, dockerArgs }) {
 function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
   if (!driverConfig || !driverConfig.driverCode) return studentCode;
 
-  const { wrapperType, driverCode } = driverConfig;
+  const { wrapperType, driverCode, functionName } = driverConfig;
 
   // stdin_stdout mode: student code reads from stdin directly, no driver injection
   if (wrapperType === "stdin_stdout") {
     return studentCode;
+  }
+
+  // function_call mode: generate stdin-based wrapper instead of using hardcoded driver
+  if (wrapperType === "function_call" && functionName) {
+    return buildStdinWrapper(studentCode, functionName, language);
   }
 
   // C++ specific wrapping
@@ -104,6 +109,71 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
   }
 
   // Python/JavaScript: append driver after student code
+  return studentCode + "\n" + driverCode + "\n";
+}
+
+function buildStdinWrapper(studentCode, functionName, language) {
+  if (language === "python") {
+    return studentCode + "\n\n" +
+      "import sys\n" +
+      "import json\n" +
+      "import ast\n\n" +
+      "def main():\n" +
+      "    data = sys.stdin.read().strip()\n" +
+      "    if not data:\n" +
+      "        return\n" +
+      "    try:\n" +
+      "        args = json.loads(data)\n" +
+      "    except json.JSONDecodeError:\n" +
+      "        try:\n" +
+      "            args = ast.literal_eval(data)\n" +
+      "        except:\n" +
+      "            args = [x.strip() for x in data.split(",")]\n" +
+      "    if not isinstance(args, (list, tuple)):\n" +
+      "        args = [args]\n" +
+      "    result = " + functionName + "(*args)\n" +
+      "    print(result)\n\n" +
+      "if __name__ == \"__main__\":\n" +
+      "    main()\n";
+  }
+  if (language === "javascript") {
+    return studentCode + "\n\n" +
+      "const fs = require('fs');\n" +
+      "function main() {\n" +
+      "    const data = fs.readFileSync(0, 'utf-8').trim();\n" +
+      "    if (!data) return;\n" +
+      "    let args;\n" +
+      "    try {\n" +
+      "        args = JSON.parse(data);\n" +
+      "    } catch {\n" +
+      "        try {\n" +
+      "            args = eval(data);\n" +
+      "        } catch {\n" +
+      "            args = data.split(',').map(x => x.trim());\n" +
+      "        }\n" +
+      "    }\n" +
+      "    if (!Array.isArray(args)) args = [args];\n" +
+      "    const result = " + functionName + "(...args);\n" +
+      "    console.log(result);\n" +
+      "}\n" +
+      "main();\n";
+  }
+  if (language === "cpp") {
+    return studentCode + "\n\n" +
+      "#include <bits/stdc++.h>\n" +
+      "using namespace std;\n\n" +
+      "int main() {\n" +
+      "    string input;\n" +
+      "    getline(cin, input);\n" +
+      "    if (input.empty()) return 0;\n" +
+      "    // For C++, we expect the input to be space-separated values\n" +
+      "    // This is a simplified parser - real usage would need proper parsing\n" +
+      "    // For now, just call the function with empty args (placeholder)\n" +
+      "    // TODO: Implement proper stdin parsing for C++\n" +
+      "    return 0;\n" +
+      "}\n";
+  }
+  // Fallback: append driver code
   return studentCode + "\n" + driverCode + "\n";
 }
 

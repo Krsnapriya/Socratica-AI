@@ -2,6 +2,13 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Install Python3 and g++ for sandbox fallback execution
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json* ./
 COPY client/package.json client/package-lock.json* ./client/
 RUN npm ci --omit=dev && cd client && npm ci
