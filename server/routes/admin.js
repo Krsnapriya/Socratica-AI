@@ -1452,6 +1452,28 @@ router.post("/seed-roles", requireRole(["super_admin"]), async (req, res) => {
   }
 });
 
+// ── Seed Content (problems, courses, modules) ───────────────────────────
+router.post("/seed-content", requireRole(["super_admin"]), async (req, res) => {
+  try {
+    const result = await require("../seedContent")();
+    if (result.skipped) return res.json({ message: "Content already exists", ...result });
+
+    // Also seed test cases via child process
+    const { execSync } = require("child_process");
+    try {
+      execSync("node seedTestCases.js", { cwd: require("path").join(__dirname, ".."), timeout: 60000, stdio: "pipe" });
+    } catch { /* may already exist */ }
+    try {
+      execSync("node seedNewProblemTestCases.js", { cwd: require("path").join(__dirname, ".."), timeout: 60000, stdio: "pipe" });
+    } catch { /* may already exist */ }
+
+    res.json({ message: "Content seeded successfully", ...result });
+  } catch (err) {
+    console.error("[admin] POST /seed-content error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/seed-languages", requireRole(["super_admin"]), async (req, res) => {
   try {
     const result = await require("../seedLanguages")();

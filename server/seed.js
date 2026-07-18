@@ -1853,12 +1853,18 @@ async function seed() {
 
     await seedPermissions();
     console.log(`[seed] Done — ${created} created, ${skipped} updated`);
+    return { created, skipped };
   } catch (err) {
     console.error("[seed] Error:", err.message);
-  } finally {
-    await mongoose.disconnect();
-    process.exit(0);
+    throw err;
   }
 }
 
-seed();
+// When run directly (node seed.js), connect and exit
+if (require.main === module) {
+  const mongoose = require("mongoose");
+  const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
+  mongoose.connect(MONGO_URI).then(() => seed()).then(() => mongoose.disconnect()).then(() => process.exit(0)).catch(() => process.exit(1));
+}
+
+module.exports = seed;

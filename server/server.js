@@ -231,6 +231,31 @@ async function autoSeed() {
     await oracleComparator.loadFromDB();
     console.log("[server] All AI subsystem configs reloaded");
 
+    // Seed content (problems, courses, modules) if empty
+    const Problem = require("./models/Problem");
+    const problemCount = await Problem.countDocuments();
+    if (problemCount === 0) {
+      console.log("[server] No problems found — seeding course content...");
+      await require("./seedContent")();
+      console.log("[server] Course content seeded");
+    }
+
+    // Seed test cases and drivers if empty
+    const TestCase = require("./models/TestCase");
+    const testCaseCount = await TestCase.countDocuments();
+    if (testCaseCount === 0) {
+      console.log("[server] No test cases found — seeding test cases and drivers...");
+      const { execSync } = require("child_process");
+      try {
+        execSync("node seedTestCases.js", { cwd: __dirname, timeout: 60000, stdio: "pipe" });
+        console.log("[server] Test cases for problems 1-13 seeded");
+      } catch (e) { console.warn("[server] seedTestCases error:", e.message?.slice(0, 200)); }
+      try {
+        execSync("node seedNewProblemTestCases.js", { cwd: __dirname, timeout: 60000, stdio: "pipe" });
+        console.log("[server] Test cases for problems 14-23 seeded");
+      } catch (e) { console.warn("[server] seedNewProblemTestCases error:", e.message?.slice(0, 200)); }
+    }
+
   } catch (err) {
     console.warn("[server] Auto-seed error:", err.message);
   }
