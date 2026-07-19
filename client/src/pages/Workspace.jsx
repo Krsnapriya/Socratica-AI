@@ -89,9 +89,10 @@ export default function Workspace() {
       try {
         setLoadingProblems(true);
         const data = await fetchProblems();
-        setProblems(data);
-        if (data?.length > 0 && !selectedProblemId) {
-          setSelectedProblemId(data[0].problemId);
+        const list = Array.isArray(data) ? data : data?.problems || [];
+        setProblems(list);
+        if (list.length > 0 && !selectedProblemId) {
+          setSelectedProblemId(list[0].problemId);
         }
       } catch (err) {
         console.error('Error loading problems:', err);

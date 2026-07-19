@@ -96,7 +96,7 @@ export default function AdminDashboard({ user }) {
 
   function loadProblems() {
     setLoading(true);
-    fetchAdminProblems().then(setProblems).catch(() => addToast('Failed to load problems', 'error')).finally(() => setLoading(false));
+    fetchAdminProblems().then(d => setProblems(Array.isArray(d) ? d : d?.problems || [])).catch(() => addToast('Failed to load problems', 'error')).finally(() => setLoading(false));
   }
 
   function loadPermissions() {
