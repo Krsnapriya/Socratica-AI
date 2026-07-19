@@ -162,7 +162,10 @@ router.post("/login", validate(schemas.login), async (req, res) => {
 router.post("/logout", requireAuth, async (req, res) => {
   try {
     // req.tokenJti and req.tokenExp are set by requireAuth
-    await revokeToken(req.tokenJti, req.tokenExp);
+    // revokeToken may fail if Redis is unavailable — don't let that block logout
+    await revokeToken(req.tokenJti, req.tokenExp).catch(err =>
+      console.warn("[auth] Logout: revokeToken failed (non-fatal):", err.message)
+    );
     res.json({ success: true, message: "Logged out successfully" });
   } catch (err) {
     console.error("[auth] Logout error:", err.message);

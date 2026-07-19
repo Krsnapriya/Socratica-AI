@@ -60,8 +60,9 @@ export default function App() {
   }
 
   async function handleLogout() {
-    await logout();
+    await logout().catch(() => {});
     localStorage.removeItem('socratica-email');
+    clearTokens();
     setUser(null);
   }
 
