@@ -657,6 +657,10 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   let verdict = allPassed ? "pass" : "fail";
   if (!allPassed && testResults.some(r => r.error === "timeout")) verdict = "timeout";
 
+  // Detect recursion limit from Python tracer
+  const studentErr = compilationResult?.error || "";
+  if (!allPassed && studentErr.includes("RecursionError")) verdict = "recursion_limit_exceeded";
+
   let finalTier = allPassed ? 0 : 2;
   let traceLog = undefined;
   let divergenceStep = undefined;
@@ -665,9 +669,9 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   let hintLevel = undefined;
 
   if (verdict === "fail") {
-    // Trace analysis for tier determination
+    // Trace analysis for tier determination — use ACTUAL oracle telemetry, not student's twice
     const { summary } = analyzeTraces({
-      studentTelemetry: compilationResult, oracleTelemetry: compilationResult, language,
+      studentTelemetry: compilationResult, oracleTelemetry: oracleResult || compilationResult, language,
     });
     finalTier = summary.tier;
     if (summary.tier === 1) {

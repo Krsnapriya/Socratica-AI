@@ -61,6 +61,7 @@ function createContainerConfig({ image, envVars, memoryMb, dockerArgs }) {
     Env: envVars,
     AttachStdout: true,
     AttachStderr: true,
+    AutoRemove: true,
     HostConfig: {
       Memory: memoryMb * 1024 * 1024,
       MemorySwap: memoryMb * 1024 * 1024,

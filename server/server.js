@@ -42,7 +42,10 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(",").map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173'],
+    : [
+        'http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173',
+        'https://socratica-ai.netlify.app',
+      ],
   credentials: true,
 }));
 app.use(cookieParser());

@@ -122,8 +122,15 @@ async function routeAndRespond({
     response = null;
   }
   if (!response || response.length < 10) {
-    console.warn(`[ai:${reqId}] SHORT response (${response?.length || 0} chars) — using fallback`);
-    response = "Look at the difference between your output and the expected output. Walk through your logic step by step with a small example.";
+    console.warn(`[ai:${reqId}] SHORT response (${response?.length || 0} chars) — using telemetry fallback`);
+    // Build fallback from raw execution telemetry instead of generic static text
+    const er = executionResult || fullContext.executionResult;
+    const testInfo = er?.testResults
+      ? `\nTest Results: ${er.passedTestCount || 0}/${er.totalTestCount || 0} passed. ${er.failedTestCount || 0} failed.`
+      : '';
+    const errorInfo = er?.error ? `\nError: ${er.error}${er.stderr ? ' — ' + String(er.stderr).slice(0, 200) : ''}` : '';
+    const timingInfo = er?.elapsedMs ? `\nRuntime: ${er.elapsedMs}ms` : '';
+    response = `Your code produced wrong output.${testInfo}${errorInfo}${timingInfo}\n\nThink about: What is the difference between your output and the expected output for each failing test case? Walk through a small example by hand and compare step by step.`;
   }
 
   // Track usage with token data from actual LLM call

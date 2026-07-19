@@ -9,7 +9,7 @@ const { config } = require("../configLoader");
 
 const router = express.Router();
 
-const langList = config.roles ? Object.keys(config.sandbox.languages).join(",") : "python,cpp,javascript";
+const langList = config?.sandbox?.languages ? Object.keys(config.sandbox.languages).join(",") : "python,cpp,javascript";
 const runCodeSchema = {
   code: "required",
   language: `required|in:${langList}`,

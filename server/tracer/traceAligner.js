@@ -51,11 +51,11 @@ function stepCountWithinTolerance(studentSteps, oracleSteps) {
   const oCount = oracleSteps.length;
   if (oCount === 0) return false;
   const ratio = sCount / oCount;
-  if (ratio >= STEP_COUNT_MIN_RATIO && ratio <= STEP_COUNT_MAX_RATIO) {
-    if (ratio >= 1 - STEP_COUNT_TOLERANCE_RATIO && ratio <= 1 + STEP_COUNT_TOLERANCE_RATIO) return true;
-    return true;
-  }
-  return false;
+  // Must be same order of magnitude (0.1x to 10x) AND within tolerance band (0.85x to 1.15x)
+  // Both conditions must hold for Tier 1 alignment
+  if (ratio < STEP_COUNT_MIN_RATIO || ratio > STEP_COUNT_MAX_RATIO) return false;
+  if (ratio < (1 - STEP_COUNT_TOLERANCE_RATIO) || ratio > (1 + STEP_COUNT_TOLERANCE_RATIO)) return false;
+  return true;
 }
 
 function alignTraces(studentTelemetry, oracleTelemetry) {
