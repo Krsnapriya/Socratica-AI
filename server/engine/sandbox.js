@@ -297,6 +297,22 @@ async function runContainer({ image, envVars, memoryMb, dockerArgs, timeLimitMs 
   }
 }
 
+// ── Runtime Probing (cached) ──────────────────────────────────────────────
+const _runtimeCache = {};
+function findRuntime(name, candidates) {
+  if (_runtimeCache[name] !== undefined) return _runtimeCache[name];
+  const { execSync } = require("child_process");
+  for (const cmd of candidates) {
+    try {
+      execSync(`which ${cmd}`, { stdio: "pipe", timeout: 2000 });
+      _runtimeCache[name] = cmd;
+      return cmd;
+    } catch (_) {}
+  }
+  _runtimeCache[name] = null;
+  return null;
+}
+
 async function runFallback({ code, language, stdin, timeLimitMs }) {
   const { execSync } = require("child_process");
   const fs = require("fs");
@@ -325,18 +341,36 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
 
   try {
     if (language === "python") {
+      const pythonCmd = findRuntime("python", ["python3", "python"]);
+      if (!pythonCmd) {
+        error = "Python is not installed on this server. Please use JavaScript or contact support.";
+        stderr = "Python runtime not available";
+        return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
+      }
       const cmd = stdin
-        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | python3 ${codeFile}`
-        : `python3 ${codeFile}`;
+        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${pythonCmd} ${codeFile}`
+        : `${pythonCmd} ${codeFile}`;
       stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
     } else if (language === "javascript") {
+      const nodeCmd = findRuntime("node", ["node"]);
+      if (!nodeCmd) {
+        error = "Node.js is not installed on this server.";
+        stderr = "Node.js runtime not available";
+        return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
+      }
       const cmd = stdin
-        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | node ${codeFile}`
-        : `node ${codeFile}`;
+        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${nodeCmd} ${codeFile}`
+        : `${nodeCmd} ${codeFile}`;
       stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
     } else if (language === "cpp") {
+      const gppCmd = findRuntime("g++", ["g++"]);
+      if (!gppCmd) {
+        error = "g++ is not installed on this server.";
+        stderr = "C++ compiler not available";
+        return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
+      }
       const outBin = path.join(tmpDir, "solution");
-      execSync(`g++ -o ${outBin} ${codeFile} -std=c++17`, { timeout: 10000 });
+      execSync(`${gppCmd} -o ${outBin} ${codeFile} -std=c++17`, { timeout: 10000 });
       const cmd = stdin
         ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${outBin}`
         : outBin;

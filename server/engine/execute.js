@@ -30,7 +30,7 @@ async function loadDriver(problemId, language) {
   const problem = await Problem.findOne({ problemId }).lean();
   if (problem) {
     const inline = problem.driverConfig?.get?.(language) || problem.driverConfig?.[language] || null;
-    if (inline) return inline;
+    if (inline) return { ...inline, wrapperType: inline.wrapperType || "function" };
   }
   return null;
 }
@@ -350,7 +350,35 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   const testResults = [];
   let useFallback = false;
 
-  for (const tc of allTestCases) {
+  // Fallback: if no test cases found in DB, try inline problem.testCases
+  let effectiveTestCases = allTestCases;
+  if (effectiveTestCases.length === 0) {
+    effectiveTestCases = (problem.testCases || []).map((tc, i) => ({
+      ...tc,
+      visibility: tc.visibility || (i < 2 ? "public" : "hidden"),
+      category: tc.category || "sample",
+      order: i,
+      enabled: tc.enabled !== false,
+    }));
+    console.warn(`[execute] No DB test cases for ${problemId} — using ${effectiveTestCases.length} inline test cases`);
+  }
+
+  if (effectiveTestCases.length === 0) {
+    // No test cases at all — treat as system error, not student failure
+    console.error(`[execute] No test cases found for ${problemId} in any source`);
+    const sub = await Submission.create({
+      userId, problemId, sessionId: sId, code, language, round: roundNum,
+      verdict: "system_judge_error", tier: 2,
+      tier2Result: { studentTimeMs: 0, oracleTimeMs: 0, studentMemMb: 0, oracleMemMb: 0 },
+      hint: "No test cases available for this problem. Please contact support.",
+      executionMode: "submit",
+      testSummary: { totalTests: 0, passedTests: 0, failedCategories: [] },
+    });
+    await Session.updateOne({ sessionId: sId }, { roundCount: roundNum, endedAt: new Date() });
+    return { mode: "submit", ...sub.toObject(), sessionId: sId, testResults: [], totalTests: 0, passedTests: 0, failedCategories: [] };
+  }
+
+  for (const tc of effectiveTestCases) {
     try {
       const result = useFallback
         ? await runFallback({ code: codeWithDriver, language, stdin: tc.input, timeLimitMs: tc.timeLimitMs || timeLimitMs })

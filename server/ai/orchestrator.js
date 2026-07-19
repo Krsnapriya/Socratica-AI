@@ -15,9 +15,11 @@ const AIConversation = require("../models/AIConversation");
 
 function isAdversarialResponse(text) {
   const lower = text.toLowerCase();
-  return ["here is the solution", "here's the solution", "the answer is", "the fix is",
-    "try this code", "def solve", "def two_sum", "function solve",
-    "solution:", "answer:", "fix:"].some(s => lower.includes(s));
+  // Only flag responses that are clearly providing complete solutions, not tutoring phrases
+  return ["here is the complete code", "here's the complete code", "here is the full working solution",
+    "here's the full working solution", "the complete solution is",
+    "try this code:", "copy and paste this",
+    "def solve(", "def two_sum(", "function solve("].some(s => lower.includes(s));
 }
 
 async function trackUsage({ userId, role, action, agentType, latencyMs, success, error, problemId, sessionId, cached, model, tokens }) {

@@ -86,14 +86,22 @@ router.use(requireAuth);
 // ── Chat with AI Mentor ──────────────────────────────────────────────────
 router.post("/chat", roleRateLimit, async (req, res) => {
   try {
-    const { message, sessionId, topic, context, style } = req.body;
+    const { message, sessionId, topic, context, style, code, language, problemId } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
+
+    // Extract code/language/problemId from either top-level or nested context
+    const effectiveCode = code || context?.code;
+    const effectiveLanguage = language || context?.language;
+    const effectiveProblemId = problemId || context?.problemId;
 
     const result = await routeAndRespond({
       userId: req.userId,
       userRole: req.userRole,
       action: "chat",
       message,
+      code: effectiveCode,
+      language: effectiveLanguage,
+      problemId: effectiveProblemId,
       sessionId,
       context: { topic, ...context, preferredStyle: style },
     });

@@ -63,7 +63,6 @@ llm: {
       resetMs: parseInt(process.env.LLM_CB_RESET_MS) || 10000,
     },
   },
-  },
 
   // ── Rate Limiting ────────────────────────────────────────────────────────
   rateLimits: {

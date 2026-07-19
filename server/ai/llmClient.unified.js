@@ -51,18 +51,16 @@ async function cbRecordFailure() {
 
 // ── Response Safety ─────────────────────────────────────────────────────────
 const SOLUTION_PATTERNS = [
-  /here\s+(is|'s|are)\s+(the\s+)?(complete|full|final|working)\s+code/i,
-  /def\s+\w+\s*\(|function\s+\w+\s*\(|class\s+\w+/i,
+  /here\s+(is|'s|are)\s+(the\s+)?(complete|full|final|working)\s+(code|solution)/i,
   /```[\s\S]{20,}```/,
 ];
 
 function sanitizeResponse(text) {
   if (!text) return "";
-  let clean = text.replace(/```[\s\S]*?```/g, "[code block removed]");
-  clean = clean.replace(/`[^`]{3,}`/g, "");
-  const lines = clean.split("\n");
-  const codeLike = /^\s*(def |function |class |import |from |#include|const |let |var |return |if |for |while |print\()/;
-  return lines.filter(l => !codeLike.test(l)).join("\n").trim();
+  // Only remove code blocks that are 4+ lines long (likely full solutions)
+  // Keep short code snippets and all explanatory text
+  let clean = text.replace(/```\w*\n[\s\S]{200,}?```/g, "[code block removed]");
+  return clean.trim();
 }
 
 function isAdversarial(text) {
