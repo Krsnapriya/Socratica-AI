@@ -45,6 +45,35 @@ function outputsMatch(actual, expected) {
   return normalize(a) === normalize(e);
 }
 
+// For function_call mode: run the oracle solution through the driver to get expected output.
+// This avoids storing per-language expectedOutput and handles format differences (Python repr vs JSON).
+async function getOracleOutput(problem, language, driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs) {
+  const oracleCode = problem.oracleSolutions?.[language];
+  if (!oracleCode) return null;
+
+  // Build full oracle code (same way as student code — function_call uses driverCode appended)
+  const fullCode = buildStudentCodeWithDriver(oracleCode, { driverCode, wrapperType: "function_call" }, language);
+
+  try {
+    const result = await executeInContainer({
+      code: fullCode,
+      language,
+      stdin: "",
+      timeLimitMs,
+      memoryLimitMb,
+      compileTimeoutMs,
+    });
+    if (result.error === "compile_error") {
+      console.warn(`[execute] Oracle compile error for ${problem.problemId}/${language}: using fallback expectedOutput`);
+      return null;
+    }
+    return (result.stdout || "").trim();
+  } catch (err) {
+    console.warn(`[execute] Oracle run failed for ${problem.problemId}/${language}:`, err.message);
+    return null;
+  }
+}
+
 async function runCode({ code, language, customInput, problemId }) {
   const problem = await Problem.findOne({ problemId }).lean();
   if (!problem) throw new Error("Problem not found");
@@ -132,6 +161,84 @@ async function runSamples({ code, language, problemId }) {
   const driverConfig = await loadDriver(problemId, language);
   const codeWithDriver = buildStudentCodeWithDriver(code, driverConfig, language);
   const timeLimitMs = problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs || 10000;
+  const isFunctionCall = driverConfig?.wrapperType === "function_call";
+
+  // For function_call mode, the driverCode runs all test cases at once.
+  // Compute expected output dynamically by running oracle solution through the driver.
+  if (isFunctionCall && testCases.length > 0) {
+    try {
+      const result = await executeInContainer({
+        code: codeWithDriver, language, stdin: "",
+        timeLimitMs,
+        memoryLimitMb: problem.memoryLimitMb || 256,
+        compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
+      });
+
+      if (isCompileError(result)) {
+        const formatted = formatCompileError(result);
+        return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
+      }
+
+      const actualOutput = (result.stdout || "").trim();
+
+      // Try to get expected output from oracle + driver
+      const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, problem.memoryLimitMb || 256, problem.executionConfig?.compileTimeoutMs);
+      const expectedOutput = oracleOutput || (testCases[0].expectedOutput || "").trim();
+      const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true; // if no oracle, don't fail
+
+      const results = testCases.map(tc => ({
+        input: tc.input,
+        expectedOutput,
+        actualOutput,
+        passed,
+        visible: tc.visibility === "public",
+        description: tc.description || "",
+        category: tc.category || "sample",
+        elapsed_ms: result.elapsed_ms || 0,
+        max_memory_bytes: result.max_memory_bytes || 0,
+        error: result.error || null,
+      }));
+
+      const allPassed = results.length > 0 && results.every(r => r.passed);
+      return {
+        mode: "samples",
+        verdict: allPassed ? "pass" : "fail",
+        results,
+        totalTests: results.length,
+        passedTests: results.filter(r => r.passed).length,
+      };
+    } catch (err) {
+      if (err.message === "system_judge_error") {
+        const result = await runFallback({
+          code: codeWithDriver, language, stdin: "", timeLimitMs,
+        });
+        if (result.error) {
+          return { mode: "samples", verdict: result.error === "compile_error" ? "compile_error" : "fail", results: [] };
+        }
+        const actualOutput = (result.stdout || "").trim();
+        const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, problem.memoryLimitMb || 256, problem.executionConfig?.compileTimeoutMs).catch(() => null);
+        const expectedOutput = oracleOutput || (testCases[0].expectedOutput || "").trim();
+        const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
+        const results = testCases.map(tc => ({
+          input: tc.input, expectedOutput, actualOutput, passed,
+          visible: tc.visibility === "public", description: tc.description || "", category: tc.category || "sample",
+          elapsed_ms: result.elapsed_ms || 0, max_memory_bytes: 0, error: null,
+        }));
+        const allPassed = results.every(r => r.passed);
+        return { mode: "samples", verdict: allPassed ? "pass" : "fail", results, totalTests: results.length, passedTests: results.filter(r => r.passed).length };
+      }
+      if (err.message === "container_timeout") {
+        return { mode: "samples", verdict: "timeout", results: testCases.map(tc => ({
+          input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "", passed: false,
+          visible: tc.visibility === "public", description: tc.description || "", category: tc.category || "sample",
+          elapsed_ms: timeLimitMs, max_memory_bytes: 0, error: "timeout",
+        })), totalTests: testCases.length, passedTests: 0 };
+      }
+      throw err;
+    }
+  }
+
+  // Non-function_call mode: run each test case separately with stdin
   const results = [];
   let useFallback = false;
 
@@ -378,6 +485,80 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
     return { mode: "submit", ...sub.toObject(), sessionId: sId, testResults: [], totalTests: 0, passedTests: 0, failedCategories: [] };
   }
 
+  const isFunctionCall = driverConfig?.wrapperType === "function_call";
+
+  // For function_call mode, the driverCode runs all test cases at once.
+  // Compute expected output dynamically by running oracle solution through the driver.
+  if (isFunctionCall) {
+    try {
+      const runResult = useFallback
+        ? await runFallback({ code: codeWithDriver, language, stdin: "", timeLimitMs })
+        : await executeInContainer({
+            code: codeWithDriver, language, stdin: "",
+            timeLimitMs, memoryLimitMb, compileTimeoutMs,
+          });
+
+      const actualOutput = (runResult.stdout || "").trim();
+
+      // Try to get expected output from oracle + driver
+      const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs);
+      const expectedOutput = oracleOutput || (effectiveTestCases[0]?.expectedOutput || "").trim();
+      const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
+
+      for (const tc of effectiveTestCases) {
+        testResults.push({
+          input: tc.input,
+          expectedOutput,
+          actualOutput,
+          passed,
+          visible: tc.visibility === "public",
+          description: tc.description || "",
+          category: tc.category || "sample",
+          elapsed_ms: runResult.elapsed_ms || 0,
+          max_memory_bytes: runResult.max_memory_bytes || 0,
+          error: runResult.error || null,
+        });
+      }
+    } catch (err) {
+      if (err.message === "system_judge_error") {
+        useFallback = true;
+        try {
+          const runResult = await runFallback({ code: codeWithDriver, language, stdin: "", timeLimitMs });
+          const actualOutput = (runResult.stdout || "").trim();
+          const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs).catch(() => null);
+          const expectedOutput = oracleOutput || (effectiveTestCases[0]?.expectedOutput || "").trim();
+          const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
+          for (const tc of effectiveTestCases) {
+            testResults.push({
+              input: tc.input, expectedOutput, actualOutput, passed,
+              visible: tc.visibility === "public", description: tc.description || "",
+              category: tc.category || "sample", elapsed_ms: runResult.elapsed_ms || 0,
+              max_memory_bytes: 0, error: runResult.error || null,
+            });
+          }
+        } catch (_) {
+          for (const tc of effectiveTestCases) {
+            testResults.push({
+              input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "", passed: false,
+              visible: tc.visibility === "public", description: tc.description || "",
+              category: tc.category || "sample", elapsed_ms: 0, max_memory_bytes: 0, error: "fallback_error",
+            });
+          }
+        }
+      } else if (err.message === "container_timeout") {
+        for (const tc of effectiveTestCases) {
+          testResults.push({
+            input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "", passed: false,
+            visible: tc.visibility === "public", description: tc.description || "",
+            category: tc.category || "sample", elapsed_ms: timeLimitMs, max_memory_bytes: 0, error: "timeout",
+          });
+        }
+      } else {
+        throw err;
+      }
+    }
+  } else {
+  // Non-function_call mode: run each test case separately with stdin
   for (const tc of effectiveTestCases) {
     try {
       const result = useFallback
@@ -437,6 +618,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       }
     }
   }
+  } // end else (non-function_call mode)
 
   // ── Step 3: Determine verdict from test results ──────────────────────────
   const totalTests = testResults.length;

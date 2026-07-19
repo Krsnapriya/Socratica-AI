@@ -88,10 +88,10 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
     return studentCode;
   }
 
-  // function_call mode: generate stdin-based wrapper instead of using hardcoded driver
-  if (wrapperType === "function_call" && functionName) {
-    return buildStdinWrapper(studentCode, functionName, language);
-  }
+  // function_call mode: use the driverCode (hardcoded test calls) instead of stdin wrapper.
+  // The stdin wrapper approach is broken for C++ (no dynamic dispatch) and produces
+  // wrong types for Python/JS when test case inputs aren't valid JSON.
+  // The driverCode has correct hardcoded test calls that exercise the student's function.
 
   // C++ specific wrapping
   if (language === "cpp") {

@@ -375,6 +375,16 @@ export default function Workspace() {
                   ))}
                 </div>
               )}
+              {output && executionMode === 'submit' && output.totalTests > 0 && (
+                <div className="h-8 border-b flex items-center shrink-0 px-2 gap-1" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
+                  {['results', 'verdict'].map(tab => (
+                    <button key={tab} onClick={() => setConsoleTab(tab)}
+                      className={`h-full px-3 font-mono text-[10px] uppercase tracking-wider rounded-t transition-colors ${consoleTab === tab ? 'bg-surface-container-lowest text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                      {tab === 'results' ? `Test Results (${output.passedTests}/${output.totalTests})` : 'Verdict & Hint'}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="flex-1 overflow-y-auto p-4 scrollbar-thin" role="log" aria-live="polite">
                 {executing ? (
@@ -484,6 +494,41 @@ export default function Workspace() {
                       </div>
                     )
                   ) : executionMode === 'submit' ? (
+                    consoleTab === 'results' && output.totalTests > 0 ? (
+                    <div className="space-y-3">
+                      {/* Test results summary */}
+                      <div className={`flex items-center justify-between p-2 rounded-lg ${output.verdict === 'pass' ? 'bg-secondary/10 border border-secondary/30' : 'bg-error/10 border border-error/30'}`}>
+                        <div className="flex items-center gap-2">
+                          <Icon name={output.verdict === 'pass' ? 'check_circle' : 'cancel'} size={16} className={output.verdict === 'pass' ? 'text-secondary' : 'text-error'} />
+                          <span className={`font-mono text-xs font-bold ${output.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
+                            {output.passedTests}/{output.totalTests} tests passed
+                          </span>
+                        </div>
+                        {output.testResults && (
+                          <span className="font-mono text-[10px] text-outline">
+                            {output.testResults.reduce((sum, r) => sum + (r.elapsed_ms || 0), 0)}ms total
+                          </span>
+                        )}
+                      </div>
+                      {/* Progress bar */}
+                      <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${output.verdict === 'pass' ? 'bg-secondary' : 'bg-error'}`}
+                          style={{ width: `${(output.passedTests / output.totalTests) * 100}%` }} />
+                      </div>
+                      {/* Failed categories */}
+                      {output.failedCategories?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {output.failedCategories.map((fc, i) => (
+                            <span key={i} className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-error/10 text-error border border-error/20 uppercase">
+                              {fc.category}: {fc.failed}/{fc.total} failed
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* Individual test results */}
+                      {(output.testResults || []).map((tc, i) => <TestCaseRow key={i} tc={tc} index={i} />)}
+                    </div>
+                    ) : (
                     <VerdictDisplay
                       verdict={output.verdict}
                       hint={output.hint}
@@ -491,6 +536,7 @@ export default function Workspace() {
                       aiAnalysis={output.aiAnalysis}
                       hintLevel={output.hintLevel}
                     />
+                    )
                   ) : null
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-on-surface-variant">
