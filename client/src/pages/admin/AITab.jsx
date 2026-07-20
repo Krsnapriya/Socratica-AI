@@ -101,7 +101,7 @@ export default function AITab({ config, setConfig, onSave, savingConfig, loading
     if (isAdmin) {
       setUsageLoading(true);
       fetchAIUsageStats(7)
-        .then(setUsageStats)
+        .then(d => setUsageStats(d && typeof d === 'object' && !Array.isArray(d) ? d : { byAction: {}, totalCalls: 0, avgLatencyMs: 0 }))
         .catch(() => {})
         .finally(() => setUsageLoading(false));
     }

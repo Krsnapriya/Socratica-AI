@@ -91,7 +91,7 @@ export default function AdminDashboard({ user }) {
 
   function loadCourses() {
     setLoading(true);
-    fetchAdminCourses().then(setCourses).catch(() => addToast('Failed to load courses', 'error')).finally(() => setLoading(false));
+    fetchAdminCourses().then(d => setCourses(Array.isArray(d) ? d : d?.courses || [])).catch(() => addToast('Failed to load courses', 'error')).finally(() => setLoading(false));
   }
 
   function loadProblems() {
@@ -127,11 +127,11 @@ export default function AdminDashboard({ user }) {
 
   function loadConfig() {
     setLoading(true);
-    fetchSystemConfig().then(setConfig).catch(() => addToast('Failed to load config', 'error')).finally(() => setLoading(false));
+    fetchSystemConfig().then(d => setConfig(d && typeof d === 'object' && !Array.isArray(d) ? d : {})).catch(() => addToast('Failed to load config', 'error')).finally(() => setLoading(false));
   }
 
   function loadRefSolutions() {
-    fetchAdminReferenceSolutions().then(setRefSolutions).catch(() => addToast('Failed to load reference solutions', 'error'));
+    fetchAdminReferenceSolutions().then(d => setRefSolutions(Array.isArray(d) ? d : d?.solutions || [])).catch(() => addToast('Failed to load reference solutions', 'error'));
   }
 
   useEffect(() => {
