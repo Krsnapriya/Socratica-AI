@@ -33,6 +33,8 @@ export const ADMIN_TABS = [
   { key: 'users', label: 'Users', icon: 'group' },
   { key: 'courses', label: 'Courses', icon: 'school' },
   { key: 'problems', label: 'Problems', icon: 'code' },
+  { key: 'testcases', label: 'Test Cases', icon: 'checklist' },
+  { key: 'drivers', label: 'Drivers', icon: 'directions_car' },
   { key: 'compiler', label: 'Compiler', icon: 'terminal' },
   { key: 'ai', label: 'AI Mentor', icon: 'smart_toy' },
   { key: 'audit', label: 'Audit Logs', icon: 'receipt_long' },

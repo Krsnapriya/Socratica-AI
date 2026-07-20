@@ -9,6 +9,8 @@ import {
   fetchSecurityOverview, fetchFailedLogins, forceLogoutUser,
   fetchAdminNotifications, createNotification, deleteNotification,
   fetchAdminReferenceSolutions, createAdminReferenceSolution, updateAdminReferenceSolution, deleteAdminReferenceSolution,
+  fetchAdminTestCases, createTestCase, updateTestCase, deleteTestCase,
+  fetchAdminDrivers, createDriver, updateDriver, deleteDriver,
 } from '../api/api.js';
 import Icon from '../components/ui/Icon.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
@@ -20,6 +22,8 @@ const DashboardTab = lazy(() => import('./admin/DashboardTab.jsx'));
 const UsersTab = lazy(() => import('./admin/UsersTab.jsx'));
 const CoursesTab = lazy(() => import('./admin/CoursesTab.jsx'));
 const ProblemsTab = lazy(() => import('./admin/ProblemsTab.jsx'));
+const TestCasesTab = lazy(() => import('./admin/TestCasesTab.jsx'));
+const DriverTemplatesTab = lazy(() => import('./admin/DriverTemplatesTab.jsx'));
 const CompilerTab = lazy(() => import('./admin/CompilerTab.jsx'));
 const AITab = lazy(() => import('./admin/AITab.jsx'));
 const AuditTab = lazy(() => import('./admin/AuditTab.jsx'));
@@ -72,6 +76,9 @@ export default function AdminDashboard({ user }) {
   const [refSolutions, setRefSolutions] = useState([]);
   const [editingRefSol, setEditingRefSol] = useState(null);
   const [showRefSolPanel, setShowRefSolPanel] = useState(false);
+
+  const [testCases, setTestCases] = useState([]);
+  const [drivers, setDrivers] = useState([]);
 
   function loadDashboard() {
     setLoading(true);
@@ -134,11 +141,23 @@ export default function AdminDashboard({ user }) {
     fetchAdminReferenceSolutions().then(d => setRefSolutions(Array.isArray(d) ? d : d?.solutions || [])).catch(() => addToast('Failed to load reference solutions', 'error'));
   }
 
+  function loadTestCases() {
+    setLoading(true);
+    fetchAdminTestCases().then(d => setTestCases(Array.isArray(d) ? d : [])).catch(() => addToast('Failed to load test cases', 'error')).finally(() => setLoading(false));
+  }
+
+  function loadDrivers() {
+    setLoading(true);
+    fetchAdminDrivers().then(d => setDrivers(Array.isArray(d) ? d : [])).catch(() => addToast('Failed to load drivers', 'error')).finally(() => setLoading(false));
+  }
+
   useEffect(() => {
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'users') loadUsers();
     if (tab === 'courses') loadCourses();
     if (tab === 'problems') { loadProblems(); loadRefSolutions(); }
+    if (tab === 'testcases') { loadTestCases(); loadProblems(); }
+    if (tab === 'drivers') { loadDrivers(); loadProblems(); }
     if (tab === 'compiler' || tab === 'ai') loadConfig();
     if (tab === 'audit') loadAuditLogs();
     if (tab === 'security') loadSecurity();
@@ -155,7 +174,7 @@ export default function AdminDashboard({ user }) {
       const updatedUser = await updateAdminUserRole(userId, newRole);
       setUsers(users.map(u => u._id === userId ? { ...u, role: updatedUser.role } : u));
       addToast('Role updated', 'success');
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleCreateUser(newUser, done) {
@@ -164,7 +183,7 @@ export default function AdminDashboard({ user }) {
       done();
       addToast('User created', 'success');
       loadUsers();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeleteUser(id) {
@@ -185,7 +204,7 @@ export default function AdminDashboard({ user }) {
       if (editingCourse._id) { await updateCourse(editingCourse._id, data); addToast('Course updated', 'success'); }
       else { await createCourse(data); addToast('Course created', 'success'); }
       setEditingCourse(null); loadCourses();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeleteCourse(id) {
@@ -211,7 +230,7 @@ export default function AdminDashboard({ user }) {
       if (editingProblem._id) { await updateProblem(editingProblem._id, data); addToast('Problem updated', 'success'); }
       else { await createProblem(data); addToast('Problem created', 'success'); }
       setEditingProblem(null); loadProblems();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeleteProblem(id) {
@@ -230,12 +249,42 @@ export default function AdminDashboard({ user }) {
       if (editingRefSol._id) { await updateAdminReferenceSolution(editingRefSol._id, data); addToast('Reference solution updated', 'success'); }
       else { await createAdminReferenceSolution(data); addToast('Reference solution created', 'success'); }
       setEditingRefSol(null); loadRefSolutions();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeleteRefSol(id) {
     try { await deleteAdminReferenceSolution(id); addToast('Reference solution deleted', 'success'); loadRefSolutions(); }
-    catch (err) { addToast('Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
+  }
+
+  async function handleCreateTestCase(data) {
+    try { await createTestCase(data); addToast('Test case created', 'success'); loadTestCases(); }
+    catch (err) { addToast(err.message || 'Failed to create test case', 'error'); }
+  }
+
+  async function handleUpdateTestCase(id, data) {
+    try { await updateTestCase(id, data); addToast('Test case updated', 'success'); loadTestCases(); }
+    catch (err) { addToast(err.message || 'Failed to update test case', 'error'); }
+  }
+
+  async function handleDeleteTestCase(id) {
+    try { await deleteTestCase(id); addToast('Test case deleted', 'success'); loadTestCases(); }
+    catch (err) { addToast(err.message || 'Failed to delete test case', 'error'); }
+  }
+
+  async function handleCreateDriver(data) {
+    try { await createDriver(data); addToast('Driver template created', 'success'); loadDrivers(); }
+    catch (err) { addToast(err.message || 'Failed to create driver', 'error'); }
+  }
+
+  async function handleUpdateDriver(id, data) {
+    try { await updateDriver(id, data); addToast('Driver template updated', 'success'); loadDrivers(); }
+    catch (err) { addToast(err.message || 'Failed to update driver', 'error'); }
+  }
+
+  async function handleDeleteDriver(id) {
+    try { await deleteDriver(id); addToast('Driver template deleted', 'success'); loadDrivers(); }
+    catch (err) { addToast(err.message || 'Failed to delete driver', 'error'); }
   }
 
   async function handleSaveConfig(key) {
@@ -253,12 +302,12 @@ export default function AdminDashboard({ user }) {
       if (editingPerm._id) { await updatePermission(editingPerm._id, data); addToast('Permission updated', 'success'); }
       else { await createPermission(data); addToast('Permission created', 'success'); }
       setEditingPerm(null); loadPermissions();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeletePerm(id) {
     try { await deletePermission(id); addToast('Permission deleted', 'success'); loadPermissions(); }
-    catch (err) { addToast('Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleForceLogout(userId) {
@@ -273,12 +322,12 @@ export default function AdminDashboard({ user }) {
       setShowNewNotif(false);
       setNewNotif({ type: 'broadcast', title: '', message: '', audience: 'all', link: '' });
       addToast('Notification sent', 'success'); loadNotifs();
-    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    } catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleDeleteNotif(id) {
     try { await deleteNotification(id); addToast('Notification deleted', 'success'); loadNotifs(); }
-    catch (err) { addToast('Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   return (
@@ -299,17 +348,19 @@ export default function AdminDashboard({ user }) {
         </header>
 
         <Suspense fallback={<TabSkeleton />}>
-          {tab === 'dashboard' && <DashboardTab stats={stats} recentLogs={recentLogs} loading={loading} />}
-          {tab === 'users' && <UsersTab users={users} userPage={userPage} userTotalPages={userTotalPages} userSearch={userSearch} setUserSearch={setUserSearch} setUserPage={setUserPage} onSearch={loadUsers} onAdd={handleCreateUser} onDelete={handleDeleteUser} onRoleChange={handleRoleChange} loading={loading} />}
-          {tab === 'courses' && <CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} />}
-          {tab === 'problems' && <ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} />}
-          {tab === 'compiler' && <CompilerTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-          {tab === 'ai' && <AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} userRole={user?.role} />}
-          {tab === 'audit' && <AuditTab auditLogs={auditLogs} auditPage={auditPage} auditTotalPages={auditTotalPages} setAuditPage={setAuditPage} logFilter={logFilter} setLogFilter={setLogFilter} onFilter={loadAuditLogs} loading={loading} />}
-          {tab === 'security' && <SecurityTab secOverview={secOverview} failedLogins={failedLogins} onForceLogout={handleForceLogout} loading={loading} />}
-          {tab === 'settings' && <SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} />}
-          {tab === 'notifications' && <NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} />}
-          {tab === 'permissions' && <PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} />}
+          {tab === 'dashboard' && <AdminErrorBoundary key="dashboard"><DashboardTab stats={stats} recentLogs={recentLogs} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'users' && <AdminErrorBoundary key="users"><UsersTab users={users} userPage={userPage} userTotalPages={userTotalPages} userSearch={userSearch} setUserSearch={setUserSearch} setUserPage={setUserPage} onSearch={loadUsers} onAdd={handleCreateUser} onDelete={handleDeleteUser} onRoleChange={handleRoleChange} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'courses' && <AdminErrorBoundary key="courses"><CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'problems' && <AdminErrorBoundary key="problems"><ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'testcases' && <AdminErrorBoundary key="testcases"><TestCasesTab problems={problems} testCases={testCases} setTestCases={setTestCases} loading={loading} fetchTestCases={loadTestCases} onCreate={handleCreateTestCase} onUpdate={handleUpdateTestCase} onDelete={handleDeleteTestCase} /></AdminErrorBoundary>}
+          {tab === 'drivers' && <AdminErrorBoundary key="drivers"><DriverTemplatesTab problems={problems} drivers={drivers} setDrivers={setDrivers} loading={loading} onCreate={handleCreateDriver} onUpdate={handleUpdateDriver} onDelete={handleDeleteDriver} /></AdminErrorBoundary>}
+          {tab === 'compiler' && <AdminErrorBoundary key="compiler"><CompilerTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'ai' && <AdminErrorBoundary key="ai"><AITab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} userRole={user?.role} /></AdminErrorBoundary>}
+          {tab === 'audit' && <AdminErrorBoundary key="audit"><AuditTab auditLogs={auditLogs} auditPage={auditPage} auditTotalPages={auditTotalPages} setAuditPage={setAuditPage} logFilter={logFilter} setLogFilter={setLogFilter} onFilter={loadAuditLogs} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'security' && <AdminErrorBoundary key="security"><SecurityTab secOverview={secOverview} failedLogins={failedLogins} onForceLogout={handleForceLogout} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'settings' && <AdminErrorBoundary key="settings"><SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'notifications' && <AdminErrorBoundary key="notifications"><NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'permissions' && <AdminErrorBoundary key="permissions"><PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} /></AdminErrorBoundary>}
         </Suspense>
       </div>
     </AdminErrorBoundary>

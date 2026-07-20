@@ -148,6 +148,7 @@ const API = {
         return `/admin/drivers${qs ? `?${qs}` : ""}`;
       },
       CREATE: "/admin/drivers",
+      UPDATE: (id) => `/admin/drivers/${id}`,
       DELETE: (id) => `/admin/drivers/${id}`,
     },
     REFERENCE_SOLUTIONS: {

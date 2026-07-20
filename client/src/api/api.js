@@ -186,6 +186,11 @@ export async function deleteDriver(id) {
   return data;
 }
 
+export async function updateDriver(id, payload) {
+  const { data } = await client.put(API.ADMIN.DRIVERS.UPDATE(id), payload);
+  return data;
+}
+
 // ── Admin: Reference Solutions ─────────────────────────────────────────────
 export async function fetchAdminReferenceSolutions(filters = {}) {
   const { data } = await client.get(API.ADMIN.REFERENCE_SOLUTIONS.LIST(filters));
