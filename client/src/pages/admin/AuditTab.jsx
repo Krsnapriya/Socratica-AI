@@ -22,7 +22,7 @@ export default function AuditTab({ auditLogs, auditPage, auditTotalPages, setAud
           <tr><th className="px-6 py-4">Timestamp</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Action</th><th className="px-6 py-4">Resource</th><th className="px-6 py-4">User</th><th className="px-6 py-4">Status</th></tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
-          {auditLogs.length === 0 ? <tr><td colSpan={6} className="px-6 py-8 text-center text-on-surface-variant text-xs">No logs</td></tr> : auditLogs.map(l => {
+          {(auditLogs || []).length === 0 ? <tr><td colSpan={6} className="px-6 py-8 text-center text-on-surface-variant text-xs">No logs</td></tr> : (auditLogs || []).map(l => {
             const ts = AUDIT_LOG_TYPE_STYLES[l.logType] || AUDIT_LOG_TYPE_STYLES.audit;
             return (
               <tr key={l._id} className="hover:bg-surface-container-low">

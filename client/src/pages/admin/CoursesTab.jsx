@@ -18,7 +18,7 @@ export default function CoursesTab({ courses, editingCourse, setEditingCourse, o
           <tr><th className="px-6 py-4">Title</th><th className="px-6 py-4">Order</th><th className="px-6 py-4">Modules</th><th className="px-6 py-4 text-right">Actions</th></tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
-          {courses.map(c => (
+          {(courses || []).map(c => (
             <tr key={c._id} className="hover:bg-surface-container-low group">
               <td className="px-6 py-4"><div className="font-sans font-medium text-on-surface">{c.title}</div>{c.description && <div className="text-xs text-on-surface-variant truncate max-w-xs">{c.description}</div>}</td>
               <td className="px-6 py-4 text-on-surface-variant text-xs">{c.order}</td>
@@ -29,7 +29,7 @@ export default function CoursesTab({ courses, editingCourse, setEditingCourse, o
               </div></td>
             </tr>
           ))}
-          {courses.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-on-surface-variant text-xs">No courses</td></tr>}
+          {(courses || []).length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-on-surface-variant text-xs">No courses</td></tr>}
         </tbody>
       </table>
       {editingCourse != null && (

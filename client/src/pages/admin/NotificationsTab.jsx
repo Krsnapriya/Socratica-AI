@@ -37,7 +37,7 @@ export default function NotificationsTab({ notifs, showNewNotif, setShowNewNotif
           <tr><th className="px-6 py-4">Sent</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Title</th><th className="px-6 py-4">Audience</th><th className="px-6 py-4">Active</th><th className="px-6 py-4 text-right">Actions</th></tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
-          {notifs.length === 0 ? <tr><td colSpan={6} className="px-6 py-8 text-center text-on-surface-variant text-xs">No notifications</td></tr> : notifs.map(n => {
+          {(notifs || []).length === 0 ? <tr><td colSpan={6} className="px-6 py-8 text-center text-on-surface-variant text-xs">No notifications</td></tr> : (notifs || []).map(n => {
             const nts = NOTIFICATION_TYPE_STYLES[n.type] || NOTIFICATION_TYPE_STYLES.info;
             return (
               <tr key={n._id} className="hover:bg-surface-container-low group">

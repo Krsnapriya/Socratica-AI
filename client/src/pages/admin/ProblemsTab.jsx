@@ -27,7 +27,7 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
             <tr><th className="px-6 py-4">Problem ID</th><th className="px-6 py-4">Title</th><th className="px-6 py-4">Difficulty</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/50">
-            {problems.map(p => (
+            {(problems || []).map(p => (
               <tr key={p._id} className="hover:bg-surface-container-low group">
                 <td className="px-6 py-4 font-mono text-xs text-on-surface-variant">{p.problemId}</td>
                 <td className="px-6 py-4"><div className="font-sans font-medium text-on-surface">{p.title}</div></td>
@@ -36,7 +36,7 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
                 <td className="px-6 py-4 text-right"><EditDeleteButtons onEdit={() => setEditingProblem(p)} onDelete={() => setConfirmProblemId(p._id)} /></td>
               </tr>
             ))}
-            {problems.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No problems</td></tr>}
+            {(problems || []).length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No problems</td></tr>}
           </tbody>
         </table>
         {editingProblem != null && (
@@ -101,7 +101,7 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
               <tr><th className="px-6 py-4">Problem</th><th className="px-6 py-4">Language</th><th className="px-6 py-4">Variant</th><th className="px-6 py-4">Notes</th><th className="px-6 py-4 text-right">Actions</th></tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/50">
-              {refSolutions.map(rs => (
+              {(refSolutions || []).map(rs => (
                 <tr key={rs._id} className="hover:bg-surface-container-low group">
                   <td className="px-6 py-4 font-mono text-xs text-on-surface-variant">{rs.problemId}</td>
                   <td className="px-6 py-4"><span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary border border-primary/30">{rs.language}</span></td>
@@ -110,7 +110,7 @@ export default function ProblemsTab({ problems, editingProblem, setEditingProble
                   <td className="px-6 py-4 text-right"><EditDeleteButtons onEdit={() => setEditingRefSol(rs)} onDelete={() => setConfirmRefSolId(rs._id)} /></td>
                 </tr>
               ))}
-              {refSolutions.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No reference solutions</td></tr>}
+              {(refSolutions || []).length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No reference solutions</td></tr>}
             </tbody>
           </table>
         )}

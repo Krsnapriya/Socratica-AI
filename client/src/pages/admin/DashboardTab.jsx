@@ -61,7 +61,7 @@ export default function DashboardTab({ stats, recentLogs, loading }) {
           { label: 'Submissions Today', value: stats.submissionsToday ?? 0, icon: 'today', color: 'text-primary' },
           { label: `Failed Logins (${SECURITY_WINDOW_DAYS}d)`, value: stats.failedLogins7d ?? 0, icon: 'report', color: 'text-error' },
           { label: 'Passed Submissions', value: stats.passedSubmissions ?? 0, icon: 'check_circle', color: 'text-secondary' },
-          { label: 'Failed/Errors', value: (stats.totalSubmissions - stats.passedSubmissions) || 0, icon: 'bug_report', color: 'text-warning' },
+          { label: 'Failed/Errors', value: (stats.totalSubmissions ?? 0) - (stats.passedSubmissions ?? 0), icon: 'bug_report', color: 'text-warning' },
         ].map(s => (
           <div key={s.label} className="bg-surface-container-low border border-outline-variant rounded-xl p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-surface-container-highest"><Icon name={s.icon} size={18} className={s.color} /></div>

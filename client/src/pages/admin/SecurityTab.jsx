@@ -42,7 +42,7 @@ export default function SecurityTab({ secOverview, failedLogins, onForceLogout, 
             <tr><th className="px-6 py-4">Time</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">IP</th><th className="px-6 py-4">Reason</th><th className="px-6 py-4">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/50">
-            {failedLogins.length === 0 ? <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No failed logins</td></tr> : failedLogins.map(f => (
+            {(failedLogins || []).length === 0 ? <tr><td colSpan={5} className="px-6 py-8 text-center text-on-surface-variant text-xs">No failed logins</td></tr> : (failedLogins || []).map(f => (
               <tr key={f._id} className="hover:bg-surface-container-low">
                 <td className="px-6 py-4 text-xs text-on-surface-variant">{new Date(f.timestamp).toLocaleString()}</td>
                 <td className="px-6 py-4 text-on-surface">{f.email}</td>

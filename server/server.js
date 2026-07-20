@@ -259,6 +259,17 @@ async function autoSeed() {
       } catch (e) { console.warn("[server] seedNewProblemTestCases error:", e.message?.slice(0, 200)); }
     }
 
+    // Seed reference solutions (JS/C++ oracles + ReferenceSolution entries) if empty
+    const ReferenceSolution = require("./models/ReferenceSolution");
+    const refSolCount = await ReferenceSolution.countDocuments();
+    if (refSolCount === 0) {
+      console.log("[server] No reference solutions found — seeding JS/C++ oracles...");
+      try {
+        await require("./seedReferenceSolutions")();
+        console.log("[server] Reference solutions seeded");
+      } catch (e) { console.warn("[server] seedReferenceSolutions error:", e.message?.slice(0, 200)); }
+    }
+
   } catch (err) {
     console.warn("[server] Auto-seed error:", err.message);
   }

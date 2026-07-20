@@ -23,7 +23,7 @@ export default function PermissionsTab({ permissions, editingPerm, setEditingPer
             <tr><th className="px-6 py-4">Role</th><th className="px-6 py-4">Resource</th><th className="px-6 py-4">Permissions</th><th className="px-6 py-4 text-right">Actions</th></tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/50">
-            {permissions.map(p => {
+            {(permissions || []).map(p => {
               const rbs = ROLE_BADGE_STYLES[p.role] || ROLE_BADGE_STYLES.student;
               return (
                 <tr key={p._id} className="hover:bg-surface-container-low group">
@@ -34,7 +34,7 @@ export default function PermissionsTab({ permissions, editingPerm, setEditingPer
                 </tr>
               );
             })}
-            {permissions.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-on-surface-variant text-xs">No permissions configured</td></tr>}
+            {(permissions || []).length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-on-surface-variant text-xs">No permissions configured</td></tr>}
           </tbody>
         </table>
         {editingPerm != null && (

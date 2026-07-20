@@ -51,7 +51,7 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
           <tr><th className="px-6 py-4 font-medium">User</th><th className="px-6 py-4 font-medium">Role</th><th className="px-6 py-4 font-medium text-right">Submissions</th><th className="px-6 py-4 font-medium text-right">Last Login</th><th className="px-6 py-4 font-medium">Joined</th><th className="px-6 py-4 font-medium text-right">Actions</th></tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
-          {users.map(u => (
+          {(users || []).map(u => (
             <tr key={u._id} className="hover:bg-surface-container-low group">
               <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">{(u.displayName || u.email)[0].toUpperCase()}</div><div className="min-w-0"><div className="font-sans font-medium text-on-surface truncate">{u.displayName || 'No Name'}</div><div className="text-xs text-on-surface-variant truncate">{u.email}</div></div></div></td>
               <td className="px-6 py-4"><select value={u.role} onChange={e => onRoleChange(u._id, e.target.value)} className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary">{roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}</select></td>
