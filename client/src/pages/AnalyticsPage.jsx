@@ -166,8 +166,8 @@ export default function AnalyticsPage() {
     async function load() {
       try {
         const [s, a] = await Promise.all([fetchStats(), fetchRecentActivity(20)]);
-        setStats(s);
-        setActivity(a);
+        setStats(s && typeof s === 'object' && !Array.isArray(s) ? s : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
+        setActivity(Array.isArray(a) ? a : []);
       } catch {
         setStats({ total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity([]);

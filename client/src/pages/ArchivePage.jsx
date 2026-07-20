@@ -32,8 +32,8 @@ export default function ArchivePage() {
   useEffect(() => {
     Promise.all([fetchStats(), fetchSolved()])
       .then(([statsData, solvedResponse]) => {
-        setStats(statsData);
-        setSolvedData(solvedResponse);
+        setStats(statsData && typeof statsData === 'object' && !Array.isArray(statsData) ? statsData : { solved: 0, total: 0, passRate: 0 });
+        setSolvedData(solvedResponse && typeof solvedResponse === 'object' ? solvedResponse : { count: 0, problems: [] });
       })
       .catch(() => {
         setStats({ solved: 0, total: 0, passRate: 0 });

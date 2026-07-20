@@ -198,7 +198,7 @@ export default function SessionAnalysis({ sessionId, onStartNewSession }) {
             <div className="space-y-2">
               <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Attempts</span>
               <div className="grid grid-cols-5 gap-1.5">
-                {data.rounds.map((r, i) => {
+                {(data.rounds || []).map((r, i) => {
                   const meta = VERDICT_META[r.verdict] || VERDICT_META.fail;
                   return (
                     <button
@@ -233,10 +233,10 @@ export default function SessionAnalysis({ sessionId, onStartNewSession }) {
             )}
 
             {/* Divergences */}
-            {data.divergences.length > 0 && (
+            {(data.divergences || []).length > 0 && (
               <div className="space-y-2">
                 <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Divergence Points</span>
-                {data.divergences.map((d, i) => (
+                {(data.divergences || []).map((d, i) => (
                   <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-surface-container-highest border border-outline-variant/30">
                     <span className="font-mono text-[10px] text-on-surface-variant">Round {d.round}</span>
                     <span className="font-mono text-[10px] text-primary">Step {d.step}</span>
@@ -250,7 +250,7 @@ export default function SessionAnalysis({ sessionId, onStartNewSession }) {
             <div className="space-y-2">
               <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Performance</span>
               <div className="grid grid-cols-2 gap-2">
-                {data.rounds.filter(r => r.tier2Result?.studentTimeMs > 0).map(r => (
+                {(data.rounds || []).filter(r => r.tier2Result?.studentTimeMs > 0).map(r => (
                   <div key={r.round} className="p-2 rounded-lg bg-surface-container-highest border border-outline-variant/30">
                     <div className="font-mono text-[9px] text-outline">Round {r.round}</div>
                     <div className="font-mono text-[10px] text-on-surface mt-1">
