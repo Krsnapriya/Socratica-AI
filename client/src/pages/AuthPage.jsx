@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { login, register, forgotPassword } from '../api/api.js';
+import { login, register, forgotPassword, fetchMe } from '../api/api.js';
 import { fetchCsrfToken } from '../api/client.js';
 
 function BrainIcon() {
@@ -33,9 +33,14 @@ export default function AuthPage({ onAuth }) {
       const data = await fn(email, password);
       localStorage.setItem('socratica-token', data.token);
       localStorage.setItem('socratica-email', data.email);
-      onAuth({ email: data.email, token: data.token });
+      try {
+        const me = await fetchMe();
+        onAuth({ ...me, token: data.token });
+      } catch {
+        onAuth({ email: data.email, token: data.token });
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Try again.');
+      setError(err.message || 'Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }
@@ -49,7 +54,7 @@ export default function AuthPage({ onAuth }) {
       await forgotPassword(email);
       setForgotSent(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong. Try again.');
+      setError(err.message || 'Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }
