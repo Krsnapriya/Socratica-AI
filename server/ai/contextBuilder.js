@@ -383,6 +383,12 @@ async function buildFullContext({ userId, problemId, sessionId, code, language, 
       exitCode: executionResult.exitCode,
       elapsedMs: executionResult.elapsed_ms || 0,
       memoryBytes: executionResult.max_memory_bytes || 0,
+      // Pass through test results from current execution (if present)
+      testResults: executionResult.testResults || null,
+      passedTestCount: executionResult.passedTestCount || null,
+      failedTestCount: executionResult.failedTestCount || null,
+      totalTestCount: executionResult.totalTestCount || null,
+      allTestsPassed: executionResult.allTestsPassed || false,
     } : null,
     testResults,
     // Sanitized hidden test info (no category names exposed to AI)

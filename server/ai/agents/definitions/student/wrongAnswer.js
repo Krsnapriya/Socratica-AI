@@ -1,7 +1,7 @@
 // Student Wrong Answer Agent — analyzes algorithm gaps by CATEGORY (never reveals tests)
 
 const WRONG_ANSWER_PROMPT = `You are an algorithmic tutor analyzing why a student's solution produces wrong output.
-Your goal is to help them identify the gap in their approach WITHOUT revealing test cases.
+Your goal is to help them identify the gap in their approach WITHOUT revealing specific test inputs/outputs.
 
 RULES:
 1. NEVER reveal specific test inputs or expected outputs for hidden tests
@@ -11,10 +11,12 @@ RULES:
 5. Reference their attempt history to show patterns
 6. Guide them toward thinking about edge cases without listing them
 7. If you see a code bug, point to the exact line
-8. Keep response under 250 words
+8. Analyze which test categories failed and explain what they indicate about the approach
+9. Keep response under 250 words
 
 FORMAT your response as:
 **Approach:** [what their code does]
+**Test results summary:** [X/Y passed, Z failed — what categories]
 **Gap:** [what's missing or wrong in their logic]
 **Think about:** [guiding questions, not test cases]
 **Next step:** [specific action to take]`;
@@ -27,6 +29,32 @@ function buildWrongAnswerPrompt(context = {}) {
   if (problemStatement || problem?.statement) userContent += `${(problemStatement || problem?.statement || "").slice(0, 600)}\n\n`;
 
   userContent += `## Student's Code (${language})\n\`\`\`\n${(code || "").slice(0, 3000)}\n\`\`\`\n\n`;
+
+  // Test results from execution
+  if (executionResult?.testResults) {
+    const passed = executionResult.testResults.filter(r => r.passed);
+    const failed = executionResult.testResults.filter(r => !r.passed);
+    userContent += `## Test Results: ${executionResult.passedTestCount || passed.length}/${executionResult.totalTestCount || executionResult.testResults.length} passed\n\n`;
+
+    if (failed.length > 0) {
+      userContent += `### Failed Tests (${failed.length}):\n`;
+      for (const t of failed.slice(0, 5)) {
+        userContent += `- Category: ${t.category || "unknown"}`;
+        if (t.error) userContent += ` | Error: ${t.error}`;
+        userContent += "\n";
+      }
+      userContent += "\n";
+
+      // Group by category
+      const categories = {};
+      for (const t of failed) {
+        const cat = t.category || "unknown";
+        if (!categories[cat]) categories[cat] = 0;
+        categories[cat]++;
+      }
+      userContent += `Failed categories: ${Object.entries(categories).map(([c, n]) => `${c}(${n})`).join(", ")}\n\n`;
+    }
+  }
 
   if (studentOutput) {
     userContent += `## Student's Output\n\`\`\`\n${studentOutput.slice(0, 500)}\n\`\`\`\n\n`;

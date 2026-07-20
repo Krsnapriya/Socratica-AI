@@ -209,11 +209,18 @@ async function saveConversation(userId, sessionId, action, userMessage, aiRespon
 
 // ── High-Level API Methods ────────────────────────────────────────────────
 
-async function getAIResponse({ userId, userRole, problemId, sessionId, code, language, executionResult, previousHint, explicitAgent }) {
+async function getAIResponse({ userId, userRole, problemId, sessionId, code, language, executionResult, previousHint, explicitAgent, oracleComparison }) {
   const context = await buildFullContext({ userId, problemId, sessionId, code, language, executionResult, previousHint });
+  // Merge oracleComparison into context so celebration agent can do line-by-line comparison
+  if (oracleComparison) {
+    context.oracleComparisonData = oracleComparison;
+    context.code = code;
+    context.language = language;
+    context.oracleCode = oracleComparison.oracleCode || context.problem?.oracleSolution || "";
+  }
   return routeAndRespond({
     userId, userRole, action: "chat", code, language, problemId, sessionId,
-    executionResult, explicitAgent, context,
+    executionResult, explicitAgent, context, oracleComparison,
   });
 }
 

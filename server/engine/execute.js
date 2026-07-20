@@ -632,21 +632,22 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   let oracleTimeMs = 0;
   let oracleMemMb = 0;
   let oracleOutput = null;
+  let step4OracleResult = null;
 
   const oracleCode = problem.oracleSolutions?.[language];
   if (oracleCode) {
     try {
-      const oracleResult = await executeInContainer({
+      step4OracleResult = await executeInContainer({
         code: oracleCode, language, stdin: "",
         timeLimitMs, memoryLimitMb, compileTimeoutMs,
       }).catch(() => runFallback({ code: oracleCode, language, stdin: "", timeLimitMs }));
 
-      oracleTimeMs = oracleResult.elapsed_ms || 0;
-      oracleMemMb = Math.round((oracleResult.max_memory_bytes || 0) / (1024 * 1024) * 100) / 100;
+      oracleTimeMs = step4OracleResult.elapsed_ms || 0;
+      oracleMemMb = Math.round((step4OracleResult.max_memory_bytes || 0) / (1024 * 1024) * 100) / 100;
       oracleOutput = {
-        stdout: oracleResult.stdout || "",
-        stderr: oracleResult.stderr || "",
-        exitCode: oracleResult.exit_code,
+        stdout: step4OracleResult.stdout || "",
+        stderr: step4OracleResult.stderr || "",
+        exitCode: step4OracleResult.exit_code,
       };
     } catch (_) {
       // Oracle execution failed — continue without it
@@ -671,7 +672,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   if (verdict === "fail") {
     // Trace analysis for tier determination — use ACTUAL oracle telemetry, not student's twice
     const { summary } = analyzeTraces({
-      studentTelemetry: compilationResult, oracleTelemetry: oracleResult || compilationResult, language,
+      studentTelemetry: compilationResult, oracleTelemetry: step4OracleResult || compilationResult, language,
     });
     finalTier = summary.tier;
     if (summary.tier === 1) {
@@ -722,7 +723,32 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       };
     }
   } else if (verdict === "pass") {
-    // On pass: celebrate + compare with oracle approach
+    // On pass: celebrate + compare student code with oracle line-by-line
+    // Run oracle through same driver to get expected output for comparison
+    let oracleComparisonData = null;
+
+    if (oracleCode) {
+      try {
+        const oracleDriverResult = await executeInContainer({
+          code: buildStudentCodeWithDriver(oracleCode, driverConfig, language),
+          language, stdin: "",
+          timeLimitMs, memoryLimitMb, compileTimeoutMs,
+        }).catch(() => runFallback({
+          code: buildStudentCodeWithDriver(oracleCode, driverConfig, language),
+          language, stdin: "", timeLimitMs,
+        }));
+
+        oracleComparisonData = {
+          oracleCode,
+          oracleOutput: (oracleDriverResult.stdout || "").trim(),
+          oracleTimeMs: oracleDriverResult.elapsed_ms || 0,
+          oracleMemoryMb: Math.round((oracleDriverResult.max_memory_bytes || 0) / (1024 * 1024) * 100) / 100,
+        };
+      } catch (_) {
+        // Oracle execution failed — continue without oracle comparison
+      }
+    }
+
     const aiResult = await getAIResponse({
       userId, problemId, sessionId: sId, code, language,
       executionResult: {
@@ -734,8 +760,11 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
         })),
         passedTestCount: passedTests,
         totalTestCount: totalTests,
+        // Include test results so AI knows ALL tests passed
+        allTestsPassed: true,
       },
       explicitAgent: "correctAnswer",
+      oracleComparison: oracleComparisonData,
     }).catch(() => null);
 
     if (aiResult) {

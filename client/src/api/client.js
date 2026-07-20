@@ -60,7 +60,13 @@ client.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    // ALWAYS reject non-2xx — no silent error objects leaking into state
+    if (!error.response) {
+      // Network error or timeout
+      return Promise.reject(error);
+    }
+
+    if (error.response.status === 401 && !originalRequest._retry) {
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
         clearTokens();
@@ -97,7 +103,14 @@ client.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    // All non-401 errors: reject with parsed error message
+    const msg = error.response?.data?.error
+      || error.response?.data?.message
+      || `Request failed (${error.response.status})`;
+    const err = new Error(msg);
+    err.status = error.response.status;
+    err.data = error.response.data;
+    return Promise.reject(err);
   }
 );
 
