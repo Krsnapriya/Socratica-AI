@@ -15,9 +15,13 @@ let client = null;
 function getClient() {
   if (client) return client;
   client = new Redis(REDIS_URL, {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: 1,
     enableReadyCheck: true,
     lazyConnect: true,
+    connectTimeout: 3000,
+    retryStrategy(times) {
+      return Math.min(times * 200, 2000); // fast backoff, give up quickly
+    },
   });
   client.on("error", (err) => {
     console.error("[tokenBlacklist] Redis error:", err.message);
