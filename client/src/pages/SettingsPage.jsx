@@ -99,7 +99,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save settings. Try again.');
+      setError(err.message || 'Failed to save settings. Try again.');
     } finally {
       setSaving(false);
     }

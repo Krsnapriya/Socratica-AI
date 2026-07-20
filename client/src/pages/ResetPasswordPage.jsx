@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
       await resetPassword(token, password);
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Reset failed. The link may have expired.');
+      setError(err.message || 'Reset failed. The link may have expired.');
     } finally {
       setLoading(false);
     }

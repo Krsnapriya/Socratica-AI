@@ -21,7 +21,7 @@ export default function EmailVerificationPage() {
       })
       .catch((err) => {
         setStatus('error');
-        setMessage(err.response?.data?.error || 'Verification failed. The link may have expired.');
+        setMessage(err.message || 'Verification failed. The link may have expired.');
       });
   }, [token]);
 

@@ -143,7 +143,7 @@ export default function Workspace() {
       const result = await runCode({ code, language: lang, problemId: selectedProblemId, customInput });
       setOutput(result);
     } catch (err) {
-      setOutput({ error: err.response?.data?.error || err.message });
+      setOutput({ error: err.message });
     } finally {
       setExecuting(false);
     }
@@ -160,7 +160,7 @@ export default function Workspace() {
       const result = await runSamples({ code, language: lang, problemId: selectedProblemId });
       setOutput(result);
     } catch (err) {
-      setOutput({ error: err.response?.data?.error || err.message });
+      setOutput({ error: err.message });
     } finally {
       setExecuting(false);
     }
@@ -186,7 +186,7 @@ export default function Workspace() {
       }
       setOutput(result);
     } catch (err) {
-      const msg = err.response?.data?.error || err.message;
+      const msg = err.message;
       if (msg.includes('Max')) {
         setMaxAttemptsReached(true);
       } else {

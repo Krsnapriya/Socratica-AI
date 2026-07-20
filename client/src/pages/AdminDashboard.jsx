@@ -188,7 +188,7 @@ export default function AdminDashboard({ user }) {
 
   async function handleDeleteUser(id) {
     try { await deleteAdminUser(id); addToast('User deleted', 'success'); loadUsers(); }
-    catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleSaveCourse(e) {
@@ -209,7 +209,7 @@ export default function AdminDashboard({ user }) {
 
   async function handleDeleteCourse(id) {
     try { await deleteCourse(id); addToast('Course deleted', 'success'); loadCourses(); }
-    catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleSaveProblem(e) {
@@ -235,7 +235,7 @@ export default function AdminDashboard({ user }) {
 
   async function handleDeleteProblem(id) {
     try { await deleteProblem(id); addToast('Problem deleted', 'success'); loadProblems(); }
-    catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleSaveRefSol(e) {
@@ -290,7 +290,7 @@ export default function AdminDashboard({ user }) {
   async function handleSaveConfig(key) {
     setSavingConfig(true);
     try { await updateSystemConfig(key, config[key]); addToast(`${key} config saved`, 'success'); }
-    catch (err) { addToast(err.response?.data?.error || 'Failed to save', 'error'); }
+    catch (err) { addToast(err.message || 'Failed to save', 'error'); }
     setSavingConfig(false);
   }
 
@@ -312,7 +312,7 @@ export default function AdminDashboard({ user }) {
 
   async function handleForceLogout(userId) {
     try { await forceLogoutUser(userId); addToast('User force logged out', 'success'); loadSecurity(); }
-    catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
   async function handleCreateNotif(e) {
