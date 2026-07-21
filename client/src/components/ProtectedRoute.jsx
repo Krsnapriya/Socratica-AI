@@ -32,7 +32,7 @@ export default function ProtectedRoute({ user, allowedRoles, children }) {
     return () => { cancelled = true; };
   }, [user]);
 
-  if (error) return <Navigate to="/login" replace />;
+  if (error) return <Navigate to="/auth" replace />;
   if (!user) return <Navigate to="/" replace />;
   if (loading) return null;
 
