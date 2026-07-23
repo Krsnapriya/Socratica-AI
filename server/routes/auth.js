@@ -224,6 +224,35 @@ router.post("/verify-email", async (req, res) => {
   }
 });
 
+// ── Resend verification email ────────────────────────────────────────────────
+router.post("/resend-verification", requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    
+    if (user.emailVerified) {
+      return res.json({ success: true, message: "Email already verified" });
+    }
+
+    const emailVerifyToken = crypto.randomBytes(32).toString("hex");
+    user.emailVerifyToken = emailVerifyToken;
+    user.emailVerifyTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    sendVerificationEmail(user.email, emailVerifyToken);
+
+    await AuditLog.create({
+      userId: user._id, action: "resend_verification", resource: "user", resourceId: user._id.toString(),
+      ip: req.ip, userAgent: req.headers["user-agent"], success: true,
+    });
+
+    res.json({ success: true, message: "Verification email sent" });
+  } catch (err) {
+    console.error("[auth] Resend verification error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── Forgot password ────────────────────────────────────────────────────────────
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;

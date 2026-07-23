@@ -2,7 +2,7 @@
 // Used by SideNavBar and TopNavBar to avoid duplication.
 
 export const NAV_ITEMS = [
-  { to: "/", icon: "dashboard", label: "Dashboard" },
+  { to: "/dashboard", icon: "dashboard", label: "Dashboard" },
   { to: "/modules", icon: "school", label: "Curriculum" },
   { to: "/workspace", icon: "code", label: "Workspace" },
   { to: "/trajectory", icon: "account_tree", label: "Trajectory" },

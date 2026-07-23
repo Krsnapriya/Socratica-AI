@@ -19,11 +19,12 @@ export default function TopNavBar({ user, onLogout, onMobileMenuToggle, mobileMe
 
   useEffect(() => {
     if (!user) return;
-    fetchUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+    let cancelled = false;
+    fetchUnreadCount().then(d => { if (!cancelled) setUnreadCount(d.count || 0); }).catch(() => {});
     const interval = setInterval(() => {
-      fetchUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+      fetchUnreadCount().then(d => { if (!cancelled) setUnreadCount(d.count || 0); }).catch(() => {});
     }, 60000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [user]);
 
   const handleMarkAllRead = async () => {

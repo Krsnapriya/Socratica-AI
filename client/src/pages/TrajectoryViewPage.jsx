@@ -61,12 +61,51 @@ function RoundCard({ sub, index }) {
   );
 }
 
+function WhatIsTrajectory({ onClose }) {
+  return (
+    <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon name="info" size={16} className="text-primary" />
+          <span className="font-sans text-sm font-semibold text-on-surface">What is a Trajectory?</span>
+        </div>
+        <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface">
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+      <p className="text-on-surface-variant text-xs leading-relaxed">
+        A trajectory shows your complete journey through a problem — every attempt, 
+        every code change, and how your solution compares to an expert's approach.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
+          <div className="font-mono text-[10px] text-secondary font-bold uppercase mb-1">Pass</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">Your code produced correct output for all test cases.</p>
+        </div>
+        <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
+          <div className="font-mono text-[10px] text-error font-bold uppercase mb-1">Fail</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">Your code didn't match expected output for some test cases.</p>
+        </div>
+        <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
+          <div className="font-mono text-[10px] text-tertiary font-bold uppercase mb-1">Timeout</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">Your code took too long to execute (exceeded 2 seconds).</p>
+        </div>
+        <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
+          <div className="font-mono text-[10px] text-error font-bold uppercase mb-1">Compile Error</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">Your code couldn't be compiled. Check syntax errors.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TrajectoryViewPage() {
   const navigate = useNavigate();
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRound, setSelectedRound] = useState(null);
   const [step, setStep] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
 
   const sessionId = localStorage.getItem('socratica-last-session-id');
 
@@ -84,7 +123,6 @@ export default function TrajectoryViewPage() {
       .finally(() => setLoading(false));
   }, [sessionId]);
 
-  // Parse code into display lines
   const codeLines = selectedRound?.code
     ? selectedRound.code.split('\n').map((content, i) => {
         const type = content.trim().startsWith('#') || content.trim().startsWith('//')
@@ -102,7 +140,6 @@ export default function TrajectoryViewPage() {
   return (
     <div className="flex overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
 
-      {/* ── Sidebar ── */}
       <aside
         className="hidden md:flex w-56 flex-col border-r shrink-0"
         style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}
@@ -127,7 +164,6 @@ export default function TrajectoryViewPage() {
           ))}
         </nav>
 
-        {/* Session rounds */}
         {rounds.length > 0 && (
           <div className="p-3 border-t" style={{ borderColor: 'var(--outline-variant)' }}>
             <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider mb-2">
@@ -151,58 +187,72 @@ export default function TrajectoryViewPage() {
         </div>
       </aside>
 
-      {/* ── Main ── */}
       <main className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
 
-        {/* Convergence Timeline */}
-        <section
-          className="bg-surface-container-low border border-outline-variant rounded-xl p-4 shrink-0"
-          aria-label="Session overview"
-        >
-          <h2 className="font-mono text-xs text-on-surface-variant mb-3 uppercase tracking-wider flex items-center gap-2">
-            <Icon name="timeline" size={16} />
-            Session Overview
-            {selectedRound && (
-              <span className="ml-auto font-mono text-[10px] px-2.5 py-1 rounded-md border font-medium uppercase"
-                style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderColor: 'var(--primary-container)' }}>
-                {selectedRound.language.toUpperCase()}
-              </span>
-            )}
-          </h2>
+        <section className="bg-surface-container-low border border-outline-variant rounded-xl p-4 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-mono text-xs text-on-surface-variant uppercase tracking-wider flex items-center gap-2">
+              <Icon name="timeline" size={16} />
+              Session Overview
+              {selectedRound && (
+                <span className="ml-2 font-mono text-[10px] px-2.5 py-1 rounded-md border font-medium uppercase"
+                  style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderColor: 'var(--primary-container)' }}>
+                  {selectedRound.language.toUpperCase()}
+                </span>
+              )}
+            </h2>
+            <button 
+              onClick={() => setShowHelp(!showHelp)}
+              className="font-mono text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              <Icon name="help_outline" size={14} />
+              {showHelp ? 'Hide Help' : 'What is this?'}
+            </button>
+          </div>
 
-          {loading ? (
-            <div className="h-4 skeleton rounded w-48" />
-          ) : !sessionId ? (
-            <p className="text-on-surface-variant text-sm">No session found. <a href="/workspace" className="text-primary hover:underline">Solve a problem first.</a></p>
-          ) : rounds.length === 0 ? (
-            <p className="text-on-surface-variant text-sm">Session data unavailable.</p>
-          ) : (
-            <div className="flex items-center gap-2 flex-wrap">
-              {rounds.map((r, i) => {
-                const dot = { pass: 'bg-secondary', fail: 'bg-error', timeout: 'bg-tertiary', compile_error: 'bg-error' };
-                return (
-                  <div key={r._id} className="flex items-center gap-1">
-                    {i > 0 && <div className="w-8 h-px bg-outline-variant" />}
-                    <button
-                      onClick={() => setSelectedRound(r)}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all border-2
-                        ${selectedRound?._id === r._id ? 'border-primary scale-110' : 'border-transparent scale-100'}
-                        ${dot[r.verdict] || 'bg-outline'}`}
-                      title={`Round ${i + 1}: ${r.verdict}`}
-                    >
-                      {i + 1}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+          {showHelp && <WhatIsTrajectory onClose={() => setShowHelp(false)} />}
+
+          {!showHelp && (
+            loading ? (
+              <div className="h-4 skeleton rounded w-48" />
+            ) : !sessionId ? (
+              <div className="text-center py-6">
+                <Icon name="account_tree" size={32} className="text-outline mx-auto mb-3" />
+                <p className="text-on-surface-variant text-sm mb-2">No trajectory data yet.</p>
+                <p className="font-mono text-xs text-outline mb-4">Submit a solution in the Workspace to see your execution path.</p>
+                <Button variant="primary" size="sm" onClick={() => navigate('/workspace')}>
+                  <Icon name="play_arrow" size={14} />
+                  Open Workspace
+                </Button>
+              </div>
+            ) : rounds.length === 0 ? (
+              <p className="text-on-surface-variant text-sm">Session data unavailable.</p>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                {rounds.map((r, i) => {
+                  const dot = { pass: 'bg-secondary', fail: 'bg-error', timeout: 'bg-tertiary', compile_error: 'bg-error' };
+                  return (
+                    <div key={r._id} className="flex items-center gap-1">
+                      {i > 0 && <div className="w-8 h-px bg-outline-variant" />}
+                      <button
+                        onClick={() => setSelectedRound(r)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all border-2
+                          ${selectedRound?._id === r._id ? 'border-primary scale-110' : 'border-transparent scale-100'}
+                          ${dot[r.verdict] || 'bg-outline'}`}
+                        title={`Round ${i + 1}: ${r.verdict}`}
+                      >
+                        {i + 1}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </section>
 
         <div className="flex flex-1 gap-4 overflow-hidden min-h-0">
-          {/* ── Left: Code ── */}
           <div className="flex-1 flex flex-col gap-4 overflow-hidden min-w-0">
-            {/* Code viewer */}
             <div
               id="trajectory-detail"
               className="flex-1 bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-col overflow-hidden"
@@ -238,7 +288,6 @@ export default function TrajectoryViewPage() {
               </div>
             </div>
 
-            {/* Playback Controls */}
             {codeLines.length > 0 && (
               <div className="bg-surface-container-low border border-outline-variant rounded-xl p-3 flex flex-col gap-2.5 shrink-0">
                 <div className="flex items-center gap-3">
@@ -276,7 +325,6 @@ export default function TrajectoryViewPage() {
                     )}
                   </div>
                 </div>
-                {/* Scrubber */}
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] text-outline w-4 text-right select-none">0</span>
                   <div className="relative flex-1 h-3 flex items-center cursor-pointer" onClick={e => {
@@ -294,9 +342,7 @@ export default function TrajectoryViewPage() {
             )}
           </div>
 
-          {/* ── Right: Analysis ── */}
           <div className="w-[42%] min-w-[300px] flex flex-col gap-4 overflow-hidden">
-            {/* Insight Panel */}
             <div
               id="trajectory-insight"
               className="flex-1 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col overflow-hidden"
@@ -315,12 +361,13 @@ export default function TrajectoryViewPage() {
                     <div className="h-4 skeleton rounded w-1/2" />
                   </div>
                 ) : !selectedRound ? (
-                  <p className="text-on-surface-variant text-sm text-center py-8">
-                    No divergence data yet. Solve a problem to see analysis.
-                  </p>
+                  <div className="text-center py-8">
+                    <Icon name="analytics" size={32} className="text-outline mx-auto mb-3" />
+                    <p className="text-on-surface-variant text-sm mb-2">No analysis data yet.</p>
+                    <p className="font-mono text-xs text-outline">Select a round to see detailed analysis.</p>
+                  </div>
                 ) : (
                   <>
-                    {/* Verdict */}
                     <div className="space-y-1">
                       <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Verdict</div>
                       <div className={`font-mono text-sm font-bold ${selectedRound.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
@@ -328,27 +375,26 @@ export default function TrajectoryViewPage() {
                       </div>
                     </div>
 
-                    {/* Metrics */}
                     {selectedRound.tier2Result && (
                       <div className="space-y-2">
-                        <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Performance</div>
+                        <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Performance Comparison</div>
                         <div className="grid grid-cols-2 gap-2">
                           {[
-                            { label: 'Your Time', value: `${selectedRound.tier2Result.studentTimeMs}ms` },
-                            { label: 'Oracle Time', value: `${selectedRound.tier2Result.oracleTimeMs}ms` },
-                            { label: 'Your Memory', value: `${selectedRound.tier2Result.studentMemMb}MB` },
-                            { label: 'Oracle Memory', value: `${selectedRound.tier2Result.oracleMemMb}MB` },
-                          ].map(({ label, value }) => (
+                            { label: 'Your Time', value: `${selectedRound.tier2Result.studentTimeMs}ms`, desc: 'How long your code took' },
+                            { label: 'Oracle Time', value: `${selectedRound.tier2Result.oracleTimeMs}ms`, desc: 'Expert solution time' },
+                            { label: 'Your Memory', value: `${selectedRound.tier2Result.studentMemMb}MB`, desc: 'Memory your code used' },
+                            { label: 'Oracle Memory', value: `${selectedRound.tier2Result.oracleMemMb}MB`, desc: 'Expert memory usage' },
+                          ].map(({ label, value, desc }) => (
                             <div key={label} className="bg-surface-container rounded-lg p-3 border border-outline-variant">
                               <div className="font-mono text-[9px] text-on-surface-variant uppercase mb-1">{label}</div>
                               <div className="font-mono text-sm font-bold text-on-surface">{value}</div>
+                              <div className="font-mono text-[9px] text-outline mt-0.5">{desc}</div>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Hint */}
                     {selectedRound.hint && (
                       <div className="bg-surface-container border border-primary/25 rounded-xl p-4 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl" aria-hidden="true" />
@@ -361,18 +407,46 @@ export default function TrajectoryViewPage() {
                         </div>
                       </div>
                     )}
+
+                    {selectedRound.verdict !== 'pass' && (
+                      <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="lightbulb" size={14} className="text-secondary" />
+                          <span className="font-mono text-[10px] text-secondary uppercase tracking-wider font-bold">Next Steps</span>
+                        </div>
+                        <ul className="text-on-surface-variant text-xs space-y-1.5 font-mono">
+                          <li className="flex items-start gap-2">
+                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                            Review the AI hint above for specific guidance
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                            Compare your code with the performance metrics
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                            Try optimizing your approach and submit again
+                          </li>
+                        </ul>
+                        <button 
+                          onClick={() => navigate(`/workspace?problem=${submission?.problemId}`)}
+                          className="mt-3 w-full bg-secondary text-white font-mono text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Icon name="refresh" size={14} />
+                          Try Again
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             </div>
 
-            {/* Sandbox Badge */}
             <div className="bg-background border border-outline-variant/50 rounded-xl px-4 py-2.5 flex items-center gap-3 shrink-0">
               <Icon name="security" size={14} className="text-secondary shrink-0" />
               <span className="font-mono text-[11px] text-on-surface-variant">Sandbox · Network-isolated · 256MB RAM · 2s CPU cap</span>
             </div>
 
-            {/* Resubmit */}
             <Button variant="primary" className="w-full py-3 shrink-0 font-bold" onClick={() => navigate('/workspace')}>
               <Icon name="play_arrow" size={18} />
               New Submission

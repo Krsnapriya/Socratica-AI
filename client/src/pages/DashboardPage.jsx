@@ -154,16 +154,18 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [s, a, c, ach, lb] = await Promise.all([
-          fetchStats(), fetchRecentActivity(8), fetchCourses(),
-          fetchAchievements().catch(() => ({ achievements: [] })),
-          fetchTopPerformers().catch(() => []),
+        const [s, a, c, ach, lb] = await Promise.allSettled([
+          fetchStats(),
+          fetchRecentActivity(8),
+          fetchCourses(),
+          fetchAchievements(),
+          fetchTopPerformers(),
         ]);
-        setStats(s && typeof s === 'object' && !Array.isArray(s) ? s : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
-        setActivity(Array.isArray(a) ? a : []);
-        setCourses(Array.isArray(c) ? c : []);
-        setAchievements(ach?.achievements || []);
-        setLeaderboard(Array.isArray(lb) ? lb : []);
+        setStats(s.status === 'fulfilled' && s.value && typeof s.value === 'object' && !Array.isArray(s.value) ? s.value : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
+        setActivity(a.status === 'fulfilled' && Array.isArray(a.value) ? a.value : []);
+        setCourses(c.status === 'fulfilled' && Array.isArray(c.value) ? c.value : []);
+        setAchievements(ach.status === 'fulfilled' && ach.value?.achievements ? ach.value.achievements : []);
+        setLeaderboard(lb.status === 'fulfilled' && Array.isArray(lb.value) ? lb.value : []);
       } catch {
         setStats({ total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity([]);

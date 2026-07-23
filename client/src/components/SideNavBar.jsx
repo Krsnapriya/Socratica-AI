@@ -57,13 +57,7 @@ export default function SideNavBar({ user }) {
           </NavLink>
         ))}
 
-        <NavLink
-          to="/trajectory"
-          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-        >
-          <Icon name="account_tree" size={20} />
-          <span>Trajectory</span>
-        </NavLink>
+        <div className="my-2 border-t" style={{ borderColor: 'var(--outline-variant)' }} aria-hidden="true" />
 
         <NavLink
           to="/settings"

@@ -180,7 +180,7 @@ export const UI_TIMING = {
 // ── Branding ───────────────────────────────────────────────────────────────
 export const BRANDING = {
   name: "Socratica AI",
-  tagline: "Differential Execution Judge",
+  tagline: "AI-Powered Coding Platform",
   sandboxInfo: "Sandbox \u00b7 Network-isolated \u00b7 256MB RAM \u00b7 2s CPU cap",
 };
 

@@ -337,13 +337,65 @@ export default function AdminDashboard({ user }) {
     catch (err) { addToast(err.message || 'Failed', 'error'); }
   }
 
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('admin_onboarding_done');
+  });
+
+  function dismissOnboarding() {
+    localStorage.setItem('admin_onboarding_done', 'true');
+    setShowOnboarding(false);
+  }
+
   return (
     <AdminErrorBoundary>
       <div className="page-enter p-8 max-w-7xl mx-auto">
         <header className="mb-6">
-          <h1 className="font-sans text-3xl font-bold text-primary tracking-tight flex items-center gap-2 mb-4">
-            <Icon name="admin_panel_settings" size={28} /> Admin Console
-          </h1>
+          <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+                <span className="font-mono text-xs uppercase tracking-wider">Dashboard</span>
+                <Icon name="chevron_right" size={14} />
+                <span className="font-mono text-xs uppercase tracking-wider text-on-surface">Admin</span>
+              </div>
+              <h1 className="font-sans text-[32px] md:text-[40px] font-bold text-on-surface tracking-tight flex items-center gap-2">
+                <Icon name="admin_panel_settings" size={28} /> Admin Console
+              </h1>
+            </div>
+          </div>
+          
+          {showOnboarding && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10">
+                  <Icon name="school" size={20} className="text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-sans text-lg font-semibold text-on-surface mb-2">Welcome to Admin Console</h3>
+                  <p className="text-on-surface-variant text-sm mb-4">
+                    Manage users, courses, problems, and platform settings. Here's a quick overview:
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    {[
+                      { icon: 'group', label: 'Users', desc: 'Manage roles & accounts' },
+                      { icon: 'school', label: 'Courses', desc: 'Create & organize content' },
+                      { icon: 'code', label: 'Problems', desc: 'Add coding challenges' },
+                      { icon: 'security', label: 'Security', desc: 'Monitor access & logs' },
+                    ].map(item => (
+                      <div key={item.label} className="bg-surface-container rounded-lg p-3">
+                        <Icon name={item.icon} size={16} className="text-primary mb-1" />
+                        <div className="font-mono text-xs font-medium text-on-surface">{item.label}</div>
+                        <div className="font-mono text-[10px] text-on-surface-variant">{item.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={dismissOnboarding} className="font-mono text-xs text-primary hover:underline">
+                    Got it, dismiss this →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-1 bg-surface-container-low border border-outline-variant rounded-lg p-1 w-fit flex-wrap" role="tablist">
             {ADMIN_TABS.map(t => (
               <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}

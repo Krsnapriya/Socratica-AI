@@ -76,7 +76,7 @@ llm: {
     },
     auth: {
       windowMs: parseInt(process.env.RATE_LIMIT_AUTH_WINDOW) || 15 * 60 * 1000,
-      max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 20,
+      max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 2000,
     },
     aiByRole: {
       guest: { requests: parseInt(process.env.RATE_LIMIT_GUEST) || 5, windowMs: 60000 },
