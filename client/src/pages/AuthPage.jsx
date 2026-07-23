@@ -44,34 +44,37 @@ function GoogleSignInButton({ onSuccess, onError }) {
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.onload = () => {
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: async (response) => {
-            try {
-              await onSuccess(response.credential);
-            } catch (err) {
-              onError(err.message || 'Google sign-in failed');
+      try {
+        if (window.google?.accounts?.id && btnRef.current) {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: async (response) => {
+              try {
+                await onSuccess(response.credential);
+              } catch (err) {
+                onError(err?.message || 'Google sign-in failed');
+              }
             }
-          },
-          error_callback: (err) => {
-            onError(err.message || 'Google sign-in cancelled');
-          },
-        });
-        window.google.accounts.id.renderButton(btnRef.current, {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: 'continue_with',
-          shape: 'rectangular',
-        });
-        setLoaded(true);
+          });
+          window.google.accounts.id.renderButton(btnRef.current, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with',
+            shape: 'rectangular',
+          });
+          setLoaded(true);
+        }
+      } catch (err) {
+        console.error("Google Sign-In initialization error:", err);
       }
     };
     script.onerror = () => setError('Failed to load Google Sign-In');
     document.head.appendChild(script);
-    return () => { document.head.removeChild(script); };
-  }, []);
+    return () => { 
+      try { document.head.removeChild(script); } catch (e) {} 
+    };
+  }, [onSuccess, onError]);
 
   if (error) {
     return (
@@ -95,22 +98,26 @@ function GoogleSignInButton({ onSuccess, onError }) {
 
 function PasswordStrength({ password }) {
   const strength = useMemo(() => {
-    if (!password) return { score: 0, label: '', color: '' };
-    let score = 0;
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (!password || typeof password !== 'string') return { score: 0, label: '', color: '' };
+    try {
+      let score = 0;
+      if (password.length >= 8) score++;
+      if (password.length >= 12) score++;
+      if (/[A-Z]/.test(password)) score++;
+      if (/[0-9]/.test(password)) score++;
+      if (/[^A-Za-z0-9]/.test(password)) score++;
 
-    if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-error' };
-    if (score <= 2) return { score: 2, label: 'Fair', color: 'bg-tertiary' };
-    if (score <= 3) return { score: 3, label: 'Good', color: 'bg-secondary' };
-    if (score <= 4) return { score: 4, label: 'Strong', color: 'bg-secondary' };
-    return { score: 5, label: 'Very Strong', color: 'bg-secondary' };
+      if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-error' };
+      if (score <= 2) return { score: 2, label: 'Fair', color: 'bg-tertiary' };
+      if (score <= 3) return { score: 3, label: 'Good', color: 'bg-secondary' };
+      if (score <= 4) return { score: 4, label: 'Strong', color: 'bg-secondary' };
+      return { score: 5, label: 'Very Strong', color: 'bg-secondary' };
+    } catch (e) {
+      return { score: 0, label: '', color: '' };
+    }
   }, [password]);
 
-  if (!password) return null;
+  if (!password || typeof password !== 'string') return null;
 
   return (
     <div className="mt-2 space-y-1">
