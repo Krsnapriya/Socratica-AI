@@ -26,6 +26,10 @@ export default class PageErrorBoundary extends Component {
             <p className="text-on-surface-variant text-sm mb-4">
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
+            <details className="text-left mb-4 p-3 bg-surface-container-low border border-outline-variant rounded text-xs font-mono text-error max-h-40 overflow-auto">
+              <summary className="cursor-pointer mb-2">Error details (click to expand)</summary>
+              <pre>{this.state.error?.stack || 'No stack trace'}</pre>
+            </details>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-primary-container text-white rounded-lg font-mono text-xs hover:opacity-90 transition-opacity"
