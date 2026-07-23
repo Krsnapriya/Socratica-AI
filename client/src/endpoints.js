@@ -12,6 +12,7 @@ const API = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
     VERIFY_EMAIL: "/auth/verify-email",
+    GOOGLE: "/auth/google",
   },
 
   CSRF_TOKEN: "/csrf-token",

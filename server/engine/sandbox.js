@@ -395,4 +395,4 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
   return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: error ? 1 : 0 };
 }
 
-module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback };
+module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver };

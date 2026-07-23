@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Icon from '../../components/ui/Icon.jsx';
-import { CATEGORIES as FALLBACK_CATEGORIES, LANGUAGE_IDS as FALLBACK_LANG_IDS } from '../../constants';
+import { LANGUAGE_IDS as FALLBACK_LANG_IDS } from '../../constants';
 import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
 import { SkeletonTable } from './Skeletons.jsx';
 import { Modal, FormActions, EditDeleteButtons } from './AdminUI.jsx';
@@ -9,7 +9,7 @@ import ConfirmModal from './ConfirmModal.jsx';
 const VISIBILITIES = ['public', 'hidden', 'sample'];
 const TC_CATEGORIES = ['sample', 'hidden', 'boundary', 'edge', 'stress', 'random', 'performance'];
 
-export default function TestCasesTab({ problems, testCases, setTestCases, loading, fetchTestCases, onCreate, onUpdate, onDelete }) {
+export default function TestCasesTab({ problems, testCases, _setTestCases, loading, _fetchTestCases, onCreate, onUpdate, onDelete }) {
   const [selectedProblem, setSelectedProblem] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [selectedVisibility, setSelectedVisibility] = useState('');

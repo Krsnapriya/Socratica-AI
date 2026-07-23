@@ -1,4 +1,4 @@
-const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback } = require("./sandbox");
+const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver } = require("./sandbox");
 const { isCompileError, formatCompileError } = require("../sandbox/compileErrorHandler");
 const { analyzeTraces } = require("../tracer/traceAligner");
 const { getAIResponse } = require("../ai/orchestrator");
@@ -119,22 +119,16 @@ async function runCode({ code, language, customInput, problemId }) {
     };
   } catch (err) {
     if (err.message === "system_judge_error") {
-      const result = await runFallback({
-        code: codeWithDriver,
-        language,
-        stdin: customInput || "",
-        timeLimitMs,
-      });
+      // Docker unavailable - return system judge error instead of running on host
       return {
         mode: "run",
-        stdout: result.stdout || "",
-        stderr: result.stderr || "",
-        error: result.error || null,
-        elapsed_ms: result.elapsed_ms || 0,
-        max_memory_bytes: result.max_memory_bytes || 0,
+        stdout: "",
+        stderr: "",
+        error: "system_judge_error",
+        elapsed_ms: 0,
+        max_memory_bytes: 0,
         exitCode: null,
         steps: 0,
-        fallback: true,
       };
     }
     if (err.message === "container_timeout") {
@@ -209,23 +203,14 @@ async function runSamples({ code, language, problemId }) {
       };
     } catch (err) {
       if (err.message === "system_judge_error") {
-        const result = await runFallback({
-          code: codeWithDriver, language, stdin: "", timeLimitMs,
-        });
-        if (result.error) {
-          return { mode: "samples", verdict: result.error === "compile_error" ? "compile_error" : "fail", results: [] };
-        }
-        const actualOutput = (result.stdout || "").trim();
-        const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, problem.memoryLimitMb || 256, problem.executionConfig?.compileTimeoutMs).catch(() => null);
-        const expectedOutput = oracleOutput || (testCases[0].expectedOutput || "").trim();
-        const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
-        const results = testCases.map(tc => ({
-          input: tc.input, expectedOutput, actualOutput, passed,
-          visible: tc.visibility === "public", description: tc.description || "", category: tc.category || "sample",
-          elapsed_ms: result.elapsed_ms || 0, max_memory_bytes: 0, error: null,
-        }));
-        const allPassed = results.every(r => r.passed);
-        return { mode: "samples", verdict: allPassed ? "pass" : "fail", results, totalTests: results.length, passedTests: results.filter(r => r.passed).length };
+        // Docker unavailable - return system judge error
+        return {
+          mode: "samples",
+          verdict: "system_judge_error",
+          results: [],
+          totalTests: 0,
+          passedTests: 0,
+        };
       }
       if (err.message === "container_timeout") {
         return { mode: "samples", verdict: "timeout", results: testCases.map(tc => ({
@@ -240,27 +225,19 @@ async function runSamples({ code, language, problemId }) {
 
   // Non-function_call mode: run each test case separately with stdin
   const results = [];
-  let useFallback = false;
 
   for (const tc of testCases) {
     try {
-      const result = useFallback
-        ? await runFallback({
-            code: codeWithDriver,
-            language,
-            stdin: tc.input,
-            timeLimitMs: tc.timeLimitMs || timeLimitMs,
-          })
-        : await executeInContainer({
-            code: codeWithDriver,
-            language,
-            stdin: tc.input,
-            timeLimitMs: tc.timeLimitMs || timeLimitMs,
-            memoryLimitMb: tc.memoryLimitMb || problem.memoryLimitMb || 256,
-            compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
-          });
+      const result = await executeInContainer({
+        code: codeWithDriver,
+        language,
+        stdin: tc.input,
+        timeLimitMs: tc.timeLimitMs || timeLimitMs,
+        memoryLimitMb: tc.memoryLimitMb || problem.memoryLimitMb || 256,
+        compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
+      });
 
-      if (!useFallback && isCompileError(result)) {
+      if (isCompileError(result)) {
         const formatted = formatCompileError(result);
         return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
       }
@@ -283,43 +260,19 @@ async function runSamples({ code, language, problemId }) {
       });
     } catch (err) {
       if (err.message === "system_judge_error") {
-        useFallback = true;
-        try {
-          const result = await runFallback({
-            code: codeWithDriver,
-            language,
-            stdin: tc.input,
-            timeLimitMs: tc.timeLimitMs || timeLimitMs,
-          });
-          const actualOutput = (result.stdout || "").trim();
-          const expectedOutput = (tc.expectedOutput || "").trim();
-          const passed = outputsMatch(actualOutput, expectedOutput);
-          results.push({
-            input: tc.input,
-            expectedOutput,
-            actualOutput,
-            passed,
-            visible: tc.visibility === "public",
-            description: tc.description || "",
-            category: tc.category || "sample",
-            elapsed_ms: result.elapsed_ms || 0,
-            max_memory_bytes: result.max_memory_bytes || 0,
-            error: result.error || null,
-          });
-        } catch (_) {
-          results.push({
-            input: tc.input,
-            expectedOutput: tc.expectedOutput || "",
-            actualOutput: "",
-            passed: false,
-            visible: tc.visibility === "public",
-            description: tc.description || "",
-            category: tc.category || "sample",
-            elapsed_ms: 0,
-            max_memory_bytes: 0,
-            error: "fallback_error",
-          });
-        }
+        // Docker unavailable - return system judge error instead of running on host
+        results.push({
+          input: tc.input,
+          expectedOutput: tc.expectedOutput || "",
+          actualOutput: "",
+          passed: false,
+          visible: tc.visibility === "public",
+          description: tc.description || "",
+          category: tc.category || "sample",
+          elapsed_ms: 0,
+          max_memory_bytes: 0,
+          error: "system_judge_error",
+        });
       } else if (err.message === "container_timeout") {
         results.push({
           input: tc.input,
@@ -385,10 +338,13 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
     });
   } catch (err) {
     if (err.message === "system_judge_error") {
-      // Fallback: try local execution
-      compilationResult = await runFallback({
-        code: codeWithDriver, language, stdin: "", timeLimitMs,
-      });
+      // Docker unavailable - return system judge error
+      return {
+        mode: "submit",
+        verdict: "system_judge_error",
+        error: "Docker sandbox unavailable",
+        sessionId: sId,
+      };
     } else if (err.message === "container_timeout") {
       const sub = await Submission.create({
         userId, problemId, sessionId: sId, code, language, round: roundNum,
@@ -455,7 +411,6 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   // ── Step 2: Run ALL test cases (public + hidden) — test cases = source of truth ──
   const allTestCases = await getTestCasesForProblem(problemId, null, language);
   const testResults = [];
-  let useFallback = false;
 
   // Fallback: if no test cases found in DB, try inline problem.testCases
   let effectiveTestCases = allTestCases;
@@ -491,12 +446,10 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   // Compute expected output dynamically by running oracle solution through the driver.
   if (isFunctionCall) {
     try {
-      const runResult = useFallback
-        ? await runFallback({ code: codeWithDriver, language, stdin: "", timeLimitMs })
-        : await executeInContainer({
-            code: codeWithDriver, language, stdin: "",
-            timeLimitMs, memoryLimitMb, compileTimeoutMs,
-          });
+      const runResult = await executeInContainer({
+        code: codeWithDriver, language, stdin: "",
+        timeLimitMs, memoryLimitMb, compileTimeoutMs,
+      });
 
       const actualOutput = (runResult.stdout || "").trim();
 
@@ -521,36 +474,19 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       }
     } catch (err) {
       if (err.message === "system_judge_error") {
-        useFallback = true;
-        try {
-          const runResult = await runFallback({ code: codeWithDriver, language, stdin: "", timeLimitMs });
-          const actualOutput = (runResult.stdout || "").trim();
-          const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs).catch(() => null);
-          const expectedOutput = oracleOutput || (effectiveTestCases[0]?.expectedOutput || "").trim();
-          const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
-          for (const tc of effectiveTestCases) {
-            testResults.push({
-              input: tc.input, expectedOutput, actualOutput, passed,
-              visible: tc.visibility === "public", description: tc.description || "",
-              category: tc.category || "sample", elapsed_ms: runResult.elapsed_ms || 0,
-              max_memory_bytes: 0, error: runResult.error || null,
-            });
-          }
-        } catch (_) {
-          for (const tc of effectiveTestCases) {
-            testResults.push({
-              input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "", passed: false,
-              visible: tc.visibility === "public", description: tc.description || "",
-              category: tc.category || "sample", elapsed_ms: 0, max_memory_bytes: 0, error: "fallback_error",
-            });
-          }
-        }
+        // Docker unavailable - return system judge error
+        return {
+          mode: "submit",
+          verdict: "system_judge_error",
+          error: "Docker sandbox unavailable",
+          sessionId: sId,
+        };
       } else if (err.message === "container_timeout") {
         for (const tc of effectiveTestCases) {
           testResults.push({
             input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "", passed: false,
-            visible: tc.visibility === "public", description: tc.description || "",
-            category: tc.category || "sample", elapsed_ms: timeLimitMs, max_memory_bytes: 0, error: "timeout",
+            visible: tc.visibility === "public", description: tc.description || "", category: tc.category || "sample",
+            elapsed_ms: timeLimitMs, max_memory_bytes: 0, error: "timeout",
           });
         }
       } else {
@@ -561,14 +497,14 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   // Non-function_call mode: run each test case separately with stdin
   for (const tc of effectiveTestCases) {
     try {
-      const result = useFallback
-        ? await runFallback({ code: codeWithDriver, language, stdin: tc.input, timeLimitMs: tc.timeLimitMs || timeLimitMs })
-        : await executeInContainer({
-            code: codeWithDriver, language, stdin: tc.input,
-            timeLimitMs: tc.timeLimitMs || timeLimitMs,
-            memoryLimitMb: tc.memoryLimitMb || memoryLimitMb,
-            compileTimeoutMs,
-          });
+      const result = await executeInContainer({
+        code: codeWithDriver,
+        language,
+        stdin: tc.input,
+        timeLimitMs: tc.timeLimitMs || timeLimitMs,
+        memoryLimitMb: tc.memoryLimitMb || memoryLimitMb,
+        compileTimeoutMs,
+      });
 
       const actualOutput = (result.stdout || "").trim();
       const expectedOutput = (tc.expectedOutput || "").trim();
@@ -588,30 +524,31 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       });
     } catch (err) {
       if (err.message === "system_judge_error") {
-        useFallback = true;
-        try {
-          const result = await runFallback({ code: codeWithDriver, language, stdin: tc.input, timeLimitMs: tc.timeLimitMs || timeLimitMs });
-          const actualOutput = (result.stdout || "").trim();
-          const expectedOutput = (tc.expectedOutput || "").trim();
-          testResults.push({
-            input: tc.input, expectedOutput, actualOutput,
-            passed: outputsMatch(actualOutput, expectedOutput),
-            visible: tc.visibility === "public", description: tc.description || "",
-            category: tc.category || "sample", elapsed_ms: result.elapsed_ms || 0,
-            max_memory_bytes: result.max_memory_bytes || 0, error: result.error || null,
-          });
-        } catch (_) {
-          testResults.push({
-            input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "",
-            passed: false, visible: tc.visibility === "public", description: tc.description || "",
-            category: tc.category || "sample", elapsed_ms: 0, max_memory_bytes: 0, error: "fallback_error",
-          });
-        }
+        // Docker unavailable - return system judge error instead of running on host
+        testResults.push({
+          input: tc.input,
+          expectedOutput: tc.expectedOutput || "",
+          actualOutput: "",
+          passed: false,
+          visible: tc.visibility === "public",
+          description: tc.description || "",
+          category: tc.category || "sample",
+          elapsed_ms: 0,
+          max_memory_bytes: 0,
+          error: "system_judge_error",
+        });
       } else if (err.message === "container_timeout") {
         testResults.push({
-          input: tc.input, expectedOutput: tc.expectedOutput || "", actualOutput: "",
-          passed: false, visible: tc.visibility === "public", description: tc.description || "",
-          category: tc.category || "sample", elapsed_ms: timeLimitMs, max_memory_bytes: 0, error: "timeout",
+          input: tc.input,
+          expectedOutput: tc.expectedOutput || "",
+          actualOutput: "",
+          passed: false,
+          visible: tc.visibility === "public",
+          description: tc.description || "",
+          category: tc.category || "sample",
+          elapsed_ms: timeLimitMs,
+          max_memory_bytes: 0,
+          error: "timeout",
         });
       } else {
         throw err;
@@ -640,17 +577,17 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
       step4OracleResult = await executeInContainer({
         code: oracleCode, language, stdin: "",
         timeLimitMs, memoryLimitMb, compileTimeoutMs,
-      }).catch(() => runFallback({ code: oracleCode, language, stdin: "", timeLimitMs }));
+      });
 
       oracleTimeMs = step4OracleResult.elapsed_ms || 0;
       oracleMemMb = Math.round((step4OracleResult.max_memory_bytes || 0) / (1024 * 1024) * 100) / 100;
-      oracleOutput = {
+      oracleOutput = JSON.stringify({
         stdout: step4OracleResult.stdout || "",
         stderr: step4OracleResult.stderr || "",
         exitCode: step4OracleResult.exit_code,
-      };
+      });
     } catch (_) {
-      // Oracle execution failed — continue without it
+      // Oracle execution failed — continue without it (will use Tier 2 only)
     }
   }
 
@@ -670,14 +607,16 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   let hintLevel = undefined;
 
   if (verdict === "fail") {
-    // Trace analysis for tier determination — use ACTUAL oracle telemetry, not student's twice
-    const { summary } = analyzeTraces({
-      studentTelemetry: compilationResult, oracleTelemetry: step4OracleResult || compilationResult, language,
-    });
-    finalTier = summary.tier;
-    if (summary.tier === 1) {
-      traceLog = (await require("../tracer/traceAligner").truncateSnapshots(compilationResult.snapshots)) || [];
-      divergenceStep = summary.divergenceStep;
+    // Trace analysis for tier determination — use ACTUAL oracle telemetry
+    if (step4OracleResult) {
+      const { summary } = analyzeTraces({
+        studentTelemetry: compilationResult, oracleTelemetry: step4OracleResult, language,
+      });
+      finalTier = summary.tier;
+      if (summary.tier === 1) {
+        traceLog = (await require("../tracer/traceAligner").truncateSnapshots(compilationResult.snapshots)) || [];
+        divergenceStep = summary.divergenceStep;
+      }
     }
 
     const previousHint = roundNum > 1
@@ -733,10 +672,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
           code: buildStudentCodeWithDriver(oracleCode, driverConfig, language),
           language, stdin: "",
           timeLimitMs, memoryLimitMb, compileTimeoutMs,
-        }).catch(() => runFallback({
-          code: buildStudentCodeWithDriver(oracleCode, driverConfig, language),
-          language, stdin: "", timeLimitMs,
-        }));
+        });
 
         oracleComparisonData = {
           oracleCode,
@@ -763,7 +699,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
         // Include test results so AI knows ALL tests passed
         allTestsPassed: true,
       },
-      explicitAgent: "correctAnswer",
+      explicitAgent: "correctAnswerAgent",
       oracleComparison: oracleComparisonData,
     }).catch(() => null);
 

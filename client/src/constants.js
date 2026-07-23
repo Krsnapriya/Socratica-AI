@@ -160,6 +160,17 @@ export const API_KEY_ENV_HINT = 'Set via environment variable: NVIDIA_API_KEY';
 export const PERMISSION_ACTIONS = ['create', 'read', 'update', 'delete', 'manage', 'access'];
 export const PERMISSION_RESOURCES = ['users', 'courses', 'modules', 'problems', 'submissions', 'compiler', 'ai', 'notifications', 'permissions', 'audit_logs', 'analytics'];
 
+// ── Platform Modules (for module-level access control) ───────────────────────
+export const PLATFORM_MODULES = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { key: 'curriculum', label: 'Curriculum', icon: 'school' },
+  { key: 'compiler', label: 'Compiler', icon: 'terminal' },
+  { key: 'ai', label: 'AI Mentor', icon: 'smart_toy' },
+  { key: 'analytics', label: 'Analytics', icon: 'insights' },
+  { key: 'user-management', label: 'User Management', icon: 'group' },
+  { key: 'settings', label: 'Platform Settings', icon: 'settings' },
+];
+
 // ── UI Timing ──────────────────────────────────────────────────────────────
 export const UI_TIMING = {
   savedBannerMs: 3000,

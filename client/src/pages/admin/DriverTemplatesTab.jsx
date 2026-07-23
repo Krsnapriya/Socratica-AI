@@ -3,12 +3,11 @@ import Icon from '../../components/ui/Icon.jsx';
 import { LANGUAGE_IDS as FALLBACK_LANG_IDS } from '../../constants';
 import { usePublicConfig } from '../../contexts/PublicConfigContext.jsx';
 import { SkeletonTable } from './Skeletons.jsx';
-import { Modal, FormActions, EditDeleteButtons } from './AdminUI.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
 
 const WRAPPER_TYPES = ['function_call', 'stdin_stdout', 'custom'];
 
-export default function DriverTemplatesTab({ problems, drivers, setDrivers, loading, onCreate, onUpdate, onDelete }) {
+export default function DriverTemplatesTab({ problems, drivers, _setDrivers, loading, onCreate, onUpdate, onDelete }) {
   const [selectedProblem, setSelectedProblem] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [showEditor, setShowEditor] = useState(false);

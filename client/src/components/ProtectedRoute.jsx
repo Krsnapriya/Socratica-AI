@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import client from '../api/client';
 
-export default function ProtectedRoute({ user, allowedRoles, children }) {
+export default function ProtectedRoute({ user, allowedRoles, onRoleSynced, children }) {
   const [verifiedRole, setVerifiedRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -13,10 +13,14 @@ export default function ProtectedRoute({ user, allowedRoles, children }) {
       try {
         const res = await client.get('/auth/me');
         if (!cancelled) {
-          setVerifiedRole(res.data.role || 'student');
+          const role = res.data.role || 'student';
+          setVerifiedRole(role);
           setLoading(false);
+          if (onRoleSynced && role !== user.role) {
+            onRoleSynced(role);
+          }
         }
-      } catch (err) {
+      } catch (_err) {
         if (!cancelled) {
           setError(true);
           setLoading(false);
@@ -30,7 +34,7 @@ export default function ProtectedRoute({ user, allowedRoles, children }) {
       setLoading(false);
     }
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, onRoleSynced]);
 
   if (error) return <Navigate to="/auth" replace />;
   if (!user) return <Navigate to="/" replace />;

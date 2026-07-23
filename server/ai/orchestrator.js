@@ -101,15 +101,46 @@ async function routeAndRespond({
   }
 
   // Build agent-specific prompt
+  // Flatten context for agent builders which expect top-level fields
+  const flatContext = {
+    ...fullContext,
+    code: fullContext.submission?.code,
+    language: fullContext.language,
+    problemTitle: fullContext.problem?.title,
+    problemStatement: fullContext.problem?.statement,
+    tier2Result: fullContext.execution?.tier2Result,
+    oracleComparison: fullContext.oracleComparison,
+    oracleComparisonData: fullContext.oracleComparisonData,
+    oracleCode: fullContext.oracleCode || fullContext.problem?.oracleSolutions?.[fullContext.submission?.language] || "",
+    studentOutput: fullContext.execution?.stdout,
+    oracleOutput: fullContext.oracleOutput,
+    curriculum: fullContext.curriculum,
+    problem: fullContext.problem,
+    student: fullContext.student,
+    oracleComparison: fullContext.oracleComparison,
+    tier2Result: fullContext.tier2Result,
+    oracleComparisonData: fullContext.oracleComparisonData,
+    studentOutput: fullContext.execution?.stdout,
+    oracleOutput: fullContext.oracleOutput,
+    curriculum: fullContext.curriculum,
+    problem: fullContext.problem,
+    student: fullContext.student,
+  };
+
+  // Build agent-specific prompt
   let prompt;
   if (agentType === "hintAgent") {
     const hintLevel = getHintLevel(fullContext);
-    prompt = buildAgentPrompt("hintAgent", { ...fullContext, hintLevel });
+    prompt = await buildAgentPrompt("hintAgent", { ...flatContext, hintLevel }, reqId);
   } else {
-    prompt = buildAgentPrompt(agentType, fullContext);
+    prompt = await buildAgentPrompt(agentType, flatContext, reqId);
   }
 
   console.log(`[ai:${reqId}] PROMPT system=${prompt.system?.length || 0}chars user=${prompt.user?.length || 0}chars`);
+  
+  // DEBUG: Log prompt preview for debugging
+  console.log(`[ai:${reqId}] SYSTEM PROMPT PREVIEW: ${prompt.system?.substring(0, 200)}...`);
+  console.log(`[ai:${reqId}] USER PROMPT PREVIEW: ${prompt.user?.substring(0, 200)}...`);
 
   // Call LLM
   const client = getLLMClient();

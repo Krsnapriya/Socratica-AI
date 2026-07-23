@@ -1,4 +1,3 @@
-import Icon from '../../components/ui/Icon.jsx';
 import { LOG_FILTER_TYPES, AUDIT_LOG_TYPE_STYLES } from '../../constants';
 import { SkeletonTable } from './Skeletons.jsx';
 import { Pagination } from './AdminUI.jsx';

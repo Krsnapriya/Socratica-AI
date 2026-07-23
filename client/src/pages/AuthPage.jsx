@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { login, register, forgotPassword, fetchMe } from '../api/api.js';
+import { useEffect, useState, useRef } from 'react';
+import { login, register, forgotPassword, fetchMe, googleLogin } from '../api/api.js';
 import { fetchCsrfToken } from '../api/client.js';
 
 function BrainIcon() {
@@ -12,6 +12,72 @@ function BrainIcon() {
 }
 
 const fieldClass = "w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+function GoogleSignInButton({ onSuccess, onError }) {
+  const btnRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      setError('Google Sign-In is not configured');
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            try {
+              await onSuccess(response.credential);
+            } catch (err) {
+              onError(err.message || 'Google sign-in failed');
+            }
+          },
+          error_callback: (err) => {
+            onError(err.message || 'Google sign-in cancelled');
+          },
+        });
+        window.google.accounts.id.renderButton(btnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: '100%',
+          text: 'continue_with',
+          shape: 'rectangular',
+        });
+        setLoaded(true);
+      }
+    };
+    script.onerror = () => setError('Failed to load Google Sign-In');
+    document.head.appendChild(script);
+    return () => { document.head.removeChild(script); };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="bg-surface-container border border-outline-variant rounded-lg px-4 py-3 text-center">
+        <p className="font-mono text-xs text-on-surface-variant">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={btnRef} className="w-full min-h-[44px] flex items-center justify-center">
+      {!loaded && (
+        <div className="w-full bg-surface-container border border-outline-variant rounded-lg px-4 py-3 flex items-center justify-center gap-2">
+          <span className="w-4 h-4 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
+          <span className="font-mono text-xs text-on-surface-variant">Loading Google...</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AuthPage({ onAuth }) {
   const [tab, setTab] = useState('login');
@@ -33,14 +99,31 @@ export default function AuthPage({ onAuth }) {
       const data = await fn(email, password);
       localStorage.setItem('socratica-token', data.token);
       localStorage.setItem('socratica-email', data.email);
+      // Use role from login response as primary, fetchMe as enhancement
+      const baseUser = { email: data.email, token: data.token, role: data.role, displayName: data.displayName, userId: data.userId, emailVerified: data.emailVerified };
       try {
         const me = await fetchMe();
         onAuth({ ...me, token: data.token });
       } catch {
-        onAuth({ email: data.email, token: data.token });
+        onAuth(baseUser);
       }
     } catch (err) {
       setError(err.message || 'Something went wrong. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleSignIn(idToken) {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await googleLogin(idToken);
+      localStorage.setItem('socratica-token', data.token);
+      localStorage.setItem('socratica-email', data.email);
+      onAuth({ email: data.email, token: data.token, role: data.role, displayName: data.displayName, userId: data.userId, emailVerified: data.emailVerified });
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Try again.');
     } finally {
       setLoading(false);
     }
@@ -84,28 +167,6 @@ export default function AuthPage({ onAuth }) {
             </div>
             <h1 className="font-sans text-2xl font-bold text-on-surface tracking-tight">Socratica AI</h1>
             <p className="font-mono text-xs text-on-surface-variant mt-1 uppercase tracking-wider">Differential Execution Judge</p>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex bg-surface-container rounded-lg p-1 mb-6" role="tablist" aria-label="Authentication mode">
-            {[
-              { key: 'login', label: 'Sign In' },
-              { key: 'register', label: 'Register' },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={tab === key}
-                onClick={() => switchTab(key)}
-                className={`flex-1 py-2 rounded-md font-mono text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
-                  ${tab === key
-                    ? 'bg-primary-container text-on-primary-container shadow-sm'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-              >
-                {label}
-              </button>
-            ))}
           </div>
 
           {/* Error banner */}
@@ -153,7 +214,7 @@ export default function AuthPage({ onAuth }) {
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Sending…
+                      Sending...
                     </span>
                   ) : 'Send Reset Link'}
                 </button>
@@ -170,7 +231,42 @@ export default function AuthPage({ onAuth }) {
             </form>
           ) : (
             <>
-              {/* Form */}
+              {/* Google Sign-In */}
+              <GoogleSignInButton
+                onSuccess={handleGoogleSignIn}
+                onError={(msg) => setError(msg)}
+              />
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-outline-variant" />
+                <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">or</span>
+                <div className="flex-1 h-px bg-outline-variant" />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex bg-surface-container rounded-lg p-1 mb-5" role="tablist" aria-label="Authentication mode">
+                {[
+                  { key: 'login', label: 'Sign In' },
+                  { key: 'register', label: 'Register' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    role="tab"
+                    aria-selected={tab === key}
+                    onClick={() => switchTab(key)}
+                    className={`flex-1 py-2 rounded-md font-mono text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
+                      ${tab === key
+                        ? 'bg-primary-container text-on-primary-container shadow-sm'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Email/Password Form */}
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div>
                   <label htmlFor="auth-email" className="block font-mono text-xs text-on-surface-variant uppercase tracking-wider mb-1.5">
@@ -196,7 +292,7 @@ export default function AuthPage({ onAuth }) {
                     id="auth-password"
                     type="password"
                     className={fieldClass}
-                    placeholder="••••••••"
+                    placeholder="Minimum 8 characters"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
@@ -226,7 +322,7 @@ export default function AuthPage({ onAuth }) {
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Please wait…
+                      Please wait...
                     </span>
                   ) : tab === 'login' ? 'Sign In' : 'Create Account'}
                 </button>

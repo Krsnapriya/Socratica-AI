@@ -11,6 +11,7 @@ import {
   fetchAdminReferenceSolutions, createAdminReferenceSolution, updateAdminReferenceSolution, deleteAdminReferenceSolution,
   fetchAdminTestCases, createTestCase, updateTestCase, deleteTestCase,
   fetchAdminDrivers, createDriver, updateDriver, deleteDriver,
+  fetchAdminModules,
 } from '../api/api.js';
 import Icon from '../components/ui/Icon.jsx';
 import { useToast } from '../contexts/ToastContext.jsx';
@@ -21,6 +22,7 @@ import { AdminErrorBoundary } from './admin/index.js';
 const DashboardTab = lazy(() => import('./admin/DashboardTab.jsx'));
 const UsersTab = lazy(() => import('./admin/UsersTab.jsx'));
 const CoursesTab = lazy(() => import('./admin/CoursesTab.jsx'));
+const ModulesTab = lazy(() => import('./admin/ModulesTab.jsx'));
 const ProblemsTab = lazy(() => import('./admin/ProblemsTab.jsx'));
 const TestCasesTab = lazy(() => import('./admin/TestCasesTab.jsx'));
 const DriverTemplatesTab = lazy(() => import('./admin/DriverTemplatesTab.jsx'));
@@ -31,6 +33,8 @@ const SecurityTab = lazy(() => import('./admin/SecurityTab.jsx'));
 const SettingsTab = lazy(() => import('./admin/SettingsTab.jsx'));
 const NotificationsTab = lazy(() => import('./admin/NotificationsTab.jsx'));
 const PermissionsTab = lazy(() => import('./admin/PermissionsTab.jsx'));
+const ModuleAccessTab = lazy(() => import('./admin/ModuleAccessTab.jsx'));
+const DatabaseMonitoringTab = lazy(() => import('./admin/DatabaseMonitoringTab.jsx'));
 
 function TabSkeleton() {
   return <div className="space-y-4 p-4"><div className="h-8 bg-surface-container-low rounded w-1/3 animate-pulse" /><div className="h-40 bg-surface-container-low rounded animate-pulse" /></div>;
@@ -155,6 +159,7 @@ export default function AdminDashboard({ user }) {
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'users') loadUsers();
     if (tab === 'courses') loadCourses();
+    if (tab === 'modules') loadCourses(); // Modules need courses for dropdown
     if (tab === 'problems') { loadProblems(); loadRefSolutions(); }
     if (tab === 'testcases') { loadTestCases(); loadProblems(); }
     if (tab === 'drivers') { loadDrivers(); loadProblems(); }
@@ -164,6 +169,8 @@ export default function AdminDashboard({ user }) {
     if (tab === 'notifications') loadNotifs();
     if (tab === 'permissions') loadPermissions();
     if (tab === 'settings') loadConfig();
+    if (tab === 'module-access') loadPermissions(); // Module access uses permissions
+    if (tab === 'database') loadConfig(); // Database monitoring may need config
   }, [tab]);
 
   useEffect(() => { if (tab === 'users') loadUsers(); }, [userPage]);
@@ -351,6 +358,7 @@ export default function AdminDashboard({ user }) {
           {tab === 'dashboard' && <AdminErrorBoundary key="dashboard"><DashboardTab stats={stats} recentLogs={recentLogs} loading={loading} /></AdminErrorBoundary>}
           {tab === 'users' && <AdminErrorBoundary key="users"><UsersTab users={users} userPage={userPage} userTotalPages={userTotalPages} userSearch={userSearch} setUserSearch={setUserSearch} setUserPage={setUserPage} onSearch={loadUsers} onAdd={handleCreateUser} onDelete={handleDeleteUser} onRoleChange={handleRoleChange} loading={loading} /></AdminErrorBoundary>}
           {tab === 'courses' && <AdminErrorBoundary key="courses"><CoursesTab courses={courses} editingCourse={editingCourse} setEditingCourse={setEditingCourse} onSave={handleSaveCourse} onDelete={handleDeleteCourse} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'modules' && <AdminErrorBoundary key="modules"><ModulesTab loading={loading} /></AdminErrorBoundary>}
           {tab === 'problems' && <AdminErrorBoundary key="problems"><ProblemsTab problems={problems} editingProblem={editingProblem} setEditingProblem={setEditingProblem} refSolutions={refSolutions} editingRefSol={editingRefSol} setEditingRefSol={setEditingRefSol} showRefSolPanel={showRefSolPanel} setShowRefSolPanel={setShowRefSolPanel} onSaveProblem={handleSaveProblem} onDeleteProblem={handleDeleteProblem} onSaveRefSol={handleSaveRefSol} onDeleteRefSol={handleDeleteRefSol} loading={loading} /></AdminErrorBoundary>}
           {tab === 'testcases' && <AdminErrorBoundary key="testcases"><TestCasesTab problems={problems} testCases={testCases} setTestCases={setTestCases} loading={loading} fetchTestCases={loadTestCases} onCreate={handleCreateTestCase} onUpdate={handleUpdateTestCase} onDelete={handleDeleteTestCase} /></AdminErrorBoundary>}
           {tab === 'drivers' && <AdminErrorBoundary key="drivers"><DriverTemplatesTab problems={problems} drivers={drivers} setDrivers={setDrivers} loading={loading} onCreate={handleCreateDriver} onUpdate={handleUpdateDriver} onDelete={handleDeleteDriver} /></AdminErrorBoundary>}
@@ -361,6 +369,8 @@ export default function AdminDashboard({ user }) {
           {tab === 'settings' && <AdminErrorBoundary key="settings"><SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} /></AdminErrorBoundary>}
           {tab === 'notifications' && <AdminErrorBoundary key="notifications"><NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} /></AdminErrorBoundary>}
           {tab === 'permissions' && <AdminErrorBoundary key="permissions"><PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} /></AdminErrorBoundary>}
+          {tab === 'module-access' && <AdminErrorBoundary key="module-access"><ModuleAccessTab loading={loading} /></AdminErrorBoundary>}
+          {tab === 'database' && <AdminErrorBoundary key="database"><DatabaseMonitoringTab loading={loading} /></AdminErrorBoundary>}
         </Suspense>
       </div>
     </AdminErrorBoundary>

@@ -28,6 +28,9 @@ const submitSchema = {
   problemId: "required",
 };
 
+// CSRF token endpoint for execute routes
+router.get("/csrf-token", require("../middleware/csrf").csrfToken, (req, res) => res.json({ token: req._csrfToken || req.cookies?._csrf }));
+
 router.post("/run", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), compilerLimiter, async (req, res) => {
   try {
     const { code, language, problemId, customInput } = req.body;

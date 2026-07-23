@@ -21,7 +21,7 @@ import re
 from types import FrameType
 
 TELEMETRY_VERSION = 1
-MAX_SNAPSHOTS = int(os.environ.get('TRACER_MAX_SNAPSHOTS', 2000))
+MAX_SNAPSHOTS = int(os.environ.get('TRACER_MAX_SNAPSHOTS', 5000))
 MAX_STDOUT_BYTES = int(os.environ.get('TRACER_MAX_STDOUT', 4096))
 HEX_ADDR_RE = re.compile(r' at 0x[0-9a-fA-F]+')
 

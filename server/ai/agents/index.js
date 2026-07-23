@@ -72,6 +72,7 @@ const AGENT_TYPE_MAP = {
   adminPlatformAgent: "adminPlatform",
   adminContentAgent: "adminContent",
   superAdminHealthAgent: "superAdminHealth",
+  correctAnswerAgent: "correctAnswer",
 };
 
 // DB prompt cache: { agentType: { systemPrompt, expiresAt } }
@@ -94,22 +95,29 @@ async function loadDBPrompt(agentType) {
   return null;
 }
 
-async function buildAgentPrompt(agentType, context) {
+async function buildAgentPrompt(agentType, context, reqId) {
   const builder = AGENT_BUILDERS[agentType];
   if (!builder) return { system: "You are a helpful AI assistant.", user: JSON.stringify(context) };
 
   const prompt = builder(context);
 
+  // DEBUG: Log what builder returned
+  console.log(`[ai:${reqId}] BUILDER RETURNED: system=${typeof prompt.system}(${prompt.system?.length || 0}) user=${typeof prompt.user}(${prompt.user?.length || 0})`);
+
+  // Ensure we always have valid prompts (defensive)
+  const systemPrompt = prompt.system?.trim() || "You are a helpful AI assistant.";
+  const userPrompt = prompt.user?.trim() || JSON.stringify(context);
+  
   // Try to override system prompt from DB
   const dbAgentType = AGENT_TYPE_MAP[agentType];
   if (dbAgentType) {
     const dbSystemPrompt = await loadDBPrompt(dbAgentType);
-    if (dbSystemPrompt) {
-      return { ...prompt, system: dbSystemPrompt };
+    if (dbSystemPrompt && dbSystemPrompt.trim()) {
+      return { system: dbSystemPrompt, user: userPrompt };
     }
   }
 
-  return prompt;
+  return { system: systemPrompt, user: userPrompt };
 }
 
 function invalidateDBPromptCache(agentType) {

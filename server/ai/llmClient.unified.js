@@ -148,8 +148,8 @@ async function callLLM(systemContent, userContent, opts = {}) {
   const body = {
     model,
     messages: [
-      { role: "system", content: systemContent },
-      { role: "user", content: userContent },
+      { role: "system", content: systemContent || "" },
+      { role: "user", content: userContent || "" },
     ],
     temperature,
     top_p: topP,

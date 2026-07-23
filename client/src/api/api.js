@@ -69,6 +69,13 @@ export async function verifyEmail(token) {
   return data;
 }
 
+// ── Google OAuth ───────────────────────────────────────────────────────────────
+export async function googleLogin(idToken) {
+  const { data } = await client.post(API.AUTH.GOOGLE, { idToken });
+  if (data.token) setTokens(data.token, data.refreshToken);
+  return data;
+}
+
 // ── Problems ──────────────────────────────────────────────────────────────────
 export async function fetchProblems() {
   const { data } = await client.get(API.PROBLEMS.LIST);

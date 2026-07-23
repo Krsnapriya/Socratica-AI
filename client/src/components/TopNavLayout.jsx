@@ -24,7 +24,7 @@ export default function TopNavLayout({ user, onLogout }) {
       />
 
       {/* Mobile slide-down nav */}
-      <MobileNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} onLogout={onLogout} />
+      <MobileNav isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} onLogout={onLogout} user={user} />
 
       <div className="flex-1 flex flex-col">
         {/* Pass user + onLogout via outlet context so child layouts can use them */}

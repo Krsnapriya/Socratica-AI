@@ -41,7 +41,7 @@ const submissionSchema = new mongoose.Schema({
   containerId: { type: String },
   exitCode: { type: Number },
   compileOutput: { type: String },
-  oracleOutput: { type: String },
+  oracleOutput: { type: String, default: "" },
   diffOutput: { type: String },
   executionMode: {
     type: String,

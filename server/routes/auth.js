@@ -98,7 +98,7 @@ router.post("/register", validate(schemas.register), async (req, res) => {
 
     res.status(201).json({
       email, token, refreshToken, userId: user._id, displayName: user.displayName,
-      emailVerified: false,
+      role: user.role, emailVerified: false,
     });
   } catch (err) {
     console.error("[auth] Registration error:", err.message);
@@ -150,6 +150,7 @@ router.post("/login", validate(schemas.login), async (req, res) => {
       refreshToken,
       userId: user._id,
       displayName: user.displayName,
+      role: user.role,
       emailVerified: user.emailVerified,
     });
   } catch (err) {
@@ -312,6 +313,75 @@ router.put("/me", requireAuth, async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("[auth] PUT /me error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Google OAuth (ID Token verification) ──────────────────────────────────────
+router.post("/google", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ error: "Google ID token is required" });
+
+    const { OAuth2Client } = require("google-auth-library");
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyErr) {
+      console.error("[auth/google] Token verification failed:", verifyErr.message);
+      return res.status(401).json({ error: "Invalid Google token" });
+    }
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (user) {
+      // Existing user — link Google if not already linked
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.provider = "google";
+        if (!user.emailVerified) user.emailVerified = true;
+        await user.save();
+      }
+    } else {
+      // New user — create without password
+      user = await User.create({
+        email,
+        googleId,
+        provider: "google",
+        displayName: name || email.split("@")[0],
+        emailVerified: true,
+        role: "student",
+      });
+    }
+
+    await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date(), lastActiveAt: new Date() } });
+
+    const { token, refreshToken } = await signToken(user._id);
+
+    await AuditLog.create({
+      userId: user._id, action: "login_google", resource: "user", resourceId: user._id.toString(),
+      ip: req.ip, userAgent: req.headers["user-agent"], success: true,
+    });
+
+    res.status(200).json({
+      email: user.email,
+      token,
+      refreshToken,
+      userId: user._id,
+      displayName: user.displayName,
+      role: user.role,
+      emailVerified: true,
+    });
+  } catch (err) {
+    console.error("[auth] Google OAuth error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

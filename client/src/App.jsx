@@ -59,6 +59,10 @@ export default function App() {
     setUser(userData);
   }
 
+  function handleRoleSync(role) {
+    setUser(prev => prev ? { ...prev, role } : prev);
+  }
+
   async function handleLogout() {
     await logout().catch(() => {});
     localStorage.removeItem('socratica-email');
@@ -93,7 +97,7 @@ export default function App() {
             <Route path="/archive" element={<PageErrorBoundary><ArchivePage /></PageErrorBoundary>} />
             {/* Admin Dashboard */}
             <Route path="/admin" element={
-              <ProtectedRoute user={user} allowedRoles={['admin', 'super_admin']}>
+              <ProtectedRoute user={user} allowedRoles={['admin', 'super_admin']} onRoleSynced={handleRoleSync}>
                 <PageErrorBoundary><AdminDashboard user={user} /></PageErrorBoundary>
               </ProtectedRoute>
             } />

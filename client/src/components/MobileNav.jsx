@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import Icon from './ui/Icon.jsx';
 import Button from './ui/Button.jsx';
-import { WORKSPACE_NAV } from '../navigation';
+import { WORKSPACE_NAV, ADMIN_NAV_ITEMS } from '../navigation';
 
 const NAV_LINKS = WORKSPACE_NAV.map(item => ({
   ...item,
@@ -10,7 +10,16 @@ const NAV_LINKS = WORKSPACE_NAV.map(item => ({
   end: item.to === '/',
 }));
 
-export default function MobileNav({ isOpen, onClose, onLogout }) {
+const ADMIN_LINKS = ADMIN_NAV_ITEMS.map(item => ({
+  ...item,
+  icon: item.icon || 'admin_panel_settings',
+  label: item.label,
+  end: false,
+}));
+
+export default function MobileNav({ isOpen, onClose, onLogout, user }) {
+  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+  const links = isAdmin ? [...NAV_LINKS, ...ADMIN_LINKS] : NAV_LINKS;
   return (
     <>
       {/* Overlay */}
@@ -31,7 +40,7 @@ export default function MobileNav({ isOpen, onClose, onLogout }) {
         aria-hidden={!isOpen}
       >
         <nav className="flex flex-col py-2 px-3 gap-1">
-          {NAV_LINKS.map(({ to, icon, label, end }) => (
+          {links.map(({ to, icon, label, end }) => (
             <NavLink
               key={to}
               to={to}

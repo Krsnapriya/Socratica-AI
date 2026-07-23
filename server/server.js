@@ -68,8 +68,8 @@ app.use("/api/submissions", submissionsRoutes);
 app.use("/api/execute", executeRoutes);
 app.use("/api/ai", aiRoutes);
 
-// CSRF disabled — JWT auth makes CSRF checks unnecessary
-// app.use(csrfProtection);
+// Apply CSRF protection to all other state-changing endpoints
+app.use(csrfProtection);
 app.use("/api/problems", problemsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", coursesRoutes);

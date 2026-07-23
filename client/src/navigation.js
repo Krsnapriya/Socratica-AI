@@ -32,6 +32,7 @@ export const ADMIN_TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { key: 'users', label: 'Users', icon: 'group' },
   { key: 'courses', label: 'Courses', icon: 'school' },
+  { key: 'modules', label: 'Modules', icon: 'layers' },
   { key: 'problems', label: 'Problems', icon: 'code' },
   { key: 'testcases', label: 'Test Cases', icon: 'checklist' },
   { key: 'drivers', label: 'Drivers', icon: 'directions_car' },
@@ -42,4 +43,6 @@ export const ADMIN_TABS = [
   { key: 'settings', label: 'Settings', icon: 'settings' },
   { key: 'notifications', label: 'Notifications', icon: 'notifications' },
   { key: 'permissions', label: 'Permissions', icon: 'manage_accounts' },
+  { key: 'module-access', label: 'Module Access', icon: 'admin_panel_settings' },
+  { key: 'database', label: 'Database', icon: 'storage' },
 ];
