@@ -92,7 +92,8 @@ export default function App() {
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage onAuth={handleAuth} />} />
 
         {/* All other routes require auth */}
-        <Route element={user ? <TopNavLayout user={user} onLogout={handleLogout} /> : <AuthPage onAuth={handleAuth} />}>
+        <Route element={<ProtectedRoute user={user} />}>
+          <Route element={<TopNavLayout user={user} onLogout={handleLogout} />}>
           
           {/* Main layout with Curriculum side nav */}
           <Route element={<MainLayout />}>
@@ -126,3 +127,4 @@ export default function App() {
     </PublicConfigProvider>
   );
 }
+ 
