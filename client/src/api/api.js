@@ -69,6 +69,11 @@ export async function verifyEmail(token) {
   return data;
 }
 
+export async function resendVerification() {
+  const { data } = await client.post(API.AUTH.RESEND_VERIFICATION);
+  return data;
+}
+
 // ── Google OAuth ───────────────────────────────────────────────────────────────
 export async function googleLogin(idToken) {
   const { data } = await client.post(API.AUTH.GOOGLE, { idToken });
@@ -153,6 +158,53 @@ export async function submitSolution({ code, language, problemId, sessionId }) {
 // ── Notifications ─────────────────────────────────────────────────────────────
 export async function fetchActiveNotifications() {
   const { data } = await client.get(API.NOTIFICATIONS.ACTIVE);
+  return data;
+}
+
+export async function fetchUnreadCount() {
+  const { data } = await client.get(API.NOTIFICATIONS.UNREAD_COUNT);
+  return data;
+}
+
+export async function markNotificationRead(id) {
+  const { data } = await client.post(API.NOTIFICATIONS.MARK_READ(id));
+  return data;
+}
+
+export async function markAllNotificationsRead() {
+  const { data } = await client.post(API.NOTIFICATIONS.MARK_ALL_READ);
+  return data;
+}
+
+// ── Achievements ────────────────────────────────────────────────────────────────
+export async function fetchAchievements() {
+  const { data } = await client.get(API.ACHIEVEMENTS.LIST);
+  return data;
+}
+
+export async function checkAchievements() {
+  const { data } = await client.post(API.ACHIEVEMENTS.CHECK);
+  return data;
+}
+
+export async function fetchLeaderboard(limit = 20) {
+  const { data } = await client.get(`${API.ACHIEVEMENTS.LEADERBOARD}?limit=${limit}`);
+  return data;
+}
+
+export async function fetchTopPerformers() {
+  const { data } = await client.get(API.ACHIEVEMENTS.LEADERBOARD_TOP);
+  return data;
+}
+
+// ── Instructor ──────────────────────────────────────────────────────────────────
+export async function fetchInstructorRoster() {
+  const { data } = await client.get(API.INSTRUCTOR.ROSTER);
+  return data;
+}
+
+export async function fetchInstructorAnalytics() {
+  const { data } = await client.get(API.INSTRUCTOR.ANALYTICS);
   return data;
 }
 

@@ -1494,4 +1494,82 @@ router.post("/seed-topics", requireRole(["super_admin"]), async (req, res) => {
   }
 });
 
+// ── Instructor Roster & Analytics ────────────────────────────────────────
+router.get("/instructor/roster", requireAuth, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const students = await User.find({ role: "student" })
+      .select("displayName email lastActiveAt createdAt learningProfile")
+      .sort({ lastActiveAt: -1 })
+      .lean();
+
+    const studentIds = students.map(s => s._id);
+    const [submissions, passes] = await Promise.all([
+      Submission.aggregate([
+        { $match: { userId: { $in: studentIds } } },
+        { $group: { _id: "$userId", total: { $sum: 1 }, solved: { $sum: { $cond: [{ $eq: ["$verdict", "pass"] }, 1, 0] } } } },
+      ]),
+    ]);
+
+    const subMap = {};
+    submissions.forEach(s => { subMap[s._id.toString()] = { total: s.total, solved: s.solved }; });
+
+    const roster = students.map(s => ({
+      _id: s._id,
+      displayName: s.displayName || s.email?.split("@")[0] || "Student",
+      email: s.email,
+      lastActiveAt: s.lastActiveAt,
+      joinedAt: s.createdAt,
+      totalSubmissions: subMap[s._id.toString()]?.total || 0,
+      solved: subMap[s._id.toString()]?.solved || 0,
+      passRate: subMap[s._id.toString()]?.total > 0
+        ? Math.round((subMap[s._id.toString()].solved / subMap[s._id.toString()].total) * 100)
+        : 0,
+      streak: s.learningProfile?.streakDays || 0,
+    }));
+
+    res.json(roster);
+  } catch (err) {
+    console.error("[admin] /instructor/roster error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/instructor/analytics", requireAuth, requireRole(["instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const [totalStudents, recentSubmissions, languageStats, topPerformers] = await Promise.all([
+      User.countDocuments({ role: "student" }),
+      Submission.countDocuments({ createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } }),
+      Submission.aggregate([
+        { $match: { verdict: "pass" } },
+        { $group: { _id: "$language", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Submission.aggregate([
+        { $match: { verdict: "pass" } },
+        { $group: { _id: "$userId", solved: { $sum: 1 } } },
+        { $sort: { solved: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "user" } },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, solved: 1, displayName: "$user.displayName", email: "$user.email" } },
+      ]),
+    ]);
+
+    res.json({
+      totalStudents,
+      recentSubmissions,
+      languageDistribution: languageStats.map(l => ({ language: l._id, count: l.count })),
+      topPerformers: topPerformers.map((p, i) => ({
+        rank: i + 1,
+        userId: p._id,
+        displayName: p.displayName || p.email?.split("@")[0] || "Anonymous",
+        solved: p.solved,
+      })),
+    });
+  } catch (err) {
+    console.error("[admin] /instructor/analytics error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

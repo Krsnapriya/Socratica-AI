@@ -10,6 +10,10 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', displayName: '', role: DEFAULT_ROLE });
   const [confirmId, setConfirmId] = useState(null);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [bulkAction, setBulkAction] = useState('');
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [roleConfirm, setRoleConfirm] = useState(null);
   const pc = usePublicConfig();
   const roleOptions = pc?.roles?.map(r => r.name) || FALLBACK_ROLES;
 
@@ -18,20 +22,84 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
     onAdd(newUser, () => { setShowAdd(false); setNewUser({ email: '', password: '', displayName: '', role: DEFAULT_ROLE }); });
   };
 
+  const toggleSelectAll = () => {
+    if (selectedUsers.length === users.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(users.map(u => u._id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedUsers(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkAction = () => {
+    if (bulkAction === 'delete') {
+      setConfirmBulk(true);
+    }
+  };
+
+  const executeBulkDelete = () => {
+    selectedUsers.forEach(id => onDelete(id));
+    setSelectedUsers([]);
+    setConfirmBulk(false);
+    setBulkAction('');
+  };
+
   if (loading) return <SkeletonTable rows={8} cols={5} colSpan={6} />;
 
   return (
     <>
       <div className="p-4 border-b border-outline-variant bg-surface-container-low flex flex-wrap justify-between items-center gap-3">
-        <h2 className="font-sans text-lg font-semibold text-on-surface">User Management</h2>
+        <div>
+          <h2 className="font-sans text-lg font-semibold text-on-surface">User Management</h2>
+          <p className="font-mono text-[10px] text-on-surface-variant">Create, edit, and manage user accounts and roles</p>
+        </div>
         <div className="flex items-center gap-2">
           <form onSubmit={e => { e.preventDefault(); setUserPage(1); onSearch(); }} className="flex items-center gap-2">
             <input type="text" value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search..." className="bg-surface-container border border-outline-variant rounded px-3 py-1.5 font-mono text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary w-36" />
             <button type="submit" className="font-mono text-xs px-3 py-1.5 bg-primary-container text-white rounded hover:opacity-90">Search</button>
           </form>
+          <button onClick={() => {
+            const csv = ['Email,Display Name,Role,Submissions,Joined'].concat(
+              users.map(u => `${u.email},${u.displayName || ''},${u.role},${u.submissionsCount || 0},${new Date(u.createdAt).toISOString()}`)
+            ).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click();
+            URL.revokeObjectURL(url);
+          }} className="font-mono text-xs px-3 py-1.5 bg-surface-container border border-outline-variant rounded hover:bg-surface-container-high flex items-center gap-1">
+            <Icon name="download" size={14} /> Export
+          </button>
           <button onClick={() => setShowAdd(true)} className="font-mono text-xs px-3 py-1.5 bg-primary text-white rounded hover:opacity-90 flex items-center gap-1"><Icon name="add" size={14} /> Add User</button>
         </div>
       </div>
+
+      {selectedUsers.length > 0 && (
+        <div className="p-3 border-b border-outline-variant bg-primary/5 flex items-center gap-3">
+          <span className="font-mono text-xs text-on-surface">{selectedUsers.length} selected</span>
+          <select 
+            value={bulkAction} 
+            onChange={e => setBulkAction(e.target.value)}
+            className="bg-surface-container border border-outline-variant rounded px-2 py-1 font-mono text-xs text-on-surface"
+          >
+            <option value="">Bulk actions...</option>
+            <option value="delete">Delete selected</option>
+          </select>
+          {bulkAction && (
+            <button onClick={handleBulkAction} className="font-mono text-xs px-3 py-1 bg-error text-white rounded hover:opacity-90">
+              Apply
+            </button>
+          )}
+          <button onClick={() => setSelectedUsers([])} className="font-mono text-xs text-on-surface-variant hover:text-on-surface ml-auto">
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {showAdd && (
         <form onSubmit={handleCreate} className="p-4 border-b border-outline-variant bg-surface-container-low grid grid-cols-1 sm:grid-cols-5 gap-3">
           <input placeholder="Email" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required className="bg-surface-container border border-outline-variant rounded px-3 py-1.5 font-mono text-xs text-on-surface" />
@@ -48,13 +116,42 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
       )}
       <table className="w-full text-left font-mono text-sm">
         <thead className="bg-surface-container-lowest border-b border-outline-variant text-on-surface-variant text-[11px] uppercase tracking-wider">
-          <tr><th className="px-6 py-4 font-medium">User</th><th className="px-6 py-4 font-medium">Role</th><th className="px-6 py-4 font-medium text-right">Submissions</th><th className="px-6 py-4 font-medium text-right">Last Login</th><th className="px-6 py-4 font-medium">Joined</th><th className="px-6 py-4 font-medium text-right">Actions</th></tr>
+          <tr>
+            <th className="px-6 py-4 font-medium w-10">
+              <input 
+                type="checkbox" 
+                checked={selectedUsers.length === users.length && users.length > 0}
+                onChange={toggleSelectAll}
+                className="rounded border-outline-variant"
+              />
+            </th>
+            <th className="px-6 py-4 font-medium">User</th>
+            <th className="px-6 py-4 font-medium">Role</th>
+            <th className="px-6 py-4 font-medium text-right">Submissions</th>
+            <th className="px-6 py-4 font-medium text-right">Last Login</th>
+            <th className="px-6 py-4 font-medium">Joined</th>
+            <th className="px-6 py-4 font-medium text-right">Actions</th>
+          </tr>
         </thead>
         <tbody className="divide-y divide-outline-variant/50">
           {(users || []).map(u => (
-            <tr key={u._id} className="hover:bg-surface-container-low group">
+            <tr key={u._id} className={`hover:bg-surface-container-low group ${selectedUsers.includes(u._id) ? 'bg-primary/5' : ''}`}>
+              <td className="px-6 py-4">
+                <input 
+                  type="checkbox" 
+                  checked={selectedUsers.includes(u._id)}
+                  onChange={() => toggleSelect(u._id)}
+                  className="rounded border-outline-variant"
+                />
+              </td>
               <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">{(u.displayName || u.email)[0].toUpperCase()}</div><div className="min-w-0"><div className="font-sans font-medium text-on-surface truncate">{u.displayName || 'No Name'}</div><div className="text-xs text-on-surface-variant truncate">{u.email}</div></div></div></td>
-              <td className="px-6 py-4"><select value={u.role} onChange={e => onRoleChange(u._id, e.target.value)} className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary">{roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}</select></td>
+              <td className="px-6 py-4">
+                <select value={u.role} onChange={e => {
+                  setRoleConfirm({ userId: u._id, userName: u.displayName || u.email, newRole: e.target.value, currentRole: u.role });
+                }} className="bg-surface-container border border-outline-variant rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                  {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                </select>
+              </td>
               <td className="px-6 py-4 text-right text-on-surface">{u.submissionsCount || 0}</td>
               <td className="px-6 py-4 text-right text-on-surface-variant text-xs">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : '—'}</td>
               <td className="px-6 py-4 text-on-surface-variant text-xs">{new Date(u.createdAt).toLocaleDateString()}</td>
@@ -65,6 +162,15 @@ export default function UsersTab({ users, userPage, userTotalPages, userSearch, 
       </table>
       <Pagination page={userPage} totalPages={userTotalPages} onPrev={() => setUserPage(userPage - 1)} onNext={() => setUserPage(userPage + 1)} />
       <ConfirmModal open={!!confirmId} title="Delete User" message="Delete this user and all their submissions?" danger confirmLabel="Delete" onConfirm={() => { onDelete(confirmId); setConfirmId(null); }} onCancel={() => setConfirmId(null)} />
+      <ConfirmModal open={confirmBulk} title="Delete Multiple Users" message={`Delete ${selectedUsers.length} users and all their submissions?`} danger confirmLabel="Delete All" onConfirm={executeBulkDelete} onCancel={() => setConfirmBulk(false)} />
+      <ConfirmModal 
+        open={!!roleConfirm} 
+        title="Change User Role" 
+        message={roleConfirm ? `Change ${roleConfirm.userName}'s role from ${roleConfirm.currentRole} to ${roleConfirm.newRole}?` : ''} 
+        confirmLabel="Change Role" 
+        onConfirm={() => { if (roleConfirm) { onRoleChange(roleConfirm.userId, roleConfirm.newRole); setRoleConfirm(null); } }} 
+        onCancel={() => setRoleConfirm(null)} 
+      />
     </>
   );
 }

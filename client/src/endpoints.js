@@ -12,6 +12,7 @@ const API = {
     FORGOT_PASSWORD: "/auth/forgot-password",
     RESET_PASSWORD: "/auth/reset-password",
     VERIFY_EMAIL: "/auth/verify-email",
+    RESEND_VERIFICATION: "/auth/resend-verification",
     GOOGLE: "/auth/google",
   },
 
@@ -50,6 +51,9 @@ const API = {
   // ── Notifications ─────────────────────────────────────────────────────────
   NOTIFICATIONS: {
     ACTIVE: "/notifications/active",
+    UNREAD_COUNT: "/notifications/unread-count",
+    MARK_READ: (id) => `/notifications/${id}/read`,
+    MARK_ALL_READ: "/notifications/read-all",
   },
 
   // ── AI Mentor ─────────────────────────────────────────────────────────────
@@ -94,6 +98,20 @@ const API = {
 
   // ── Public Config (no auth) ──────────────────────────────────────────────
   PUBLIC_CONFIG: "/admin/public",
+
+  // ── Achievements ─────────────────────────────────────────────────────────
+  ACHIEVEMENTS: {
+    LIST: "/achievements",
+    CHECK: "/achievements/check",
+    LEADERBOARD: "/achievements/leaderboard",
+    LEADERBOARD_TOP: "/achievements/leaderboard/top",
+  },
+
+  // ── Instructor ───────────────────────────────────────────────────────────
+  INSTRUCTOR: {
+    ROSTER: "/admin/instructor/roster",
+    ANALYTICS: "/admin/instructor/analytics",
+  },
 
   // ── Admin ─────────────────────────────────────────────────────────────────
   ADMIN: {

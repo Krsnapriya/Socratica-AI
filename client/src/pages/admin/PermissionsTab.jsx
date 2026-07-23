@@ -16,6 +16,7 @@ export default function PermissionsTab({ permissions, editingPerm, setEditingPer
       <section className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
         <div className="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
           <h2 className="font-sans text-lg font-semibold text-on-surface">Role Permissions (RBAC)</h2>
+          <p className="font-mono text-[10px] text-on-surface-variant">Define which roles can access, create, edit, or delete specific resources</p>
           <button onClick={() => setEditingPerm({})} className="font-mono text-xs px-3 py-1.5 bg-primary text-white rounded hover:opacity-90 flex items-center gap-1"><Icon name="add" size={14} /> Add Permission</button>
         </div>
         <table className="w-full text-left font-mono text-sm">

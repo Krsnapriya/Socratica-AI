@@ -77,7 +77,10 @@ export default function DatabaseMonitoringTab({ _config, loading }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="font-sans text-lg font-semibold text-on-surface">Database Monitoring</h2>
+        <div>
+          <h2 className="font-sans text-lg font-semibold text-on-surface">Database Monitoring</h2>
+          <p className="font-mono text-[10px] text-on-surface-variant">View collection sizes, document counts, and database health metrics</p>
+        </div>
         <button 
           onClick={() => { loadDatabaseStats(); loadCollections(); }}
           disabled={statsLoading || collectionsLoading}

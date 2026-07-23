@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { NavLink, useSearchParams, useOutletContext } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { fetchProblems, fetchProblem, fetchTemplate, runCode, runSamples, submitSolution } from '../api/api.js';
@@ -59,6 +59,7 @@ export default function Workspace() {
   const [searchParams] = useSearchParams();
   const { user } = useOutletContext() || {};
   const initialProblemId = searchParams.get('problem');
+  const editorRef = useRef(null);
 
   const [problems, setProblems] = useState([]);
   const [selectedProblemId, setSelectedProblemId] = useState(initialProblemId || '');
@@ -75,6 +76,7 @@ export default function Workspace() {
   const [consoleTab, setConsoleTab] = useState('output');
   const [maxAttemptsReached, setMaxAttemptsReached] = useState(false);
   const [executionMode, setExecutionMode] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   function startNewSession() {
     const newId = crypto.randomUUID();
@@ -94,8 +96,8 @@ export default function Workspace() {
         if (list.length > 0 && !selectedProblemId) {
           setSelectedProblemId(list[0].problemId);
         }
-      } catch (err) {
-        console.error('Error loading problems:', err);
+      } catch {
+        // Failed to load problems
       } finally {
         setLoadingProblems(false);
       }
@@ -110,8 +112,8 @@ export default function Workspace() {
         setLoadingDetail(true);
         const detail = await fetchProblem(selectedProblemId);
         setProblemDetail(detail);
-      } catch (err) {
-        console.error('Error loading problem:', err);
+      } catch {
+        // Failed to load problem detail
       } finally {
         setLoadingDetail(false);
       }
@@ -131,6 +133,26 @@ export default function Workspace() {
     }
     loadTemplate();
   }, [selectedProblemId, lang]);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleSubmit();
+        } else {
+          handleRunSamples();
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        setOutput(null);
+        setExecutionMode(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProblemId, code, lang, executing]);
 
   const handleRunCode = useCallback(async () => {
     if (!selectedProblemId || !code.trim()) return;
@@ -168,6 +190,7 @@ export default function Workspace() {
 
   const handleSubmit = useCallback(async () => {
     if (!selectedProblemId || !code.trim()) return;
+    if (!confirm('Submit your solution for evaluation? This will run against all test cases.')) return;
     try {
       setExecuting(true);
       setOutput(null);
@@ -197,12 +220,15 @@ export default function Workspace() {
     }
   }, [code, lang, selectedProblemId]);
 
+  function handleEditorDidMount(editor) {
+    editorRef.current = editor;
+  }
+
   const diffStyle = DIFFICULTY_STYLES[problemDetail?.difficulty] || 'text-on-surface-variant border-outline-variant';
 
   return (
     <div className="flex overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
 
-      {/* Sidebar */}
       <aside className="h-full w-14 md:w-52 flex flex-col border-r shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
         <nav className="flex flex-col py-3 px-2 gap-0.5 border-b" style={{ borderColor: 'var(--outline-variant)' }}>
           {WORKSPACE_NAV.map(({ to, icon, label }) => (
@@ -235,10 +261,8 @@ export default function Workspace() {
         </div>
       </aside>
 
-      {/* Content */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Problem Panel */}
         <section className="w-[28%] min-w-[260px] border-r flex flex-col" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
           <div className="h-10 border-b flex items-center px-4 shrink-0 gap-2" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <span className="font-mono text-xs text-on-surface uppercase tracking-wider font-bold">Problem</span>
@@ -276,12 +300,17 @@ export default function Workspace() {
                 )}
               </div>
             ) : (
-              <span className="font-mono text-xs text-outline">Select a problem to view description.</span>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                  <Icon name="code" size={24} className="text-primary" />
+                </div>
+                <p className="font-sans text-sm font-semibold text-on-surface">No problem selected</p>
+                <p className="font-mono text-[10px] text-on-surface-variant mt-1">Choose a problem from the list to start coding</p>
+              </div>
             )}
           </div>
         </section>
 
-        {/* Code Editor + Input Panel */}
         <section className="flex-1 flex flex-col min-w-0 border-r" style={{ background: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }}>
           <div className="h-10 border-b flex items-center justify-between shrink-0 px-3 gap-3" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <select value={lang} onChange={e => setLang(e.target.value)}
@@ -290,10 +319,25 @@ export default function Workspace() {
                 <option key={l.id} value={l.id}>{l.label}</option>
               ))}
             </select>
+            <button onClick={() => { if (confirm('Switch to a different problem? Current unsaved changes will be lost.')) { setSelectedProblemId(null); setProblemDetail(null); }}}
+              className="font-mono text-[10px] px-2 py-1 rounded text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+              title="Switch problem">
+              <Icon name="swap_horiz" size={12} className="inline mr-1" />New
+            </button>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowInputPanel(!showInputPanel)}
                 className={`font-mono text-[10px] px-2 py-1 rounded transition-colors ${showInputPanel ? 'bg-primary/15 text-primary' : 'text-on-surface-variant hover:bg-surface-container-highest'}`}>
                 <Icon name="input" size={12} className="inline mr-1" />Input
+              </button>
+              <button onClick={() => editorRef.current?.getAction('editor.action.formatDocument')?.run()}
+                className="font-mono text-[10px] px-2 py-1 rounded text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+                title="Format code (Shift+Alt+F)">
+                <Icon name="code" size={12} className="inline mr-1" />Format
+              </button>
+              <button onClick={() => setShowShortcuts(true)}
+                className="font-mono text-[10px] px-2 py-1 rounded text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+                title="Keyboard shortcuts">
+                <Icon name="keyboard" size={12} />
               </button>
               <div className="flex items-center gap-1.5 font-mono text-xs text-on-surface-variant">
                 <Icon name="security" size={14} className="text-secondary shrink-0" />
@@ -315,6 +359,7 @@ export default function Workspace() {
                 language={lang === 'cpp' ? 'cpp' : lang === 'javascript' ? 'javascript' : 'python'}
                 value={code}
                 onChange={val => setCode(val || '')}
+                onMount={handleEditorDidMount}
                 options={{
                   fontSize: parseInt(user?.preferences?.fontSize) || 14,
                   fontFamily: 'JetBrains Mono, monospace',
@@ -325,6 +370,8 @@ export default function Workspace() {
                   automaticLayout: true,
                   padding: { top: 12 },
                   tabSize: parseInt(user?.preferences?.tabSize) || 4,
+                  formatOnPaste: true,
+                  formatOnType: true,
                 }}
               />
             </div>
@@ -346,7 +393,6 @@ export default function Workspace() {
           </div>
         </section>
 
-        {/* Right Panel — Console / AI Mentor */}
         <section className="w-[30%] min-w-[260px] flex flex-col" style={{ background: 'var(--surface-container-low)' }}>
           <div className="h-10 border-b flex items-center shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <button onClick={() => setRightTab('console')}
@@ -365,7 +411,6 @@ export default function Workspace() {
 
           {rightTab === 'console' ? (
             <>
-              {/* Console sub-tabs */}
               {output && executionMode === 'samples' && (
                 <div className="h-8 border-b flex items-center shrink-0 px-2 gap-1" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
                   {['results', 'output'].map(tab => (
@@ -397,6 +442,7 @@ export default function Workspace() {
                       {executionMode === 'submit' && 'Submitting solution…'}
                       {!executionMode && 'Running in sandbox…'}
                     </span>
+                    <span className="font-mono text-[10px] text-outline">This may take a few seconds</span>
                   </div>
                 ) : maxAttemptsReached ? (
                   <SessionAnalysis sessionId={localStorage.getItem('socratica-last-session-id')} onStartNewSession={startNewSession} />
@@ -467,7 +513,6 @@ export default function Workspace() {
                                 </span>
                               )}
                             </div>
-                            {/* Progress bar */}
                             {output.totalTests > 0 && (
                               <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
                                 <div className={`h-full rounded-full transition-all ${output.verdict === 'pass' ? 'bg-secondary' : 'bg-error'}`}
@@ -497,7 +542,6 @@ export default function Workspace() {
                   ) : executionMode === 'submit' ? (
                     consoleTab === 'results' && output.totalTests > 0 ? (
                     <div className="space-y-3">
-                      {/* Test results summary */}
                       <div className={`flex items-center justify-between p-2 rounded-lg ${output.verdict === 'pass' ? 'bg-secondary/10 border border-secondary/30' : 'bg-error/10 border border-error/30'}`}>
                         <div className="flex items-center gap-2">
                           <Icon name={output.verdict === 'pass' ? 'check_circle' : 'cancel'} size={16} className={output.verdict === 'pass' ? 'text-secondary' : 'text-error'} />
@@ -511,12 +555,10 @@ export default function Workspace() {
                           </span>
                         )}
                       </div>
-                      {/* Progress bar */}
                       <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
                         <div className={`h-full rounded-full transition-all ${output.verdict === 'pass' ? 'bg-secondary' : 'bg-error'}`}
                           style={{ width: `${(output.passedTests / output.totalTests) * 100}%` }} />
                       </div>
-                      {/* Failed categories */}
                       {output.failedCategories?.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {output.failedCategories.map((fc, i) => (
@@ -526,7 +568,6 @@ export default function Workspace() {
                           ))}
                         </div>
                       )}
-                      {/* Individual test results */}
                       {(output.testResults || []).map((tc, i) => <TestCaseRow key={i} tc={tc} index={i} />)}
                     </div>
                     ) : (
@@ -540,19 +581,23 @@ export default function Workspace() {
                     )
                   ) : null
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full gap-2 text-on-surface-variant">
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-on-surface-variant">
                     <Icon name="terminal" size={32} className="text-outline" />
-                    <span className="font-mono text-xs text-outline">Run or submit your code to see results.</span>
+                    <span className="font-mono text-xs text-outline text-center">Run or submit your code to see results.</span>
+                    <div className="font-mono text-[10px] text-outline text-center space-y-1 mt-2">
+                      <p><kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant text-[9px]">⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant text-[9px]">Enter</kbd> Run samples</p>
+                      <p><kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant text-[9px]">⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant text-[9px]">⇧</kbd> + <kbd className="px-1.5 py-0.5 bg-surface-container rounded border border-outline-variant text-[9px]">Enter</kbd> Submit</p>
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="p-3 border-t shrink-0 flex gap-2" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
                 <Button variant="ghost" className="flex-1" onClick={handleRunCode} disabled={executing || !selectedProblemId}>
-                  {executing && executionMode === 'run' ? 'Running…' : 'Run Code'}
+                  {executing && executionMode === 'run' ? 'Running…' : 'Run'}
                 </Button>
                 <Button variant="secondary" className="flex-1" onClick={handleRunSamples} disabled={executing || !selectedProblemId}>
-                  {executing && executionMode === 'samples' ? 'Running…' : 'Run Samples'}
+                  {executing && executionMode === 'samples' ? 'Running…' : 'Samples'}
                 </Button>
                 <Button variant="primary" className="flex-1" onClick={handleSubmit} disabled={executing || !selectedProblemId}>
                   {executing && executionMode === 'submit' ? 'Submitting…' : 'Submit'}
@@ -566,6 +611,35 @@ export default function Workspace() {
           )}
         </section>
       </div>
+
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowShortcuts(false)}>
+          <div className="bg-surface-container-low border border-outline-variant rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-sans text-lg font-bold text-on-surface">Keyboard Shortcuts</h3>
+              <button onClick={() => setShowShortcuts(false)} className="text-on-surface-variant hover:text-on-surface">
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 font-mono text-xs">
+              {[
+                { keys: '⌘ + Enter', action: 'Run sample tests' },
+                { keys: '⌘ + ⇧ + Enter', action: 'Submit solution' },
+                { keys: '⌘ + L', action: 'Clear console' },
+                { keys: '⌘ + S', action: 'Save (auto-saved)' },
+                { keys: '⌘ + /', action: 'Toggle comment' },
+                { keys: '⌘ + D', action: 'Select next occurrence' },
+                { keys: '⌘ + ↑/↓', action: 'Move line up/down' },
+              ].map(({ keys, action }) => (
+                <div key={keys} className="flex justify-between items-center py-1.5 border-b border-outline-variant/30 last:border-0">
+                  <span className="text-on-surface-variant">{action}</span>
+                  <kbd className="px-2 py-1 bg-surface-container rounded border border-outline-variant text-on-surface">{keys}</kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

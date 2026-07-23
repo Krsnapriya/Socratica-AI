@@ -13,6 +13,16 @@ export default function MainLayout() {
         id="main-content"
       >
         <Outlet context={{ user, onLogout }} />
+        <footer className="mt-12 pt-6 border-t border-outline-variant/30 pb-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-3">
+            <div className="font-mono text-[10px] text-on-surface-variant">
+              Socratica AI — AI-Powered Coding Platform
+            </div>
+            <div className="font-mono text-[10px] text-on-surface-variant">
+              Built for Learning
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );

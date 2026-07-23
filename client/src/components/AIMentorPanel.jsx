@@ -439,11 +439,14 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-surface-container-high border border-outline-variant/40 rounded-xl px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="bg-surface-container-high border border-outline-variant/40 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="font-mono text-[10px] text-on-surface-variant italic">Thinking...</span>
               </div>
             </div>
           </div>
@@ -452,7 +455,7 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
 
       {/* Quick action chips (visible when messages exist) */}
       {messages.length > 0 && !loading && (
-        <div className="px-3 pb-1 flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="px-3 pb-1 flex gap-1.5 overflow-x-auto scrollbar-none items-center">
           {QUICK_ACTIONS.filter(a => a.id !== 'explain').map(a => (
             <button
               key={a.id}
@@ -463,6 +466,19 @@ export default function AIMentorPanel({ code, language, problemId, problemDetail
               <span className="font-mono text-[9px] text-on-surface-variant">{a.label}</span>
             </button>
           ))}
+          <button
+            onClick={() => {
+              const text = messages.map(m => `${m.role === 'user' ? 'You' : 'AI'}: ${m.content}`).join('\n\n');
+              const blob = new Blob([text], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'ai-conversation.txt'; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-full border border-outline-variant/40 bg-surface-container hover:bg-surface-container-high transition-colors shrink-0 ml-auto"
+          >
+            <Icon name="download" size={11} className="text-on-surface-variant" />
+            <span className="font-mono text-[9px] text-on-surface-variant">Export</span>
+          </button>
         </div>
       )}
 

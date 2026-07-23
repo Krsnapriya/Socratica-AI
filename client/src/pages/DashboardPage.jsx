@@ -4,34 +4,19 @@ import { useOutletContext } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import Icon from '../components/ui/Icon.jsx';
-import { fetchStats, fetchRecentActivity, fetchCourses } from '../api/api.js';
+import { fetchStats, fetchRecentActivity, fetchCourses, fetchAchievements, fetchTopPerformers } from '../api/api.js';
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-function StatCard({ label, icon, iconColor, children }) {
+function StatCard({ label, icon, iconColor, value, loading: isLoading }) {
   return (
-    <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6 flex flex-col justify-between gap-4">
-      <div className="flex justify-between items-start">
-        <span className="font-mono text-xs text-on-surface-variant uppercase tracking-wider">{label}</span>
-        <Icon name={icon} size={20} className={iconColor} />
+    <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5">
+      <div className="flex justify-between items-start mb-3">
+        <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</span>
+        <Icon name={icon} size={18} className={iconColor} />
       </div>
-      {children}
-    </div>
-  );
-}
-
-function ProgressRow({ label, value, colorClass, percent }) {
-  return (
-    <div>
-      <div className="flex justify-between font-mono text-xs mb-1.5">
-        <span className="text-on-surface">{label}</span>
-        <span className={colorClass}>{value}</span>
-      </div>
-      <div className="w-full h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full ${colorClass.replace('text-', 'bg-')} transition-all duration-700`}
-          style={{ width: percent }}
-        />
-      </div>
+      {isLoading
+        ? <div className="h-8 w-16 skeleton rounded" />
+        : <span className="font-sans text-3xl font-bold text-on-surface">{value}</span>
+      }
     </div>
   );
 }
@@ -111,7 +96,36 @@ function SkeletonRow() {
   );
 }
 
-// ── Relative time helper ──────────────────────────────────────────────────────
+function OnboardingCard({ onStart }) {
+  return (
+    <div className="bg-surface-container-low border border-primary/30 rounded-2xl p-8 text-center">
+      <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+        <Icon name="school" size={32} className="text-primary" />
+      </div>
+      <h2 className="font-sans text-2xl font-bold text-on-surface mb-2">Welcome to Socratica AI</h2>
+      <p className="text-on-surface-variant text-sm leading-relaxed max-w-md mx-auto mb-6">
+        Learn programming through AI-powered code analysis. Write solutions, 
+        and our system will trace your execution against expert solutions to 
+        help you understand exactly where your approach diverges.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <Link to="/modules">
+          <Button variant="primary">
+            <Icon name="school" size={18} />
+            Browse Curriculum
+          </Button>
+        </Link>
+        <Link to="/workspace">
+          <Button variant="secondary">
+            <Icon name="play_arrow" size={18} />
+            Try a Problem
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function relativeTime(dateStr) {
   const now = Date.now();
   const diff = now - new Date(dateStr).getTime();
@@ -128,23 +142,29 @@ function relativeTime(dateStr) {
 const verdictDot = { pass: 'bg-secondary', fail: 'bg-error', timeout: 'bg-tertiary', compile_error: 'bg-error', memory_exceeded: 'bg-tertiary' };
 const verdictTimeColor = { pass: 'text-secondary', fail: 'text-error', timeout: 'text-tertiary', compile_error: 'text-error', memory_exceeded: 'text-tertiary' };
 
-// ── Page ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useOutletContext() || {};
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [achievements, setAchievements] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, a, c] = await Promise.all([fetchStats(), fetchRecentActivity(8), fetchCourses()]);
+        const [s, a, c, ach, lb] = await Promise.all([
+          fetchStats(), fetchRecentActivity(8), fetchCourses(),
+          fetchAchievements().catch(() => ({ achievements: [] })),
+          fetchTopPerformers().catch(() => []),
+        ]);
         setStats(s && typeof s === 'object' && !Array.isArray(s) ? s : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity(Array.isArray(a) ? a : []);
         setCourses(Array.isArray(c) ? c : []);
+        setAchievements(ach?.achievements || []);
+        setLeaderboard(Array.isArray(lb) ? lb : []);
       } catch {
-        // If backend is down, show zeros
         setStats({ total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity([]);
         setCourses([]);
@@ -156,26 +176,30 @@ export default function DashboardPage() {
   }, []);
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'there';
+  const isNewUser = !loading && (stats?.total ?? 0) === 0 && activity.length === 0;
 
   return (
     <div className="page-enter space-y-8">
-      {/* ── Page Header ── */}
       <header className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
           <h1 className="font-sans text-[32px] md:text-[40px] font-bold text-on-surface leading-tight tracking-tight">
-            Welcome back, {displayName}
+            {isNewUser ? `Welcome, ${displayName}` : `Welcome back, ${displayName}`}
           </h1>
-          <p className="text-on-surface-variant text-base mt-1">Master core concepts through systematic exploration.</p>
+          <p className="text-on-surface-variant text-base mt-1">
+            {isNewUser
+              ? 'Start your coding journey with AI-powered learning.'
+              : 'Master core concepts through systematic exploration.'
+            }
+          </p>
         </div>
         <Link to="/workspace">
           <Button variant="primary">
             <Icon name="play_arrow" size={18} />
-            Start Coding
+            {isNewUser ? 'Start Your First Problem' : 'Start Coding'}
           </Button>
         </Link>
       </header>
 
-      {/* ── Email Verification Banner ── */}
       {user && user.emailVerified === false && (
         <div className="bg-warning/10 border border-warning/40 rounded-xl px-5 py-4 flex items-center gap-3">
           <Icon name="mail_outline" size={20} className="text-warning shrink-0" />
@@ -187,7 +211,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Hero Banner ── */}
+      {isNewUser && <OnboardingCard />}
+
       <section className="relative overflow-hidden rounded-2xl border border-outline-variant" style={{ minHeight: '280px' }}>
         <div className="absolute inset-0 z-0 hero-gradient" aria-hidden="true" />
         <div className="absolute -top-24 -right-24 w-80 h-80 bg-primary opacity-[0.06] rounded-full blur-[120px] hero-glow-orb" aria-hidden="true" />
@@ -196,32 +221,33 @@ export default function DashboardPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-3">
               <Icon name="auto_awesome" size={18} filled className="text-tertiary" />
-              <span className="font-mono text-xs text-tertiary uppercase tracking-widest">Differential Learning Engine</span>
+              <span className="font-mono text-xs text-tertiary uppercase tracking-widest">AI-Powered Learning</span>
             </div>
             <h2 className="font-sans text-[28px] md:text-[36px] font-bold text-on-surface leading-tight tracking-tight mb-3">
-              Learn code the way<br />AI <span className="text-primary">traces</span> it.
+              Understand your code<br />like never before.
             </h2>
             <p className="text-on-surface-variant text-sm leading-relaxed max-w-lg mb-6">
-              Socratica compares your execution traces against oracle paths —
-              detecting divergences, measuring convergence, and mentoring you through the gap.
+              Write solutions and get instant feedback. Our AI analyzes your execution 
+              path, compares it to expert solutions, and shows you exactly where to improve.
             </p>
             <div className="flex flex-wrap gap-3 items-center">
               <Link to="/workspace">
                 <Button variant="primary">
                   <Icon name="play_arrow" size={18} />
-                  Start Tracing
+                  {isNewUser ? 'Try Your First Problem' : 'Open Workspace'}
                 </Button>
               </Link>
-              <Link to="/trajectory">
-                <Button variant="secondary">
-                  <Icon name="account_tree" size={16} />
-                  View Trajectory
-                </Button>
-              </Link>
+              {!isNewUser && (
+                <Link to="/analytics">
+                  <Button variant="secondary">
+                    <Icon name="insights" size={16} />
+                    View Analytics
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 
-          {/* Stats ring */}
           <div className="w-full md:w-auto shrink-0 flex items-center justify-center">
             <div className="relative w-44 h-44 flex items-center justify-center">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
@@ -250,7 +276,28 @@ export default function DashboardPage() {
         `}</style>
       </section>
 
-      {/* ── Stats Row ── */}
+      {!loading && activity.length > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0">
+              <Icon name="play_arrow" size={20} className="text-primary" />
+            </div>
+            <div>
+              <h3 className="font-sans text-sm font-semibold text-on-surface">Continue where you left off</h3>
+              <p className="font-mono text-xs text-on-surface-variant">
+                Last worked on: {activity[0]?.problemTitle || activity[0]?.problemId || 'a problem'}
+              </p>
+            </div>
+          </div>
+          <Link to={`/workspace?problem=${activity[0]?.problemId || ''}`} className="shrink-0">
+            <Button variant="primary" size="sm">
+              <Icon name="play_arrow" size={14} />
+              Resume
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Submissions', icon: 'send', color: 'text-primary', value: stats?.total ?? 0 },
@@ -258,29 +305,33 @@ export default function DashboardPage() {
           { label: 'Attempted', icon: 'pending', color: 'text-tertiary', value: stats?.attempted ?? 0 },
           { label: 'Day Streak', icon: 'local_fire_department', color: 'text-tertiary', value: stats?.streak ?? 0 },
         ].map(({ label, icon, color, value }) => (
-          <div key={label} className="bg-surface-container-low border border-outline-variant rounded-xl p-5">
-            <div className="flex justify-between items-start mb-3">
-              <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</span>
-              <Icon name={icon} size={18} className={color} />
-            </div>
-            {loading
-              ? <div className="h-8 w-16 skeleton rounded" />
-              : <span className="font-sans text-3xl font-bold text-on-surface">{value}</span>
-            }
-          </div>
+          <StatCard key={label} label={label} icon={icon} iconColor={color} value={value} loading={loading} />
         ))}
       </div>
 
-      {/* ── Main Grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Core Modules */}
         <section className="lg:col-span-2 space-y-4">
-          <h2 className="font-sans text-2xl font-semibold text-on-surface">Core Modules</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="font-sans text-2xl font-semibold text-on-surface">Core Modules</h2>
+            <Link to="/modules" className="font-mono text-xs text-primary hover:underline">View All</Link>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {loading ? (
-              <div className="text-on-surface-variant text-sm">Loading modules...</div>
+              <>
+                <div className="h-48 skeleton rounded-xl" />
+                <div className="h-48 skeleton rounded-xl" />
+              </>
             ) : courses.length === 0 ? (
-              <div className="text-on-surface-variant text-sm">No courses found.</div>
+              <div className="md:col-span-2 text-center py-12 bg-surface-container-low border border-outline-variant rounded-xl">
+                <Icon name="school" size={40} className="text-outline mx-auto mb-3" />
+                <p className="text-on-surface-variant text-sm mb-3">No courses available yet.</p>
+                <Link to="/workspace">
+                  <Button variant="primary" size="sm">
+                    <Icon name="play_arrow" size={14} />
+                    Start with Practice Problems
+                  </Button>
+                </Link>
+              </div>
             ) : (
               courses[0]?.modules?.slice(0, 4).map(mod => (
                 <ModuleCard
@@ -300,7 +351,6 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Recent Activity */}
         <section className="space-y-4">
           <h2 className="font-sans text-2xl font-semibold text-on-surface">Recent Activity</h2>
           <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5">
@@ -337,6 +387,51 @@ export default function DashboardPage() {
             )}
           </div>
         </section>
+
+        {/* Achievements */}
+        {!loading && achievements.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="font-sans text-2xl font-semibold text-on-surface">Achievements</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {achievements.slice(0, 8).map(ach => (
+                <div key={ach._id} className="bg-surface-container-low border border-outline-variant rounded-xl p-4 text-center">
+                  <div className="w-10 h-10 rounded-full bg-secondary/10 border border-secondary/30 flex items-center justify-center mx-auto mb-2">
+                    <Icon name={ach.icon || 'emoji_events'} size={20} className="text-secondary" />
+                  </div>
+                  <div className="font-sans text-xs font-semibold text-on-surface truncate">{ach.title}</div>
+                  <div className="font-mono text-[9px] text-on-surface-variant mt-0.5 truncate">{ach.description}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Leaderboard */}
+        {!loading && leaderboard.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="font-sans text-2xl font-semibold text-on-surface">Top Performers</h2>
+            <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5">
+              <div className="space-y-3">
+                {leaderboard.map((entry) => (
+                  <div key={entry.userId} className="flex items-center gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant/30">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-sans text-xs font-bold ${
+                      entry.rank === 1 ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
+                      entry.rank === 2 ? 'bg-gray-300/20 text-gray-400 border border-gray-400/30' :
+                      entry.rank === 3 ? 'bg-orange-500/20 text-orange-500 border border-orange-500/30' :
+                      'bg-primary/10 text-primary border border-primary/30'
+                    }`}>
+                      {entry.rank}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-sans text-sm font-semibold text-on-surface truncate">{entry.displayName}</div>
+                      <div className="font-mono text-[10px] text-on-surface-variant">{entry.solved} problems solved</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

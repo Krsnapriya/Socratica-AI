@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import AuthPage from './pages/AuthPage.jsx';
+import LandingPage from './pages/LandingPage.jsx';
 import EmailVerificationPage from './pages/EmailVerificationPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 
@@ -18,6 +19,7 @@ import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import ArchivePage from './pages/ArchivePage.jsx';
 import TrajectoryViewPage from './pages/TrajectoryViewPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import AboutPage from './pages/AboutPage.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
 import { fetchMe, logout } from './api/api.js';
@@ -79,8 +81,12 @@ export default function App() {
       <BrowserRouter>
       <Routes>
         {/* Public routes — no auth required */}
+        <Route path="/landing" element={user ? <Navigate to="/" replace /> : <LandingPage />} />
         <Route path="/verify-email" element={<EmailVerificationPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Root: show landing for guests, dashboard for users */}
+        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
 
         {/* Auth page */}
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage onAuth={handleAuth} />} />
@@ -90,7 +96,7 @@ export default function App() {
           
           {/* Main layout with Curriculum side nav */}
           <Route element={<MainLayout />}>
-            <Route index element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
+            <Route path="/dashboard" element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
             <Route path="/modules" element={<PageErrorBoundary><ModulesPage /></PageErrorBoundary>} />
             <Route path="/courses" element={<PageErrorBoundary><ModulesPage /></PageErrorBoundary>} />
             <Route path="/analytics" element={<PageErrorBoundary><AnalyticsPage /></PageErrorBoundary>} />
@@ -111,6 +117,7 @@ export default function App() {
           {/* Standalone pages under TopNav */}
           <Route path="/workspace" element={<PageErrorBoundary><Workspace /></PageErrorBoundary>} />
           <Route path="/trajectory" element={<PageErrorBoundary><TrajectoryViewPage /></PageErrorBoundary>} />
+          <Route path="/about" element={<PageErrorBoundary><AboutPage /></PageErrorBoundary>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -21,6 +21,7 @@ const adminRoutes = require("./routes/admin");
 const coursesRoutes = require("./routes/courses");
 const sessionRoutes = require("./routes/sessions");
 const notificationRoutes = require("./routes/notifications");
+const achievementRoutes = require("./routes/achievements");
 const aiRoutes = require("./routes/ai");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const cookieParser = require("cookie-parser");
@@ -75,6 +76,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/courses", coursesRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/achievements", achievementRoutes);
 
 app.get(["/api/health", "/health"], async (_req, res) => {
   const dbState = ["disconnected", "connected", "connecting", "disconnecting"];

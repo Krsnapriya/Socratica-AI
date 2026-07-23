@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import Icon from './ui/Icon.jsx';
 import { NAV_ITEMS, ADMIN_NAV_ITEMS } from '../navigation';
 import { ROLES } from '../constants';
+import { fetchUnreadCount, markAllNotificationsRead } from '../api/api.js';
 
 function getNavItems(user) {
   const items = [...NAV_ITEMS];
@@ -12,6 +14,25 @@ function getNavItems(user) {
 }
 
 export default function TopNavBar({ user, onLogout, onMobileMenuToggle, mobileMenuOpen }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+    const interval = setInterval(() => {
+      fetchUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setUnreadCount(0);
+      setShowNotifications(false);
+    } catch {}
+  };
   return (
     <nav
       className="fixed top-0 w-full z-50 h-16 border-b border-outline-variant"
@@ -23,7 +44,7 @@ export default function TopNavBar({ user, onLogout, onMobileMenuToggle, mobileMe
         {/* Left: Logo + Nav Links */}
         <div className="flex items-center gap-8">
           <Link
-            to="/"
+            to="/dashboard"
             className="font-sans text-xl font-bold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             style={{ color: 'var(--primary)' }}
             aria-label="Socratica AI — Home"
@@ -73,6 +94,40 @@ export default function TopNavBar({ user, onLogout, onMobileMenuToggle, mobileMe
             </NavLink>
 
             <div className="w-px h-6 bg-outline-variant mx-1" aria-hidden="true" />
+
+            {/* Notification bell */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+              >
+                <Icon name="notifications" size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-error text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-surface-container-low border border-outline-variant rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-outline-variant flex justify-between items-center">
+                    <span className="font-sans text-sm font-semibold text-on-surface">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button onClick={handleMarkAllRead} className="font-mono text-[10px] text-primary hover:text-primary/80 transition-colors">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <div className="p-4 text-center">
+                      <Icon name="notifications_none" size={24} className="text-outline mx-auto mb-1" />
+                      <p className="font-mono text-[10px] text-on-surface-variant">No notifications yet</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User email */}
             <span
