@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import AuthPage from './pages/AuthPage.jsx';
@@ -12,18 +12,28 @@ import SettingsLayout from './components/SettingsLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import { PublicConfigProvider } from './contexts/PublicConfigContext.jsx';
 
-import DashboardPage from './pages/DashboardPage.jsx';
-import ModulesPage from './pages/ModulesPage.jsx';
-import Workspace from './pages/Workspace.jsx';
-import AnalyticsPage from './pages/AnalyticsPage.jsx';
-import ArchivePage from './pages/ArchivePage.jsx';
-import TrajectoryViewPage from './pages/TrajectoryViewPage.jsx';
-import SettingsPage from './pages/SettingsPage.jsx';
-import AboutPage from './pages/AboutPage.jsx';
-import AdminDashboard from './pages/AdminDashboard.jsx';
+// Lazy-load heavy pages so a broken page can't crash the whole app
+const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
+const ModulesPage = lazy(() => import('./pages/ModulesPage.jsx'));
+const Workspace = lazy(() => import('./pages/Workspace.jsx'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
+const ArchivePage = lazy(() => import('./pages/ArchivePage.jsx'));
+const TrajectoryViewPage = lazy(() => import('./pages/TrajectoryViewPage.jsx'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
+const AboutPage = lazy(() => import('./pages/AboutPage.jsx'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
+
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
 import { fetchMe, logout } from './api/api.js';
 import { clearTokens, fetchCsrfToken } from './api/client.js';
+
+function PageLoader() {
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="w-8 h-8 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -97,34 +107,34 @@ export default function App() {
           
           {/* Main layout with Curriculum side nav */}
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
-            <Route path="/modules" element={<PageErrorBoundary><ModulesPage /></PageErrorBoundary>} />
-            <Route path="/courses" element={<PageErrorBoundary><ModulesPage /></PageErrorBoundary>} />
-            <Route path="/analytics" element={<PageErrorBoundary><AnalyticsPage /></PageErrorBoundary>} />
-            <Route path="/archive" element={<PageErrorBoundary><ArchivePage /></PageErrorBoundary>} />
+            <Route path="/dashboard" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></PageErrorBoundary>} />
+            <Route path="/modules" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><ModulesPage /></Suspense></PageErrorBoundary>} />
+            <Route path="/courses" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><ModulesPage /></Suspense></PageErrorBoundary>} />
+            <Route path="/analytics" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><AnalyticsPage /></Suspense></PageErrorBoundary>} />
+            <Route path="/archive" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><ArchivePage /></Suspense></PageErrorBoundary>} />
             {/* Admin Dashboard */}
             <Route path="/admin" element={
               <ProtectedRoute user={user} allowedRoles={['admin', 'super_admin']} onRoleSynced={handleRoleSync}>
-                <PageErrorBoundary><AdminDashboard user={user} /></PageErrorBoundary>
+                <PageErrorBoundary><Suspense fallback={<PageLoader />}><AdminDashboard user={user} /></Suspense></PageErrorBoundary>
               </ProtectedRoute>
             } />
           </Route>
 
           {/* Settings layout with Settings side nav */}
           <Route path="/settings" element={<SettingsLayout />}>
-            <Route index element={<PageErrorBoundary><SettingsPage /></PageErrorBoundary>} />
+            <Route index element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><SettingsPage /></Suspense></PageErrorBoundary>} />
           </Route>
 
           {/* Standalone pages under TopNav */}
-          <Route path="/workspace" element={<PageErrorBoundary><Workspace /></PageErrorBoundary>} />
-          <Route path="/trajectory" element={<PageErrorBoundary><TrajectoryViewPage /></PageErrorBoundary>} />
-          <Route path="/about" element={<PageErrorBoundary><AboutPage /></PageErrorBoundary>} />
+          <Route path="/workspace" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><Workspace /></Suspense></PageErrorBoundary>} />
+          <Route path="/trajectory" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><TrajectoryViewPage /></Suspense></PageErrorBoundary>} />
+          <Route path="/about" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><AboutPage /></Suspense></PageErrorBoundary>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
         </Route>
       </Routes>
       </BrowserRouter>
     </PublicConfigProvider>
   );
 }
- 
