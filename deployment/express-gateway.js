@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const crypto = require("crypto");
 const path = require("path");
+const fs = require("fs");
 const Redis = require("ioredis");
 const Docker = require("dockerode");
 const cookieParser = require("cookie-parser");
@@ -22,8 +23,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve the static frontend from refactored/
-app.use(express.static(path.join(__dirname, "../refactored")));
+// Serve static frontend (prefer client/dist if built, otherwise refactored/)
+const clientDistPath = path.join(__dirname, "../client/dist");
+const refactoredPath = path.join(__dirname, "../refactored");
+const staticDir = fs.existsSync(clientDistPath) ? clientDistPath : refactoredPath;
+app.use(express.static(staticDir));
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -820,8 +824,16 @@ app.get("/health", (req, res) => {
     mongo:     mongoose.connection.readyState === 1,
     redis:     redisStatus === "ready",
     sandbox:   CONFIG.sandboxImage,
-    ai:        CONFIG.geminiApiKey ? "configured" : "no_key",
   });
+
+// SPA Fallback: handle page reloads for client-side routes (modules, workspace, etc.)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  const indexPath = path.join(staticDir, "index.html");
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.status(404).send("Page not found");
 });
 
 // ── Server lifecycle ──────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { ROLES } from '../constants';
 export default function SideNavBar({ user }) {
   const navigate = useNavigate();
   const displayName = user?.displayName || user?.email || 'User';
-  const initial = displayName[0].toUpperCase();
+  const initial = (displayName?.[0] || '?').toUpperCase();
 
   return (
     <aside

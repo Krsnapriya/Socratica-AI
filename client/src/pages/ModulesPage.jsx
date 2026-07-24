@@ -8,7 +8,7 @@ import Icon from '../components/ui/Icon.jsx';
 
 export default function ModulesPage() {
   const navigate = useNavigate();
-  const { user } = useOutletContext();
+  const { user } = useOutletContext() || {};
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(user?.unlockedModules || []);

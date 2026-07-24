@@ -115,10 +115,18 @@ app.use("/api/*", (_req, res) => {
 const path = require("path");
 const fs = require("fs");
 const clientDist = path.join(__dirname, "../client/dist");
-if (process.env.NODE_ENV === "production" && fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(clientDist, "index.html"));
+const refactoredDir = path.join(__dirname, "../refactored");
+const serverStaticDir = fs.existsSync(clientDist) ? clientDist : (fs.existsSync(refactoredDir) ? refactoredDir : null);
+
+if (serverStaticDir) {
+  app.use(express.static(serverStaticDir));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    const indexPath = path.join(serverStaticDir, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    res.status(404).send("Page not found");
   });
 }
 
