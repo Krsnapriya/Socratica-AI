@@ -35,27 +35,39 @@ function GoogleSignInButton({ onSuccess, onError }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) {
-      setError('Google Sign-In unavailable');
+    // Don't attempt if client ID is missing or placeholder
+    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('PLACEHOLDER')) {
+      setError('Google Sign-In is not configured');
       return;
     }
 
+    let cancelled = false;
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
+    script.defer = true;
+
     script.onload = () => {
+      if (cancelled) return;
+      if (!window.google?.accounts?.id) return;
+      if (!btnRef.current) return;
+
       try {
-        if (window.google?.accounts?.id && btnRef.current) {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: async (response) => {
-              try {
-                await onSuccess(response.credential);
-              } catch (err) {
-                onError(err?.message || 'Google sign-in failed');
-              }
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            try {
+              await onSuccess(response.credential);
+            } catch (err) {
+              onError(err?.message || 'Google sign-in failed');
             }
-          });
+          },
+          error_callback: (err) => {
+            onError(err?.message || 'Google sign-in cancelled');
+          },
+        });
+
+        if (btnRef.current && document.contains(btnRef.current)) {
           window.google.accounts.id.renderButton(btnRef.current, {
             theme: 'outline',
             size: 'large',
@@ -63,16 +75,25 @@ function GoogleSignInButton({ onSuccess, onError }) {
             text: 'continue_with',
             shape: 'rectangular',
           });
-          setLoaded(true);
+          if (!cancelled) setLoaded(true);
         }
       } catch (err) {
-        console.error("Google Sign-In initialization error:", err);
+        console.warn('[GoogleSignInButton] GSI error:', err);
       }
     };
-    script.onerror = () => setError('Failed to load Google Sign-In');
+
+    script.onerror = () => {
+      if (!cancelled) setError('Failed to load Google Sign-In');
+    };
+
     document.head.appendChild(script);
-    return () => { 
-      try { document.head.removeChild(script); } catch (e) {} 
+
+    return () => {
+      cancelled = true;
+      // Safely remove only if still a child of head
+      if (script.parentNode === document.head) {
+        try { document.head.removeChild(script); } catch (e) {}
+      }
     };
   }, [onSuccess, onError]);
 
