@@ -279,13 +279,12 @@ async function autoSeed() {
     const testCaseCount = await TestCase.countDocuments();
     if (testCaseCount === 0) {
       console.log("[server] No test cases found — seeding test cases and drivers...");
-      const { execSync } = require("child_process");
       try {
-        execSync("node seedTestCases.js", { cwd: __dirname, timeout: 60000, stdio: "pipe" });
+        await require("./seedTestCases")();
         console.log("[server] Test cases for problems 1-13 seeded");
       } catch (e) { console.warn("[server] seedTestCases error:", e.message?.slice(0, 200)); }
       try {
-        execSync("node seedNewProblemTestCases.js", { cwd: __dirname, timeout: 60000, stdio: "pipe" });
+        await require("./seedNewProblemTestCases")();
         console.log("[server] Test cases for problems 14-23 seeded");
       } catch (e) { console.warn("[server] seedNewProblemTestCases error:", e.message?.slice(0, 200)); }
     }

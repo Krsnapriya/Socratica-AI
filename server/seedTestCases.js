@@ -396,15 +396,18 @@ for (auto& strs : tests) cout << longestCommonPrefix(strs) << endl;`,
 };
 
 async function seedTestCases() {
-  await mongoose.connect(MONGO_URI);
-  console.log("[seed-testcases] Connected to MongoDB");
+  const shouldClose = mongoose.connection.readyState === 0;
+  if (shouldClose) {
+    await mongoose.connect(MONGO_URI);
+    console.log("[seed-testcases] Connected to MongoDB");
+  }
 
   let createdCases = 0;
   let createdDrivers = 0;
 
   for (const [problemId, languages] of Object.entries(TEST_CASES)) {
     for (const [lang, config] of Object.entries(languages)) {
-      const driver = await DriverTemplate.findOneAndUpdate(
+      await DriverTemplate.findOneAndUpdate(
         { problemId, language: lang },
         {
           $set: {
@@ -446,11 +449,17 @@ async function seedTestCases() {
   }
 
   console.log(`[seed-testcases] Created ${createdCases} test cases and ${createdDrivers} driver templates`);
-  await mongoose.disconnect();
-  console.log("[seed-testcases] Done");
+  if (shouldClose) {
+    await mongoose.disconnect();
+    console.log("[seed-testcases] Done");
+  }
 }
 
-seedTestCases().catch(err => {
-  console.error("[seed-testcases] Error:", err);
-  process.exit(1);
-});
+module.exports = seedTestCases;
+
+if (require.main === module) {
+  seedTestCases().catch(err => {
+    console.error("[seed-testcases] Error:", err);
+    process.exit(1);
+  });
+}

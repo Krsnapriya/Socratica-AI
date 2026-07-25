@@ -585,9 +585,12 @@ for(auto&[a,b]:tests) cout<<findMedianSortedArrays(const_cast<vector<int>&>(a),c
 };
 
 async function seedNewTestCases() {
+  const shouldClose = mongoose.connection.readyState === 0;
   try {
-    await mongoose.connect(MONGO_URI);
-    console.log("Connected to MongoDB");
+    if (shouldClose) {
+      await mongoose.connect(MONGO_URI);
+      console.log("Connected to MongoDB");
+    }
 
     let createdCases = 0;
     let createdDrivers = 0;
@@ -655,9 +658,17 @@ async function seedNewTestCases() {
   } catch (err) {
     console.error("Error:", err.message);
   } finally {
-    await mongoose.disconnect();
-    process.exit(0);
+    if (shouldClose) {
+      await mongoose.disconnect();
+    }
   }
 }
 
-seedNewTestCases();
+module.exports = seedNewTestCases;
+
+if (require.main === module) {
+  seedNewTestCases().then(() => process.exit(0)).catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

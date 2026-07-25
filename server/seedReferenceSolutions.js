@@ -87,8 +87,11 @@ const ALGORITHMS = {
 };
 
 async function seed() {
-  await mongoose.connect(MONGO_URI);
-  console.log("[seedReferenceSolutions] Connected to MongoDB");
+  const shouldClose = mongoose.connection.readyState === 0;
+  if (shouldClose) {
+    await mongoose.connect(MONGO_URI);
+    console.log("[seedReferenceSolutions] Connected to MongoDB");
+  }
 
   const problems = await Problem.find({});
   console.log(`[seedReferenceSolutions] Found ${problems.length} problems`);
@@ -144,8 +147,10 @@ async function seed() {
   }
 
   console.log(`[seedReferenceSolutions] Updated ${updated} problems, created ${refSolCreated} reference solutions`);
-  await mongoose.disconnect();
-  console.log("[seedReferenceSolutions] Done");
+  if (shouldClose) {
+    await mongoose.disconnect();
+    console.log("[seedReferenceSolutions] Done");
+  }
 }
 
 if (require.main === module) {
