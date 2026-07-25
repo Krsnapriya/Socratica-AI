@@ -132,13 +132,26 @@ if (serverStaticDir) {
 
 let cachedDb = null;
 async function connectDB() {
-  if (cachedDb) return cachedDb;
+  if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
   try {
-    await mongoose.connect(MONGO_URI);
+    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 2500 });
     cachedDb = mongoose.connection;
     console.log("[server] MongoDB connected →", MONGO_URI);
   } catch (err) {
-    console.error("[server] DB connection error:", err.message);
+    console.warn("[server] DB connection error to", MONGO_URI, ":", err.message);
+    if (!cachedDb || mongoose.connection.readyState === 0) {
+      console.log("[server] Starting in-memory MongoDB server fallback...");
+      try {
+        const { MongoMemoryServer } = require("mongodb-memory-server");
+        const mongoServer = await MongoMemoryServer.create();
+        const memoryUri = mongoServer.getUri();
+        await mongoose.connect(memoryUri);
+        cachedDb = mongoose.connection;
+        console.log("[server] In-memory MongoDB connected →", memoryUri);
+      } catch (memErr) {
+        console.error("[server] Failed to start MongoMemoryServer:", memErr.message);
+      }
+    }
   }
   return cachedDb;
 }
@@ -175,6 +188,7 @@ async function autoSeed() {
     const Language = require("./models/Language");
     const Topic = require("./models/Topic");
     const AIPrompt = require("./models/AIPrompt");
+    const User = require("./models/User");
 
     // Seed permissions
     const newResources = ["users", "courses", "modules", "problems", "permissions", "analytics", "audit_logs"];
@@ -198,6 +212,13 @@ async function autoSeed() {
     if (roleCount === 0) {
       console.log("[server] No roles found — seeding defaults...");
       await require("./seedRoles")();
+    }
+
+    // Seed Users (all 5 default role accounts)
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
+      console.log("[server] No users found — seeding default role accounts...");
+      await require("./seedUsers")();
     }
 
     // Seed Languages

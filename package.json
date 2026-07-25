@@ -2,6 +2,8 @@
   "private": true,
   "engines": { "node": ">=20" },
   "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
     "build": "npm --prefix client install && npm --prefix client run build"
   },
   "dependencies": {

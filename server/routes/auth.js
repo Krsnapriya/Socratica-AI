@@ -352,14 +352,15 @@ router.post("/google", async (req, res) => {
     const { idToken } = req.body;
     if (!idToken) return res.status(400).json({ error: "Google ID token is required" });
 
+    const googleClientId = process.env.GOOGLE_CLIENT_ID || '773033468672-4o2heb1mvk43b5293n8gqa7tg2h6nu2p.apps.googleusercontent.com';
     const { OAuth2Client } = require("google-auth-library");
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const client = new OAuth2Client(googleClientId);
 
     let ticket;
     try {
       ticket = await client.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: googleClientId,
       });
     } catch (verifyErr) {
       console.error("[auth/google] Token verification failed:", verifyErr.message);

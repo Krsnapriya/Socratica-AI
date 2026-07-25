@@ -27,7 +27,7 @@ function EyeIcon({ open }) {
 
 const fieldClass = "w-full bg-surface-container border border-outline-variant rounded-lg px-3 py-2.5 pr-10 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '773033468672-4o2heb1mvk43b5293n8gqa7tg2h6nu2p.apps.googleusercontent.com';
 
 function GoogleSignInButton({ onSuccess, onError }) {
   const btnRef = useRef(null);

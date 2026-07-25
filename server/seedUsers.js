@@ -7,22 +7,20 @@ const config = require("./config");
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica";
 
 const testUsers = [
-  { email: config.seed.emails.super_admin, role: "super_admin", displayName: "Super Admin" },
-  { email: config.seed.emails.admin, role: "admin", displayName: "System Admin" },
-  { email: config.seed.emails.instructor, role: "instructor", displayName: "Instructor Jane" },
-  { email: config.seed.emails.student, role: "student", displayName: "Student Bob" },
-  { email: config.seed.emails.guest, role: "guest", displayName: "Guest User" },
+  { email: config.seed.emails.super_admin || "super@socratica.ai", role: "super_admin", displayName: "Super Admin" },
+  { email: config.seed.emails.admin || "admin@socratica.ai", role: "admin", displayName: "System Admin" },
+  { email: config.seed.emails.instructor || "instructor@socratica.ai", role: "instructor", displayName: "Instructor Jane" },
+  { email: config.seed.emails.student || "student@socratica.ai", role: "student", displayName: "Student Bob" },
+  { email: config.seed.emails.guest || "guest@socratica.ai", role: "guest", displayName: "Guest User" },
 ];
 
 async function seedUsers() {
   try {
-    await mongoose.connect(MONGO_URI);
-    console.log("Connected to MongoDB");
-
     const salt = await bcrypt.genSalt(10);
     const defaultPassword = process.env.SEED_USER_PASSWORD || "SocraticaSeed123!";
     const passwordHash = await bcrypt.hash(defaultPassword, salt);
 
+    let createdCount = 0;
     for (const u of testUsers) {
       const existing = await User.findOne({ email: u.email });
       if (!existing) {
@@ -32,19 +30,33 @@ async function seedUsers() {
           displayName: u.displayName,
           role: u.role
         });
-        console.log(`Created ${u.role}: ${u.email}`);
-      } else {
-        console.log(`User already exists: ${u.email}`);
+        createdCount++;
+        console.log(`[seedUsers] Created ${u.role}: ${u.email}`);
       }
     }
 
-    console.log("Done seeding users.");
+    console.log(`[seedUsers] Done seeding users (created ${createdCount}).`);
+    return { created: createdCount };
   } catch (err) {
-    console.error("Error:", err);
-  } finally {
-    await mongoose.disconnect();
-    process.exit(0);
+    console.error("[seedUsers] Error:", err.message);
+    throw err;
   }
 }
 
-seedUsers();
+module.exports = seedUsers;
+
+if (require.main === module) {
+  (async () => {
+    try {
+      if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(MONGO_URI);
+      }
+      await seedUsers();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      await mongoose.disconnect();
+      process.exit(0);
+    }
+  })();
+}
