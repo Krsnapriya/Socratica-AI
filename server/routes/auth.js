@@ -114,14 +114,15 @@ router.post("/login", validate(schemas.login), async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email });
+    const normalizedEmail = email ? email.toLowerCase().trim() : "";
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       await AuditLog.create({
-        action: "login_failed", resource: "user", resourceId: email,
+        action: "login_failed", resource: "user", resourceId: normalizedEmail,
         ip: req.ip, userAgent: req.headers["user-agent"], success: false,
         metadata: { reason: "user_not_found" },
       });
-      await FailedLogin.create({ email, ip: req.ip, userAgent: req.headers["user-agent"], reason: "user_not_found" });
+      await FailedLogin.create({ email: normalizedEmail, ip: req.ip, userAgent: req.headers["user-agent"], reason: "user_not_found" });
       return res.status(400).json({ error: "Incorrect email or password" });
     }
 

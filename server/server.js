@@ -214,12 +214,9 @@ async function autoSeed() {
       await require("./seedRoles")();
     }
 
-    // Seed Users (all 5 default role accounts)
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log("[server] No users found — seeding default role accounts...");
-      await require("./seedUsers")();
-    }
+    // Seed / sync test users (all 5 default role accounts)
+    console.log("[server] Syncing default role accounts...");
+    await require("./seedUsers")();
 
     // Seed Languages
     const langCount = await Language.countDocuments();
@@ -310,40 +307,55 @@ if (require.main === module || !process.env.VERCEL) {
   (async () => {
     await connectDB();
     await autoSeed();
-    const server = app.listen(PORT, () => {
-      console.log(`[server] Listening on http://localhost:${PORT}`);
-    });
 
-    // Graceful shutdown
-    let shuttingDown = false;
-    async function shutdown(signal) {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      console.log(`\n[server] ${signal} received — shutting down gracefully...`);
-
-      server.close(async () => {
-        console.log("[server] HTTP server closed");
-        try {
-          await mongoose.connection.close(false);
-          console.log("[server] MongoDB connection closed");
-        } catch (_) {}
-        try {
-          const redis = require("./redis");
-          if (redis.disconnect) redis.disconnect();
-        } catch (_) {}
-        console.log("[server] Cleanup complete — exiting");
-        process.exit(0);
+    function startServer(portToTry) {
+      const server = app.listen(portToTry, () => {
+        console.log(`[server] Listening on http://localhost:${portToTry}`);
       });
 
-      // Force kill after 10s
-      setTimeout(() => {
-        console.error("[server] Forced shutdown after timeout");
-        process.exit(1);
-      }, 10000).unref();
+      server.on("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          console.warn(`[server] Port ${portToTry} in use — trying http://localhost:${portToTry + 1}...`);
+          startServer(portToTry + 1);
+        } else {
+          console.error("[server] Fatal server error:", err);
+        }
+      });
+
+      // Graceful shutdown
+      let shuttingDown = false;
+      async function shutdown(signal) {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        console.log(`\n[server] ${signal} received — shutting down gracefully...`);
+
+        server.close(async () => {
+          console.log("[server] HTTP server closed");
+          try {
+            await mongoose.connection.close(false);
+            console.log("[server] MongoDB connection closed");
+          } catch (_) {}
+          try {
+            const redis = require("./redis");
+            if (redis.disconnect) redis.disconnect();
+          } catch (_) {}
+          console.log("[server] Cleanup complete — exiting");
+          process.exit(0);
+        });
+
+        // Force kill after 10s
+        setTimeout(() => {
+          console.error("[server] Forced shutdown after timeout");
+          process.exit(1);
+        }, 10000).unref();
+      }
+
+      process.on("SIGTERM", () => shutdown("SIGTERM"));
+      process.on("SIGINT", () => shutdown("SIGINT"));
     }
 
-    process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGINT", () => shutdown("SIGINT"));
+    startServer(PORT);
+
     process.on("unhandledRejection", (err) => {
       console.error("[server] Unhandled rejection:", err);
     });

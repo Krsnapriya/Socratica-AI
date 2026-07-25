@@ -22,16 +22,22 @@ async function seedUsers() {
 
     let createdCount = 0;
     for (const u of testUsers) {
-      const existing = await User.findOne({ email: u.email });
+      const email = u.email.toLowerCase().trim();
+      const existing = await User.findOne({ email });
       if (!existing) {
         await User.create({
-          email: u.email,
+          email,
           passwordHash,
           displayName: u.displayName,
           role: u.role
         });
         createdCount++;
-        console.log(`[seedUsers] Created ${u.role}: ${u.email}`);
+        console.log(`[seedUsers] Created ${u.role}: ${email}`);
+      } else {
+        existing.passwordHash = passwordHash;
+        existing.role = u.role;
+        await existing.save();
+        console.log(`[seedUsers] Updated credentials for ${u.role}: ${email}`);
       }
     }
 
