@@ -2,7 +2,7 @@
   "private": true,
   "engines": { "node": ">=20" },
   "scripts": {
-    "build": "npm --prefix client run build"
+    "build": "npm --prefix client install && npm --prefix client run build"
   },
   "dependencies": {
     "express": "^4.19.2",
