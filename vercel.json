@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm --prefix client install && npm --prefix client run build",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "outputDirectory": "client/dist",
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://socratica-backend-production.up.railway.app/api/:path*" },
