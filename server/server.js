@@ -388,3 +388,5 @@ if (require.main === module || !process.env.VERCEL) {
 }
 
 module.exports = app;
+module.exports.connectDB = connectDB;
+module.exports.autoSeed = autoSeed;
