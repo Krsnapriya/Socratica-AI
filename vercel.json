@@ -2,12 +2,12 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://socratica-backend-production.up.railway.app/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://socratica-backend-production.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",
-      "destination": "/client/$1"
+      "destination": "/index.html"
     }
   ]
 }
