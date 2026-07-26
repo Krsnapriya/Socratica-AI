@@ -91,15 +91,15 @@ export default function App() {
       <BrowserRouter>
       <Routes>
         {/* Public routes — no auth required */}
-        <Route path="/landing" element={user ? <Navigate to="/" replace /> : <LandingPage />} />
-        <Route path="/verify-email" element={<EmailVerificationPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/landing" element={user ? <Navigate to="/" replace /> : <PageErrorBoundary><LandingPage /></PageErrorBoundary>} />
+        <Route path="/verify-email" element={<PageErrorBoundary><EmailVerificationPage /></PageErrorBoundary>} />
+        <Route path="/reset-password" element={<PageErrorBoundary><ResetPasswordPage /></PageErrorBoundary>} />
 
         {/* Root: show landing for guests, dashboard for users */}
-        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+        <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <PageErrorBoundary><LandingPage /></PageErrorBoundary>} />
 
         {/* Auth page */}
-        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage onAuth={handleAuth} />} />
+        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <PageErrorBoundary><AuthPage onAuth={handleAuth} /></PageErrorBoundary>} />
 
         {/* All other routes require auth */}
         <Route element={<ProtectedRoute user={user} />}>
