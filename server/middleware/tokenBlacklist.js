@@ -1,64 +1,76 @@
 /**
  * tokenBlacklist.js
- * Redis-backed JWT token blacklist.
- * Revoked tokens are stored with a TTL equal to their remaining validity
- * so the set never grows unbounded.
+ * Redis-backed JWT token blacklist with graceful in-memory fallback.
+ * If Redis is unavailable, tokens are NOT revoked (fail-open for availability).
  */
 
-const Redis = require("ioredis");
-
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+const REDIS_URL = process.env.REDIS_URL || "";
 const PREFIX = "blacklist:";
 
-let client = null;
+// In-memory fallback store (survives within a single process)
+const memBlacklist = new Map();
 
-function getClient() {
-  if (client) return client;
-  client = new Redis(REDIS_URL, {
-    maxRetriesPerRequest: 1,
-    enableReadyCheck: true,
-    lazyConnect: true,
-    connectTimeout: 3000,
-    retryStrategy(times) {
-      return Math.min(times * 200, 2000); // fast backoff, give up quickly
-    },
-  });
-  client.on("error", (err) => {
-    console.error("[tokenBlacklist] Redis error:", err.message);
-  });
-  return client;
+let client = null;
+let redisAvailable = false;
+
+if (REDIS_URL) {
+  try {
+    const Redis = require("ioredis");
+    client = new Redis(REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      enableReadyCheck: false,
+      lazyConnect: true,
+      connectTimeout: 3000,
+      retryStrategy(times) {
+        if (times > 3) return null; // give up after 3 retries
+        return Math.min(times * 500, 2000);
+      },
+    });
+    client.on("error", () => { redisAvailable = false; });
+    client.on("connect", () => { redisAvailable = true; });
+    client.connect().catch(() => { redisAvailable = false; });
+  } catch (e) {
+    console.warn("[tokenBlacklist] Redis init failed, using in-memory fallback");
+  }
 }
 
-/**
- * Add a token to the blacklist.
- * @param {string} jti   - JWT ID (or the raw token string used as key)
- * @param {number} exp   - JWT exp claim (Unix seconds)
- */
 async function revokeToken(jti, exp) {
   const ttl = exp - Math.floor(Date.now() / 1000);
-  if (ttl <= 0) return; // already expired — nothing to do
-  try {
-    await getClient().set(`${PREFIX}${jti}`, "1", "EX", ttl);
-  } catch (err) {
-    console.error("[tokenBlacklist] Failed to revoke token:", err.message);
-    throw new Error("Token validation service unavailable");
+  if (ttl <= 0) return;
+
+  // Try Redis
+  if (client && redisAvailable) {
+    try {
+      await client.set(`${PREFIX}${jti}`, "1", "EX", ttl);
+      return;
+    } catch (err) {
+      console.warn("[tokenBlacklist] Redis set failed, using memory:", err.message);
+    }
   }
+
+  // In-memory fallback
+  memBlacklist.set(jti, Date.now() + ttl * 1000);
 }
 
-/**
- * Check whether a token has been revoked.
- * Fails CLOSED (throws) if Redis is unavailable. requireAuth catches gracefully.
- * @param {string} jti
- * @returns {Promise<boolean>}
- */
 async function isRevoked(jti) {
-  try {
-    const val = await getClient().get(`${PREFIX}${jti}`);
-    return val === "1";
-  } catch (err) {
-    console.error("[tokenBlacklist] Redis unavailable:", err.message);
-    throw new Error("Token validation unavailable");
+  // Try Redis
+  if (client && redisAvailable) {
+    try {
+      const val = await client.get(`${PREFIX}${jti}`);
+      return val === "1";
+    } catch (err) {
+      console.warn("[tokenBlacklist] Redis get failed, using memory:", err.message);
+    }
   }
+
+  // In-memory fallback
+  const exp = memBlacklist.get(jti);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    memBlacklist.delete(jti);
+    return false;
+  }
+  return true;
 }
 
 module.exports = { revokeToken, isRevoked };

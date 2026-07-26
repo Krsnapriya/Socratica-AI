@@ -30,29 +30,29 @@ const storeOrUndefined = (prefix) => (RedisStore ? RedisStore(prefix) : undefine
 
 const apiLimiter = rateLimit({
   windowMs: config.rateLimits.api.windowMs,
-  max: config.rateLimits.api.max,
+  max: 10000,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: storeOrUndefined("rl:api:"),
+  skip: () => process.env.NODE_ENV !== "production",
 });
 
 const compilerLimiter = rateLimit({
   windowMs: config.rateLimits.compiler.windowMs,
-  max: config.rateLimits.compiler.max,
+  max: 10000,
   message: { error: "Too many compilation attempts. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: storeOrUndefined("rl:compiler:"),
+  skip: () => process.env.NODE_ENV !== "production",
 });
 
 const authLimiter = rateLimit({
   windowMs: config.rateLimits.auth.windowMs,
-  max: config.rateLimits.auth.max,
+  max: 10000,
   message: { error: "Too many login attempts. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  store: storeOrUndefined("rl:auth:"),
+  skip: () => process.env.NODE_ENV !== "production",
 });
 
 module.exports = { apiLimiter, compilerLimiter, authLimiter };

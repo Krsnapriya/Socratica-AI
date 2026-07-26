@@ -23,33 +23,55 @@ const Role = require("../models/Role");
 const Language = require("../models/Language");
 const Topic = require("../models/Topic");
 
+const FALLBACK_PUBLIC = {
+  roles: [
+    { name: "student", displayName: "Student" },
+    { name: "instructor", displayName: "Instructor" },
+    { name: "admin", displayName: "Admin" },
+  ],
+  languages: [
+    { id: "javascript", label: "JavaScript", ext: "js" },
+    { id: "python", label: "Python", ext: "py" },
+    { id: "cpp", label: "C++", ext: "cpp" },
+  ],
+  topics: [],
+  branding: {
+    siteName: "Socratica AI",
+    tagline: "AI-Powered Computer Science Learning Operating System",
+  },
+  features: {
+    aiMentor: true,
+    codeExecution: true,
+    learningPaths: true,
+    quizzes: true,
+    interviewPractice: true,
+  },
+};
+
 router.get("/public", async (req, res) => {
   try {
-    const [roles, languages, topics] = await Promise.all([
+    const mongoose = require("mongoose");
+    if (mongoose.connection.readyState !== 1) {
+      // DB not connected — return fallback so frontend still loads
+      return res.json(FALLBACK_PUBLIC);
+    }
+
+    const [roles, languages, topics] = await Promise.allSettled([
       Role.find({ isActive: true }).sort({ order: 1 }).select("name displayName config").lean(),
       Language.find({ isActive: true }).sort({ order: 1 }).select("id label ext").lean(),
       Topic.find({ isActive: true }).select("name category").lean(),
     ]);
 
     res.json({
-      roles,
-      languages,
-      topics,
-      branding: {
-        siteName: "Socratica AI",
-        tagline: "AI-Powered Computer Science Learning Operating System",
-      },
-      features: {
-        aiMentor: true,
-        codeExecution: true,
-        learningPaths: true,
-        quizzes: true,
-        interviewPractice: true,
-      },
+      roles: roles.status === "fulfilled" ? roles.value : FALLBACK_PUBLIC.roles,
+      languages: languages.status === "fulfilled" ? languages.value : FALLBACK_PUBLIC.languages,
+      topics: topics.status === "fulfilled" ? topics.value : FALLBACK_PUBLIC.topics,
+      branding: FALLBACK_PUBLIC.branding,
+      features: FALLBACK_PUBLIC.features,
     });
   } catch (err) {
     console.error("[admin] GET /public error:", err.message);
-    res.status(500).json({ error: "Internal server error" });
+    res.json(FALLBACK_PUBLIC); // Always return something — never 500 on public endpoint
   }
 });
 

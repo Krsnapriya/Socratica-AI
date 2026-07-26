@@ -1,12 +1,16 @@
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-const User = require("../models/User");
 const { isRevoked } = require("./tokenBlacklist");
+const LocalUserStore = require("../localUserStore");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error("[FATAL] JWT_SECRET environment variable is required but not set");
   process.exit(1);
+}
+
+function isMongoReady() {
+  return mongoose.connection.readyState === 1;
 }
 
 async function requireAuth(req, res, next) {
@@ -24,41 +28,54 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: "Request is not authorized" });
   }
 
-  // Check token blacklist (e.g. after logout)
+  // Check token blacklist
   const jti = decoded.jti || token;
-  let revoked = false;
   try {
-    revoked = await isRevoked(jti);
+    const revoked = await isRevoked(jti);
+    if (revoked) {
+      return res.status(401).json({ error: "Token has been revoked. Please log in again." });
+    }
   } catch (err) {
     console.warn("[requireAuth] Token blacklist unavailable — allowing request:", err.message);
   }
-  if (revoked) {
-    return res.status(401).json({ error: "Token has been revoked. Please log in again." });
-  }
 
   req.userId = decoded.userId;
-  req.userObjectId = new mongoose.Types.ObjectId(req.userId);
   req.tokenExp = decoded.exp;
   req.tokenJti = jti;
 
-  try {
-    const user = await User.findById(req.userId, { role: 1, tokenVersion: 1 });
-    if (!user) return res.status(401).json({ error: "User not found" });
-    req.userRole = user.role;
-    if (typeof decoded.tokenVersion === "number" && decoded.tokenVersion < (user.tokenVersion || 0)) {
-      return res.status(401).json({ error: "Session invalidated. Please log in again." });
-    }
-  } catch (err) {
-    console.warn("[requireAuth] DB check failed:", err.message);
-    return res.status(503).json({ error: "Authentication service unavailable. Please try again." });
+  // Try to set ObjectId only if it looks like a Mongo ObjectId (24 hex chars)
+  if (/^[a-f0-9]{24}$/.test(req.userId)) {
+    try {
+      req.userObjectId = new mongoose.Types.ObjectId(req.userId);
+    } catch (_) {}
   }
 
-  // Passively update active timestamp without blocking
-  User.updateOne({ _id: req.userId }, { $set: { lastActiveAt: new Date() } }).catch((err) => {
-    console.error("[requireAuth] Failed to update lastActiveAt:", err.message);
-  });
+  // Try Mongo first to get role
+  if (isMongoReady()) {
+    try {
+      const User = require("../models/User");
+      const user = await User.findById(req.userId, { role: 1, tokenVersion: 1 });
+      if (user) {
+        req.userRole = user.role;
+        if (typeof decoded.tokenVersion === "number" && decoded.tokenVersion < (user.tokenVersion || 0)) {
+          return res.status(401).json({ error: "Session invalidated. Please log in again." });
+        }
+        // Passively update active timestamp
+        User.updateOne({ _id: req.userId }, { $set: { lastActiveAt: new Date() } }).catch(() => {});
+        return next();
+      }
+    } catch (err) {
+      console.warn("[requireAuth] DB check failed, trying local store:", err.message);
+    }
+  }
 
-  next();
+  // Local store fallback
+  const localUser = LocalUserStore.findById(req.userId);
+  if (!localUser) {
+    return res.status(401).json({ error: "User not found" });
+  }
+  req.userRole = localUser.role;
+  return next();
 }
 
 module.exports = requireAuth;

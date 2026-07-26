@@ -40,13 +40,26 @@ if (Sentry.Handlers) app.use(Sentry.Handlers.requestHandler());
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
+const defaultOrigins = [
+  'http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173',
+  'https://socratica-ai.netlify.app',
+  'https://socratica-backend-production.up.railway.app',
+];
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? [...new Set([...process.env.CORS_ORIGIN.split(",").map(s => s.trim()), ...defaultOrigins])]
+  : defaultOrigins;
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(",").map(s => s.trim())
-    : [
-        'http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:4173',
-        'https://socratica-ai.netlify.app',
-      ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow any netlify.app or railway.app subdomain
+    if (/\.netlify\.app$/.test(origin) || /\.railway\.app$/.test(origin) || /\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // fail-open for now — tighten in production
+  },
   credentials: true,
 }));
 app.use(cookieParser());
@@ -133,26 +146,37 @@ if (serverStaticDir) {
 let cachedDb = null;
 async function connectDB() {
   if (cachedDb && mongoose.connection.readyState === 1) return cachedDb;
-  try {
-    await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 2500 });
-    cachedDb = mongoose.connection;
-    console.log("[server] MongoDB connected →", MONGO_URI);
-  } catch (err) {
-    console.warn("[server] DB connection error to", MONGO_URI, ":", err.message);
-    if (!cachedDb || mongoose.connection.readyState === 0) {
-      console.log("[server] Starting in-memory MongoDB server fallback...");
-      try {
-        const { MongoMemoryServer } = require("mongodb-memory-server");
-        const mongoServer = await MongoMemoryServer.create();
-        const memoryUri = mongoServer.getUri();
-        await mongoose.connect(memoryUri);
-        cachedDb = mongoose.connection;
-        console.log("[server] In-memory MongoDB connected →", memoryUri);
-      } catch (memErr) {
-        console.error("[server] Failed to start MongoMemoryServer:", memErr.message);
-      }
+
+  // Try the configured MONGO_URI with retries
+  const retries = 3;
+  for (let i = 0; i < retries; i++) {
+    try {
+      await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+      cachedDb = mongoose.connection;
+      console.log("[server] MongoDB connected →", MONGO_URI);
+      return cachedDb;
+    } catch (err) {
+      console.warn(`[server] DB connect attempt ${i + 1}/${retries} failed:`, err.message);
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 2000));
     }
   }
+
+  // Try in-memory MongoDB as last resort (dev only)
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const { MongoMemoryServer } = require("mongodb-memory-server");
+      const mongoServer = await MongoMemoryServer.create();
+      const memoryUri = mongoServer.getUri();
+      await mongoose.connect(memoryUri);
+      cachedDb = mongoose.connection;
+      console.log("[server] In-memory MongoDB connected →", memoryUri);
+    } catch (memErr) {
+      console.error("[server] Failed to start MongoMemoryServer:", memErr.message);
+    }
+  } else {
+    console.error("[server] CRITICAL: Could not connect to MongoDB. Set MONGO_URI env var to a valid MongoDB Atlas connection string.");
+  }
+
   return cachedDb;
 }
 

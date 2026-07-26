@@ -1,8 +1,7 @@
-const User = require("../models/User");
-
 /**
- * Middleware factory for Role-Based Access Control
- * @param {string[]} allowedRoles - Array of roles allowed to access this route
+ * requireRole.js
+ * Middleware factory for Role-Based Access Control.
+ * Uses req.userRole set by requireAuth (no extra DB query needed).
  */
 function requireRole(allowedRoles) {
   return async (req, res, next) => {
@@ -11,27 +10,19 @@ function requireRole(allowedRoles) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      // Use role already fetched by requireAuth (avoids redundant DB query)
-      const userRole = req.userRole;
-      if (!userRole) {
-        // Fallback: query DB if requireAuth didn't set userRole (shouldn't happen)
-        const user = await User.findById(req.userId).lean();
-        if (!user) {
-          return res.status(401).json({ error: "User not found" });
-        }
-        req.userRole = user.role;
-        req.user = user;
-        return requireRole(allowedRoles)(req, res, next);
-      }
+      const userRole = req.userRole || "student";
 
-      if (userRole === 'guest' && !allowedRoles.includes('guest')) {
+      if (userRole === "guest" && !allowedRoles.includes("guest")) {
         return res.status(401).json({ error: "Please sign in to access this resource" });
       }
 
+      // super_admin can access everything
+      if (userRole === "super_admin") return next();
+
       if (!allowedRoles.includes(userRole)) {
-        return res.status(403).json({ 
-          error: "Forbidden", 
-          message: `Requires one of roles: ${allowedRoles.join(', ')}` 
+        return res.status(403).json({
+          error: "Forbidden",
+          message: `Requires one of roles: ${allowedRoles.join(", ")}`,
         });
       }
 
