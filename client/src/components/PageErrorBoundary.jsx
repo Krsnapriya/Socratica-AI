@@ -28,7 +28,7 @@ export default class PageErrorBoundary extends Component {
             </p>
             <details className="text-left mb-4 p-3 bg-surface-container-low border border-outline-variant rounded text-xs font-mono text-error max-h-40 overflow-auto">
               <summary className="cursor-pointer mb-2">Error details (click to expand)</summary>
-              <pre>{this.state.error?.stack || 'No stack trace'}</pre>
+              <pre className="whitespace-pre-wrap break-all">{String(this.state.error?.stack || this.state.error?.message || 'No stack trace')}</pre>
             </details>
             <button
               onClick={() => window.location.reload()}
