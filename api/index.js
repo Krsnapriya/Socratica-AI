@@ -1,30 +1,21 @@
-const app = require("../server/server");
+require("dotenv").config({ path: require("path").join(__dirname, "../server/.env") });
 
-// connectDB and autoSeed are exported so we can call them here
-const { connectDB, autoSeed } = require("../server/server");
+const serverModule = require("../server/server");
+const app = serverModule;
+const connectDB = serverModule.connectDB;
 
-let initialized = false;
-let initPromise = null;
-
-async function initialize() {
-  if (initialized) return;
-  if (initPromise) return initPromise;
-
-  initPromise = (async () => {
-    try {
-      await connectDB();
-      await autoSeed();
-      initialized = true;
-    } catch (err) {
-      console.error("[vercel] Initialization error:", err.message);
-      initPromise = null; // allow retry on next request
-    }
-  })();
-
-  return initPromise;
-}
+// Cache the DB connection across warm invocations (Vercel reuses function instances)
+let dbReady = false;
 
 module.exports = async (req, res) => {
-  await initialize();
+  if (!dbReady) {
+    try {
+      await connectDB();
+      dbReady = true;
+    } catch (err) {
+      console.error("[vercel/api] DB connection failed:", err.message);
+      // Still try to handle the request — some routes may not need DB
+    }
+  }
   return app(req, res);
 };
