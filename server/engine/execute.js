@@ -78,8 +78,13 @@ async function runCode({ code, language, customInput, problemId }) {
   const problem = await Problem.findOne({ problemId }).lean();
   if (!problem) throw new Error("Problem not found");
 
-  const driverConfig = await loadDriver(problemId, language);
-  const codeWithDriver = buildStudentCodeWithDriver(code, driverConfig, language);
+  // For runCode mode with C++, use driver to add main() if not present
+  // For JS/Python, raw code works fine
+  const driverConfig = language === "cpp" ? await loadDriver(problemId, language) : null;
+  console.log("[DEBUG] runCode driverConfig:", JSON.stringify(driverConfig, null, 2));
+  const codeWithDriver = driverConfig ? buildStudentCodeWithDriver(code, driverConfig, language) : code;
+  console.log("[DEBUG] runCode codeWithDriver:", codeWithDriver.slice(0, 500));
+  
   const timeLimitMs = problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs || 10000;
   const memoryLimitMb = problem.executionConfig?.defaultMemoryLimitMb || problem.memoryLimitMb || 256;
 
@@ -100,22 +105,22 @@ async function runCode({ code, language, customInput, problemId }) {
         stdout: "",
         stderr: formatted.compileError,
         error: "compile_error",
-        elapsed_ms: result.elapsed_ms || 0,
-        max_memory_bytes: result.max_memory_bytes || 0,
-        exitCode: result.exit_code ?? 1,
-        steps: result.steps || 0,
+        elapsed_ms: result.student?.elapsed_ms || 0,
+        max_memory_bytes: result.student?.max_memory_bytes || 0,
+        exitCode: result.student?.exit_code ?? 1,
+        steps: result.student?.steps || 0,
       };
     }
 
     return {
       mode: "run",
-      stdout: result.stdout || "",
-      stderr: result.stderr || "",
-      error: result.error || null,
-      elapsed_ms: result.elapsed_ms || 0,
-      max_memory_bytes: result.max_memory_bytes || 0,
-      exitCode: result.exit_code ?? null,
-      steps: result.steps || 0,
+      stdout: result.student?.stdout || "",
+      stderr: result.student?.stderr || "",
+      error: result.student?.error || null,
+      elapsed_ms: result.student?.elapsed_ms || 0,
+      max_memory_bytes: result.student?.max_memory_bytes || 0,
+      exitCode: result.student?.exit_code ?? null,
+      steps: result.student?.steps || 0,
     };
   } catch (err) {
     if (err.message === "system_judge_error") {
@@ -168,12 +173,16 @@ async function runSamples({ code, language, problemId }) {
         compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
       });
 
+      console.log("[DEBUG] runSamples result:", JSON.stringify(result, null, 2));
+
       if (isCompileError(result)) {
         const formatted = formatCompileError(result);
         return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
       }
 
-      const actualOutput = (result.stdout || "").trim();
+      const actualOutput = (result.student?.stdout || "").trim();
+      console.log("[DEBUG] runSamples actualOutput:", JSON.stringify(actualOutput));
+      console.log("[DEBUG] runSamples result.student.stdout:", JSON.stringify(result.student?.stdout));
 
       // Try to get expected output from oracle + driver
       const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, problem.memoryLimitMb || 256, problem.executionConfig?.compileTimeoutMs);
@@ -188,9 +197,9 @@ async function runSamples({ code, language, problemId }) {
         visible: tc.visibility === "public",
         description: tc.description || "",
         category: tc.category || "sample",
-        elapsed_ms: result.elapsed_ms || 0,
-        max_memory_bytes: result.max_memory_bytes || 0,
-        error: result.error || null,
+        elapsed_ms: result.student?.elapsed_ms || 0,
+        max_memory_bytes: result.student?.max_memory_bytes || 0,
+        error: result.student?.error || null,
       }));
 
       const allPassed = results.length > 0 && results.every(r => r.passed);

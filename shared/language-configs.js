@@ -6,9 +6,9 @@
 
 // Per-language sandbox limits calibrated against oracle solutions
 const LANGUAGE_CONFIGS = {
-  python:     { ext: ".py",   memoryMb: 256, cpuQuota: 50000,  timeoutMs: 8000,  compileTimeoutMs: 10000 },
-  javascript: { ext: ".js",   memoryMb: 256, cpuQuota: 50000,  timeoutMs: 8000,  compileTimeoutMs: 0 },   // interpreted
-  cpp:        { ext: ".cpp",  memoryMb: 512, cpuQuota: 100000, timeoutMs: 12000, compileTimeoutMs: 15000 },
+  python:     { ext: ".py",   memoryMb: 256, cpuQuota: 50000,  timeoutMs: 8000,  compileTimeoutMs: 10000, image: "socratica/sandbox-python:latest" },
+  javascript: { ext: ".js",   memoryMb: 256, cpuQuota: 50000,  timeoutMs: 8000,  compileTimeoutMs: 0,     image: "socratica/sandbox-javascript:latest" },
+  cpp:        { ext: ".cpp",  memoryMb: 512, cpuQuota: 100000, timeoutMs: 12000, compileTimeoutMs: 15000, image: "socratica/sandbox-cpp:latest" },
 };
 
 const SUPPORTED_LANGUAGES = Object.keys(LANGUAGE_CONFIGS);
@@ -32,6 +32,7 @@ function getDockerRunArgs(lang) {
     compileTimeout: cfg.compileTimeoutMs,
     // Extension for entrypoint.sh to use
     extension: cfg.ext,
+    image: cfg.image,
   };
 }
 

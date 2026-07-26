@@ -189,8 +189,10 @@ export default function ModulesPage() {
                   const moduleProgress = moduleTopics.length > 0 ? Math.round((solvedCount / moduleTopics.length) * 100) : 0;
                   
                   return (
-                    <article key={module._id} className={`bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 
-                      ${!isUnlocked ? 'opacity-60 grayscale-[50%]' : 'hover:border-primary/50'}`}>
+                    <article key={module._id} className={`bg-surface-container-low border border-outline-variant rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 cursor-pointer
+                      ${!isUnlocked ? 'opacity-60 grayscale-[50%]' : 'hover:border-primary/50'}`}
+                      onClick={() => isUnlocked && navigate(`/workspace?module=${module._id}`)}
+                      style={{ userSelect: 'none' }}>
                       
                       <div className="flex justify-between items-start">
                         <div className="w-10 h-10 rounded-lg border border-outline-variant flex items-center justify-center bg-surface-container">

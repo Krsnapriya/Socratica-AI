@@ -61,7 +61,7 @@ function createContainerConfig({ image, envVars, memoryMb, dockerArgs }) {
     Env: envVars,
     AttachStdout: true,
     AttachStderr: true,
-    AutoRemove: true,
+    AutoRemove: false,
     HostConfig: {
       Memory: memoryMb * 1024 * 1024,
       MemorySwap: memoryMb * 1024 * 1024,
@@ -94,23 +94,26 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
   // wrong types for Python/JS when test case inputs aren't valid JSON.
   // The driverCode has correct hardcoded test calls that exercise the student's function.
 
-  // C++ specific wrapping
+// C++ specific wrapping
   if (language === "cpp") {
     const hasInclude = studentCode.includes("#include");
     const hasMain = studentCode.includes("int main");
+    const hasNamespace = studentCode.includes("using namespace std;");
+    console.log("[DEBUG] C++ code analysis:", { hasInclude, hasMain, hasNamespace, codeLength: studentCode.length, first200: studentCode.slice(0, 200) });
     let result = "";
-    if (!hasInclude) result += "#include <bits/stdc++.h>\nusing namespace std;\n";
+    if (!hasInclude) result += "#include <bits/stdc++.h>\n";
+    if (!hasNamespace) result += "using namespace std;\n";
     result += studentCode;
     if (!hasMain) {
       result += "\nint main() {\n" + driverCode + "\n}\n";
-    } else {
-      result += "\n" + driverCode + "\n";
     }
-    return result;
-  }
+// If student provides their own main(), don't append driver code - they write their own test code
+  console.log("[DEBUG] Final C++ code length:", result.length);
+  return result;
+}
 
-  // Python/JavaScript: append driver after student code
-  return studentCode + "\n" + driverCode + "\n";
+// Python/JavaScript: append driver after student code
+return studentCode + "\n" + driverCode + "\n";
 }
 
 function buildStdinWrapper(studentCode, functionName, language) {
@@ -280,6 +283,8 @@ async function runContainer({ image, envVars, memoryMb, dockerArgs, timeLimitMs 
     ]);
 
     const { stdoutText, stderrText } = await fetchContainerLogs(container);
+    console.log("[DEBUG] runContainer stdout:", stdoutText.slice(0, 500));
+    console.log("[DEBUG] runContainer stderr:", stderrText.slice(0, 500));
     const parsed = parseContainerOutput(stdoutText, stderrText);
     if (!parsed) {
       console.error("[engine] Sandbox parse failed. stdout:", stdoutText.slice(0, 200), "stderr:", stderrText.slice(0, 100));

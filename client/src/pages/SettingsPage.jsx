@@ -4,6 +4,7 @@ import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import { fetchMe, updateProfile } from '../api/api.js';
 import { LANGUAGES } from '../constants';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 
 function SectionHeader({ icon, title, description }) {
   return (
@@ -55,6 +56,7 @@ function Toggle({ on, label, onChange, description }) {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user: ctxUser, logout } = useOutletContext() || {};
+  const { theme, setTheme, availableThemes } = useTheme();
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
@@ -94,6 +96,13 @@ export default function SettingsPage() {
     load();
   }, [ctxUser]);
 
+  // Apply theme changes immediately
+  useEffect(() => {
+    if (prefs.theme !== theme) {
+      setTheme(prefs.theme);
+    }
+  }, [prefs.theme, theme, setTheme]);
+
   async function handleSave() {
     setSaving(true);
     setError('');
@@ -126,27 +135,31 @@ export default function SettingsPage() {
   return (
     <div className="page-enter max-w-4xl mx-auto space-y-8 pb-16">
       <header className="border-b border-outline-variant pb-6">
-        <div className="flex items-center gap-2 text-on-surface-variant mb-2">
-          <span className="font-mono text-xs uppercase tracking-wider">Dashboard</span>
-          <Icon name="chevron_right" size={14} />
-          <span className="font-mono text-xs uppercase tracking-wider text-on-surface">Settings</span>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 text-on-surface-variant mb-2">
+              <span className="font-mono text-xs uppercase tracking-wider">Dashboard</span>
+              <Icon name="chevron_right" size={14} />
+              <span className="font-mono text-xs uppercase tracking-wider text-on-surface">Settings</span>
+            </div>
+            <h1 className="font-sans text-[32px] md:text-[40px] font-bold text-on-surface tracking-tight">Settings</h1>
+            <p className="text-on-surface-variant text-base mt-1">Manage your profile, preferences, and security.</p>
         </div>
-        <h1 className="font-sans text-[32px] md:text-[40px] font-bold text-on-surface tracking-tight">Settings</h1>
-        <p className="text-on-surface-variant text-base mt-1">Manage your profile, preferences, and security.</p>
+        
+        {saved && (
+          <div className="bg-secondary/10 border border-secondary/40 rounded-lg px-4 py-3 text-secondary text-sm font-mono flex items-center gap-2" role="status">
+            <Icon name="check_circle" size={16} />
+            Settings saved successfully.
+        </div>
+        )}
+{error && (
+          <div className="bg-error/10 border border-error/40 rounded-lg px-4 py-3 text-error text-sm font-mono" role="alert">
+            {error}
+          </div>
+        )}
+        </div>
       </header>
-
-      {saved && (
-        <div className="bg-secondary/10 border border-secondary/40 rounded-lg px-4 py-3 text-secondary text-sm font-mono flex items-center gap-2" role="status">
-          <Icon name="check_circle" size={16} />
-          Settings saved successfully.
-        </div>
-      )}
-      {error && (
-        <div className="bg-error/10 border border-error/40 rounded-lg px-4 py-3 text-error text-sm font-mono" role="alert">
-          {error}
-        </div>
-      )}
-
+      
       <section className="bg-surface-container-low border border-outline-variant rounded-xl p-6" id="profile">
         <SectionHeader icon="person" title="Profile" description="Your public identity on Socratica AI" />
         {loading ? (
@@ -221,11 +234,10 @@ export default function SettingsPage() {
               </select>
             </FormField>
             <FormField label="Theme" id="theme">
-              <select id="theme" className={inputClass} value={prefs.theme} onChange={e => setPrefs(p => ({ ...p, theme: e.target.value }))}>
-                <option>Socratica Dark</option>
-                <option>Monokai Pro</option>
-                <option>One Dark Pro</option>
-                <option>Catppuccin</option>
+              <select id="theme" className={inputClass} value={prefs.theme} onChange={e => { setPrefs(p => ({ ...p, theme: e.target.value })); setTheme(e.target.value); }}>
+                {availableThemes.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
               </select>
             </FormField>
             <FormField label="Font Size" id="font-size">
