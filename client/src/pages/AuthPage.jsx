@@ -90,9 +90,12 @@ function GoogleSignInButton({ onSuccess, onError }) {
 
     return () => {
       cancelled = true;
-      // Safely remove only if still a child of head
-      if (script.parentNode === document.head) {
-        try { document.head.removeChild(script); } catch (e) {}
+      try {
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      } catch (e) {
+        // Ignore unmount DOM removal errors
       }
     };
   }, [onSuccess, onError]);
