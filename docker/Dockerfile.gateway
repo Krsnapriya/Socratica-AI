@@ -8,11 +8,12 @@ WORKDIR /app
 COPY deployment/package*.json ./
 RUN npm install --omit=dev
 
-COPY deployment/express-gateway.js ./server.js
+COPY deployment/express-gateway.js ./deployment/express-gateway.js
+COPY shared ./shared
 COPY refactored ./refactored
 
 RUN chown -R node:node /app
 USER node
 
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "deployment/express-gateway.js"]

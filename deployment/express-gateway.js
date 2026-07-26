@@ -825,6 +825,7 @@ app.get("/health", (req, res) => {
     redis:     redisStatus === "ready",
     sandbox:   CONFIG.sandboxImage,
   });
+});
 
 // SPA Fallback: handle page reloads for client-side routes (modules, workspace, etc.)
 app.get("*", (req, res, next) => {

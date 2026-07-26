@@ -339,8 +339,9 @@ if (require.main === module || !process.env.VERCEL) {
 
       server.on("error", (err) => {
         if (err.code === "EADDRINUSE") {
-          console.warn(`[server] Port ${portToTry} in use — trying http://localhost:${portToTry + 1}...`);
-          startServer(portToTry + 1);
+          const nextPort = parseInt(portToTry, 10) + 1;
+          console.warn(`[server] Port ${portToTry} in use — trying http://localhost:${nextPort}...`);
+          startServer(nextPort);
         } else {
           console.error("[server] Fatal server error:", err);
         }
