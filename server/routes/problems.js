@@ -1,5 +1,6 @@
 const express = require("express");
 const Problem = require("../models/Problem");
+const TestCase = require("../models/TestCase");
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
 
@@ -61,6 +62,14 @@ router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "
     if (!problem) {
       return res.status(404).json({ error: "Problem not found" });
     }
+
+    // Attach test cases from the TestCase collection
+    const testCases = await TestCase.find({
+      problemId: req.params.id,
+      enabled: true,
+    }).sort({ order: 1, createdAt: 1 }).lean();
+    problem.testCases = testCases;
+
     res.json(problem);
   } catch (err) {
     console.error("[problems] Detail fetch error:", err.message);
