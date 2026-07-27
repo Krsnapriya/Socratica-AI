@@ -1,15 +1,22 @@
 const Docker = require("dockerode");
 const { getDockerRunArgs } = require("../sandbox/languageConfigs");
 const { config } = require("../configLoader");
+const fs = require("fs");
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 const DOCKER_HOST = process.env.DOCKER_HOST || null;
 
 let docker = null;
+let dockerAvailable = false;
 try {
-  docker = DOCKER_HOST
-    ? new Docker({ host: DOCKER_HOST.split(":")[0], port: parseInt(DOCKER_HOST.split(":")[1]) })
-    : new Docker({ socketPath: DOCKER_SOCKET });
+  if (!DOCKER_HOST && !fs.existsSync(DOCKER_SOCKET)) {
+    console.warn("[engine] Docker socket not found — sandbox will use local fallback");
+  } else {
+    docker = DOCKER_HOST
+      ? new Docker({ host: DOCKER_HOST.split(":")[0], port: parseInt(DOCKER_HOST.split(":")[1]) })
+      : new Docker({ socketPath: DOCKER_SOCKET });
+    dockerAvailable = true;
+  }
 } catch (err) {
   console.warn("[engine] Docker unavailable:", err.message);
 }
@@ -210,7 +217,11 @@ function buildStdinWrapper(studentCode, functionName, language) {
 
 // ── Unified container execution ────────────────────────────────────────────
 async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
-  if (!docker) throw new Error("system_judge_error");
+  if (!dockerAvailable) {
+    console.warn("[sandbox] Docker unavailable — falling back to local execution");
+    const fb = await runFallback({ code, language, stdin, timeLimitMs });
+    return { student: fb };
+  }
   if (!code || code.trim().length === 0) throw new Error("Empty submission rejected");
 
   const dockerArgs = getDockerRunArgs(language);
@@ -238,7 +249,14 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
 }
 
 async function executeWithOracle({ studentCode, oracleCode, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
-  if (!docker) throw new Error("system_judge_error");
+  if (!dockerAvailable) {
+    console.warn("[sandbox] Docker unavailable — falling back to local execution for oracle");
+    const [studentFb, oracleFb] = await Promise.all([
+      runFallback({ code: studentCode, language, stdin, timeLimitMs }),
+      runFallback({ code: oracleCode, language, stdin, timeLimitMs }),
+    ]);
+    return { student: studentFb, oracle: oracleFb };
+  }
   if (!studentCode || studentCode.trim().length === 0) throw new Error("Empty submission rejected");
   if (!oracleCode) throw new Error("Missing oracle solution");
 
@@ -400,4 +418,4 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
   return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: error ? 1 : 0 };
 }
 
-module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver };
+module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback };

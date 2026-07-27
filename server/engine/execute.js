@@ -63,11 +63,11 @@ async function getOracleOutput(problem, language, driverCode, timeLimitMs, memor
       memoryLimitMb,
       compileTimeoutMs,
     });
-    if (result.error === "compile_error") {
+    if (result.student?.error === "compile_error") {
       console.warn(`[execute] Oracle compile error for ${problem.problemId}/${language}: using fallback expectedOutput`);
       return null;
     }
-    return (result.stdout || "").trim();
+    return (result.student?.stdout || "").trim();
   } catch (err) {
     console.warn(`[execute] Oracle run failed for ${problem.problemId}/${language}:`, err.message);
     return null;
@@ -208,7 +208,7 @@ async function runSamples({ code, language, problemId }) {
               memoryLimitMb: problem.memoryLimitMb || 256,
               compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
             });
-            const tcActual = (tcResult.stdout || "").trim();
+            const tcActual = (tcResult.student?.stdout || "").trim();
             const tcExpected = (tc.expectedOutput || "").trim();
             results.push({
               input: tc.input,
@@ -218,9 +218,9 @@ async function runSamples({ code, language, problemId }) {
               visible: tc.visibility === "public",
               description: tc.description || "",
               category: tc.category || "sample",
-              elapsed_ms: tcResult.elapsed_ms || 0,
-              max_memory_bytes: tcResult.max_memory_bytes || 0,
-              error: tcResult.error || null,
+              elapsed_ms: tcResult.student?.elapsed_ms || 0,
+              max_memory_bytes: tcResult.student?.max_memory_bytes || 0,
+              error: tcResult.student?.error || null,
             });
           } catch (tcErr) {
             results.push({
@@ -287,7 +287,7 @@ async function runSamples({ code, language, problemId }) {
         return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
       }
 
-      const actualOutput = (result.stdout || "").trim();
+      const actualOutput = (result.student?.stdout || "").trim();
       const expectedOutput = (tc.expectedOutput || "").trim();
       const passed = outputsMatch(actualOutput, expectedOutput);
 
@@ -299,9 +299,9 @@ async function runSamples({ code, language, problemId }) {
         visible: tc.visibility === "public",
         description: tc.description || "",
         category: tc.category || "sample",
-        elapsed_ms: result.elapsed_ms || 0,
-        max_memory_bytes: result.max_memory_bytes || 0,
-        error: result.error || null,
+        elapsed_ms: result.student?.elapsed_ms || 0,
+        max_memory_bytes: result.student?.max_memory_bytes || 0,
+        error: result.student?.error || null,
       });
     } catch (err) {
       if (err.message === "system_judge_error") {
@@ -425,26 +425,28 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   }
 
   // Check for runtime errors on the compilation run
-  if (compilationResult.error) {
+  const compError = compilationResult.student?.error || compilationResult.error;
+  if (compError) {
     const aiResult = await getAIResponse({
       userId, problemId, sessionId: sId, code, language,
       executionResult: {
-        stdout: compilationResult.stdout || "",
-        stderr: compilationResult.stderr || "",
-        error: compilationResult.error,
-        exitCode: compilationResult.exit_code,
+        stdout: compilationResult.student?.stdout || compilationResult.stdout || "",
+        stderr: compilationResult.student?.stderr || compilationResult.stderr || "",
+        error: compError,
+        exitCode: compilationResult.student?.exit_code ?? compilationResult.exit_code,
       },
     }).catch(() => null);
 
     let verdict = "fail";
-    if (compilationResult.error === "timeout") verdict = "timeout";
-    else if (compilationResult.error.includes("oom") || compilationResult.error.includes("OutOfMemory")) verdict = "memory_exceeded";
+    const compError = compilationResult.student?.error || compilationResult.error;
+    if (compError === "timeout") verdict = "timeout";
+    else if (compError && (compError.includes("oom") || compError.includes("OutOfMemory"))) verdict = "memory_exceeded";
 
     const sub = await Submission.create({
       userId, problemId, sessionId: sId, code, language, round: roundNum,
       verdict, tier: 2,
-      tier2Result: { studentTimeMs: compilationResult.elapsed_ms || 0, oracleTimeMs: 0, studentMemMb: 0, oracleMemMb: 0 },
-      hint: aiResult?.response || compilationResult.error,
+      tier2Result: { studentTimeMs: compilationResult.student?.elapsed_ms || compilationResult.elapsed_ms || 0, oracleTimeMs: 0, studentMemMb: 0, oracleMemMb: 0 },
+      hint: aiResult?.response || compError,
       hintLevel: aiResult?.level,
       aiAnalysis: aiResult ? { agent: aiResult.agent, confidence: aiResult.confidence, response: aiResult.response } : undefined,
       executionMode: "submit",
@@ -495,7 +497,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
         timeLimitMs, memoryLimitMb, compileTimeoutMs,
       });
 
-      const actualOutput = (runResult.stdout || "").trim();
+      const actualOutput = (runResult.student?.stdout || "").trim();
 
       // Try to get expected output from oracle + driver
       const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs);
@@ -512,9 +514,9 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
             visible: tc.visibility === "public",
             description: tc.description || "",
             category: tc.category || "sample",
-            elapsed_ms: runResult.elapsed_ms || 0,
-            max_memory_bytes: runResult.max_memory_bytes || 0,
-            error: runResult.error || null,
+            elapsed_ms: runResult.student?.elapsed_ms || 0,
+            max_memory_bytes: runResult.student?.max_memory_bytes || 0,
+            error: runResult.student?.error || null,
           });
         }
       } else {
@@ -526,7 +528,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
               stdin: tc.input || "",
               timeLimitMs, memoryLimitMb, compileTimeoutMs,
             });
-            const tcActual = (tcResult.stdout || "").trim();
+            const tcActual = (tcResult.student?.stdout || "").trim();
             const tcExpected = (tc.expectedOutput || "").trim();
             testResults.push({
               input: tc.input,
@@ -536,9 +538,9 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
               visible: tc.visibility === "public",
               description: tc.description || "",
               category: tc.category || "sample",
-              elapsed_ms: tcResult.elapsed_ms || 0,
-              max_memory_bytes: tcResult.max_memory_bytes || 0,
-              error: tcResult.error || null,
+              elapsed_ms: tcResult.student?.elapsed_ms || 0,
+              max_memory_bytes: tcResult.student?.max_memory_bytes || 0,
+              error: tcResult.student?.error || null,
             });
           } catch (tcErr) {
             testResults.push({
@@ -589,7 +591,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
         compileTimeoutMs,
       });
 
-      const actualOutput = (result.stdout || "").trim();
+      const actualOutput = (result.student?.stdout || "").trim();
       const expectedOutput = (tc.expectedOutput || "").trim();
       const passed = outputsMatch(actualOutput, expectedOutput);
 
@@ -601,9 +603,9 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
         visible: tc.visibility === "public",
         description: tc.description || "",
         category: tc.category || "sample",
-        elapsed_ms: result.elapsed_ms || 0,
-        max_memory_bytes: result.max_memory_bytes || 0,
-        error: result.error || null,
+        elapsed_ms: result.student?.elapsed_ms || 0,
+        max_memory_bytes: result.student?.max_memory_bytes || 0,
+        error: result.student?.error || null,
       });
     } catch (err) {
       if (err.message === "system_judge_error") {
