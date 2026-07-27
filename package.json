@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
-    "build": "echo 'No build needed for API'",
-    "vercel-build": "echo 'No build needed for API'"
+    "build": "cd client && npm install && npm run build",
+    "vercel-build": "cd client && npm install && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
