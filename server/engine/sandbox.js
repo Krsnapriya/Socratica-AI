@@ -139,7 +139,7 @@ function buildStdinWrapper(studentCode, functionName, language) {
       "        try:\n" +
       "            args = ast.literal_eval(data)\n" +
       "        except:\n" +
-      "            args = [x.strip() for x in data.split(",")]\n" +
+      "            args = [x.strip() for x in data.split(\",\")]\n" +
       "    if not isinstance(args, (list, tuple)):\n" +
       "        args = [args]\n" +
       "    result = " + functionName + "(*args)\n" +
@@ -418,4 +418,4 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
   return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: error ? 1 : 0 };
 }
 
-module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, runFallback };
+module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, buildStdinWrapper, runFallback };

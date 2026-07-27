@@ -1,10 +1,21 @@
-const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver } = require("./sandbox");
+const { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, buildStdinWrapper } = require("./sandbox");
 const { isCompileError, formatCompileError } = require("../sandbox/compileErrorHandler");
 const { analyzeTraces } = require("../tracer/traceAligner");
 const { getAIResponse } = require("../ai/orchestrator");
 const TestCase = require("../models/TestCase");
 const DriverTemplate = require("../models/DriverTemplate");
 const Problem = require("../models/Problem");
+
+function extractFunctionName(code, language) {
+  if (language === "python") {
+    const m = code.match(/def\s+(\w+)\s*\(/);
+    if (m) return m[1];
+  } else if (language === "javascript") {
+    const m = code.match(/(?:function\s+(\w+)|const\s+(\w+)\s*=\s*(?:\([^)]*\)\s*=>|function))/);
+    if (m) return m[1] || m[2];
+  }
+  return null;
+}
 
 async function getDriverForProblem(problemId, language) {
   const template = await DriverTemplate.findOne({ problemId, language }).lean();
@@ -78,10 +89,14 @@ async function runCode({ code, language, customInput, problemId }) {
   const problem = await Problem.findOne({ problemId }).lean();
   if (!problem) throw new Error("Problem not found");
 
-  // For runCode mode with C++, use driver to add main() if not present
-  // For JS/Python, raw code works fine
-  const driverConfig = language === "cpp" ? await loadDriver(problemId, language) : null;
-  const codeWithDriver = driverConfig ? buildStudentCodeWithDriver(code, driverConfig, language) : code;
+  const driverConfig = await loadDriver(problemId, language);
+  let codeWithDriver;
+  if (language === "cpp") {
+    codeWithDriver = driverConfig ? buildStudentCodeWithDriver(code, driverConfig, language) : code;
+  } else {
+    const fnName = driverConfig?.functionName || extractFunctionName(code, language);
+    codeWithDriver = buildStdinWrapper(code, fnName || "solution", language);
+  }
   
   const timeLimitMs = problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs || 10000;
   const memoryLimitMb = problem.executionConfig?.defaultMemoryLimitMb || problem.memoryLimitMb || 256;
