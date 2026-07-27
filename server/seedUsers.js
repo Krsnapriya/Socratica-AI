@@ -29,13 +29,15 @@ async function seedUsers() {
           email,
           passwordHash,
           displayName: u.displayName,
-          role: u.role
+          role: u.role,
+          emailVerified: true,
         });
         createdCount++;
         console.log(`[seedUsers] Created ${u.role}: ${email}`);
       } else {
         existing.passwordHash = passwordHash;
         existing.role = u.role;
+        existing.emailVerified = true;
         await existing.save();
         console.log(`[seedUsers] Updated credentials for ${u.role}: ${email}`);
       }
