@@ -8,11 +8,11 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/socratica"
 const TEST_CASES = {
   "two-sum": {
     python: {
-      driver: `r = two_sum([2,7,11,15], 9); print(r[0], r[1])
-r = two_sum([3,2,4], 6); print(r[0], r[1])
-r = two_sum([3,3], 6); print(r[0], r[1])`,
+      driver: `r = twoSum([2,7,11,15], 9); print(r[0], r[1])
+r = twoSum([3,2,4], 6); print(r[0], r[1])
+r = twoSum([3,3], 6); print(r[0], r[1])`,
       wrapperType: "function_call",
-      functionName: "two_sum",
+      functionName: "twoSum",
       samples: [
         { input: "[2,7,11,15], target=9", expectedOutput: "0 1\n1 0\n1 1", description: "Basic cases" },
       ],
@@ -51,9 +51,9 @@ vector<int> c={3,3}; r=twoSum(c,6); cout<<r[0]<<" "<<r[1]<<endl;`,
   },
   "fibonacci": {
     python: {
-      driver: `for n in [0,1,2,3,4,5,10,15,20,30]: print(fib(n))`,
+      driver: `for n in [0,1,2,3,4,5,10,15,20,30]: print(fibonacci(n))`,
       wrapperType: "function_call",
-      functionName: "fib",
+      functionName: "fibonacci",
       samples: [
         { input: "n=0", expectedOutput: "0\n1\n1\n2\n3\n5\n55\n610\n6765\n832040", description: "Fibonacci sequence" },
       ],
@@ -62,18 +62,18 @@ vector<int> c={3,3}; r=twoSum(c,6); cout<<r[0]<<" "<<r[1]<<endl;`,
       ],
     },
     javascript: {
-      driver: `[0,1,2,3,4,5,10,15,20,30].forEach(n => console.log(fib(n)));`,
+      driver: `[0,1,2,3,4,5,10,15,20,30].forEach(n => console.log(fibonacci(n)));`,
       wrapperType: "function_call",
-      functionName: "fib",
+      functionName: "fibonacci",
       samples: [
         { input: "n=0", expectedOutput: "0\n1\n1\n2\n3\n5\n55\n610\n6765\n832040", description: "Fibonacci sequence" },
       ],
       hidden: [],
     },
     cpp: {
-      driver: `for(int n:{0,1,2,3,4,5,10,15,20,30}) cout<<fib(n)<<endl;`,
+      driver: `for(int n:{0,1,2,3,4,5,10,15,20,30}) cout<<fibonacci(n)<<endl;`,
       wrapperType: "function_call",
-      functionName: "fib",
+      functionName: "fibonacci",
       samples: [
         { input: "n=0", expectedOutput: "0\n1\n1\n2\n3\n5\n55\n610\n6765\n832040", description: "Fibonacci sequence" },
       ],
@@ -83,9 +83,9 @@ vector<int> c={3,3}; r=twoSum(c,6); cout<<r[0]<<" "<<r[1]<<endl;`,
   "valid-parentheses": {
     python: {
       driver: `for s in ["()","()[]{}","(]","([)]","{[]}", "{","}","(((((((()","(((())))","[({})]","[(])",""]:
-    print("true" if is_valid(s) else "false")`,
+    print("true" if isValid(s) else "false")`,
       wrapperType: "function_call",
-      functionName: "is_valid",
+      functionName: "isValid",
       samples: [
         { input: "()", expectedOutput: "true", description: "Simple valid" },
         { input: "(]", expectedOutput: "false", description: "Simple invalid" },
@@ -113,11 +113,11 @@ for (auto& t : tests) cout << (isValid(t)?"true":"false") << endl;`,
   },
   "binary-search": {
     python: {
-      driver: `print(binary_search([-1,0,3,5,9,12], 9))
-print(binary_search([-1,0,3,5,9,12], 2))
-print(binary_search([5], 5))`,
+      driver: `print(search([-1,0,3,5,9,12], 9))
+print(search([-1,0,3,5,9,12], 2))
+print(search([5], 5))`,
       wrapperType: "function_call",
-      functionName: "binary_search",
+      functionName: "search",
       samples: [
         { input: "[-1,0,3,5,9,12], target=9", expectedOutput: "4\n-1\n0", description: "Basic binary search" },
       ],
@@ -150,10 +150,10 @@ cout<<binarySearch(b,5)<<endl;`,
   "reverse-linked-list": {
     python: {
       driver: `for vals in [[1,2,3,4,5],[1,2],[42],[],[0],[-1,-2,-3],[5,4,3,2,1],[1,1,1,1],[-5000,5000],[3,7,0,-4,12]]:
-    r = reverse_list(vals)
+    r = reverseList(vals)
     print(*r)`,
       wrapperType: "function_call",
-      functionName: "reverse_list",
+      functionName: "reverseList",
       samples: [
         { input: "[1,2,3,4,5]", expectedOutput: "5 4 3 2 1", description: "Basic reversal" },
         { input: "[]", expectedOutput: "null", description: "Empty list" },
@@ -185,9 +185,9 @@ for (auto& v : tests) {
   "valid-palindrome": {
     python: {
       driver: `for s in ["A man, a plan, a canal: Panama","race a car"," ","0P","a","ab",".,","Aba","Never odd or even","12321","12345",""]:
-    print("true" if is_palindrome(s) else "false")`,
+    print("true" if isPalindrome(s) else "false")`,
       wrapperType: "function_call",
-      functionName: "is_palindrome",
+      functionName: "isPalindrome",
       samples: [
         { input: "A man, a plan, a canal: Panama", expectedOutput: "true", description: "Classic palindrome" },
         { input: "race a car", expectedOutput: "false", description: "Not a palindrome" },
@@ -213,9 +213,9 @@ for (auto& t : tests) cout << (isPalindrome(t)?"true":"false") << endl;`,
   "reverse-string": {
     python: {
       driver: `for s in ["hello","Hannah","","123456789","a b c","!!@@##","abcdefghijklmnopqrstuvwxyz","   "]:
-    print(reverse_string(s))`,
+    print(reverseString(s))`,
       wrapperType: "function_call",
-      functionName: "reverse_string",
+      functionName: "reverseString",
       samples: [{ input: "hello", expectedOutput: "olleh", description: "Basic" }],
       hidden: [{ input: "empty string", expectedOutput: "empty string", category: "edge" }],
     },
@@ -238,9 +238,9 @@ for (auto& t : tests) cout << reverseString(t) << endl;`,
   "max-subarray": {
     python: {
       driver: `for nums in [[-2,1,-3,4,-1,2,1,-5,4],[1],[5,4,-1,7,8],[-1],[-2,-3,-1],[1,2,3,4],[-2,1,-3,4,-1,2],[-1,-2,-3,-4,-5,-6,-7,-8,-9,-10],[0,0,0],[10,-2,-3,5,-1,8,-5],[-10000],[10000]]:
-    print(max_subarray(nums))`,
+    print(maxSubArray(nums))`,
       wrapperType: "function_call",
-      functionName: "max_subarray",
+      functionName: "maxSubArray",
       samples: [{ input: "[-2,1,-3,4,-1,2,1,-5,4]", expectedOutput: "6", description: "Kadane's algorithm" }],
       hidden: [{ input: "[-1]", expectedOutput: "-1", category: "edge" }],
     },
@@ -254,12 +254,10 @@ for (auto& t : tests) cout << reverseString(t) << endl;`,
     cpp: {
       driver: `vector<vector<int>> tests = {{-2,1,-3,4,-1,2,1,-5,4},{1},{5,4,-1,7,8},{-1},{-2,-3,-1},{1,2,3,4},{-2,1,-3,4,-1,2},{-1,-2,-3,-4,-5,-6,-7,-8,-9,-10},{0,0,0},{10,-2,-3,5,-1,8,-5},{-10000},{10000}};
 for (auto& nums : tests) {
-    int best = nums[0], cur = nums[0];
-    for (int i=1;i<(int)nums.size();i++) { cur = max(nums[i], cur+nums[i]); best = max(best, cur); }
-    cout << best << endl;
+    cout << maxSubArray(nums) << endl;
 }`,
       wrapperType: "function_call",
-      functionName: "max_subarray",
+      functionName: "maxSubArray",
       samples: [{ input: "[-2,1,-3,4,-1,2,1,-5,4]", expectedOutput: "6", description: "Basic" }],
       hidden: [],
     },
@@ -267,9 +265,9 @@ for (auto& nums : tests) {
   "contains-duplicate": {
     python: {
       driver: `for nums in [[1,2,3,1],[1,2,3,4],[1],[10,10,10,10,10,10,10,10,10,10],[-1,-2,-3],[100,200,300,200,400],[0,0,0,0,0,0],[1000000000,-1000000000,0],[42,42]]:
-    print("true" if contains_duplicate(nums) else "false")`,
+    print("true" if containsDuplicate(nums) else "false")`,
       wrapperType: "function_call",
-      functionName: "contains_duplicate",
+      functionName: "containsDuplicate",
       samples: [{ input: "[1,2,3,1]", expectedOutput: "true", description: "Has duplicate" }],
       hidden: [{ input: "[]", expectedOutput: "false", category: "edge" }],
     },
@@ -292,10 +290,10 @@ for (auto& a : tests) cout << (containsDuplicate(a)?"true":"false") << endl;`,
   "bubble-sort": {
     python: {
       driver: `for nums in [[64,34,25,12,22],[5,1,4,2,8],[1],[-5,-10,0,3,8,-1],[100,-100],[0,0,0,-1,-1,5,5]]:
-    bubble_sort(nums)
+    bubbleSort(nums)
     print(*nums)`,
       wrapperType: "function_call",
-      functionName: "bubble_sort",
+      functionName: "bubbleSort",
       samples: [{ input: "[64,34,25,12,22]", expectedOutput: "12 22 25 34 64", description: "Basic sort" }],
       hidden: [{ input: "[]", expectedOutput: "null", category: "edge" }],
     },
@@ -322,9 +320,9 @@ for (auto& a : tests) {
   "climbing-stairs": {
     python: {
       driver: `for n in [1,2,3,4,5,6,10,15,20,45]:
-    print(climb_stairs(n))`,
+    print(climbStairs(n))`,
       wrapperType: "function_call",
-      functionName: "climb_stairs",
+      functionName: "climbStairs",
       samples: [{ input: "n=2", expectedOutput: "1\n2\n3\n5\n8\n13\n89\n610\n6765\n1836311903", description: "Fibonacci-like" }],
       hidden: [{ input: "n=45", expectedOutput: "1836311903", category: "stress" }],
     },
@@ -346,9 +344,9 @@ for (auto& a : tests) {
   "best-time-to-buy-and-sell-stock": {
     python: {
       driver: `for prices in [[7,1,5,3,6,4],[7,6,4,3,1],[1,2],[7,2,4,1,11,7,5,3],[3,3,3,3],[1,2,3],[3,2,1],[10000,1,2,3,4,5,6,7,8,9],[9,8,7,6,5,4],[0,0,0,0,0,0]]:
-    print(max_profit(prices))`,
+    print(maxProfit(prices))`,
       wrapperType: "function_call",
-      functionName: "max_profit",
+      functionName: "maxProfit",
       samples: [{ input: "[7,1,5,3,6,4]", expectedOutput: "5", description: "Basic profit" }],
       hidden: [{ input: "[7,6,4,3,1]", expectedOutput: "0", category: "edge" }],
     },
@@ -361,9 +359,9 @@ for (auto& a : tests) {
     },
     cpp: {
       driver: `vector<vector<int>> tests = {{7,1,5,3,6,4},{7,6,4,3,1},{1,2},{7,2,4,1,11,7,5,3},{3,3,3,3},{1,2,3},{3,2,1},{10000,1,2,3,4,5,6,7,8,9},{9,8,7,6,5,4},{0,0,0,0,0,0}};
-for (auto& prices : tests) cout << max_profit(prices) << endl;`,
+for (auto& prices : tests) cout << maxProfit(prices) << endl;`,
       wrapperType: "function_call",
-      functionName: "max_profit",
+      functionName: "maxProfit",
       samples: [{ input: "[7,1,5,3,6,4]", expectedOutput: "5", description: "Basic" }],
       hidden: [],
     },
@@ -371,9 +369,9 @@ for (auto& prices : tests) cout << max_profit(prices) << endl;`,
   "longest-common-prefix": {
     python: {
       driver: `for strs in [["flower","flow","flight"],["dog","racecar","car"],["hello"],["same","same","same"],["a","abc"],["abc","abcde"],["abcdef","abc","abcdefg"],["","a"],["abcd","abc","abc"],["a","aa"]]:
-    print(longest_common_prefix(strs))`,
+    print(longestCommonPrefix(strs))`,
       wrapperType: "function_call",
-      functionName: "longest_common_prefix",
+      functionName: "longestCommonPrefix",
       samples: [{ input: '["flower","flow","flight"]', expectedOutput: "fl", description: "Basic LCP" }],
       hidden: [{ input: '[""]', expectedOutput: "null", category: "edge" }],
     },

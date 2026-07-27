@@ -20,11 +20,11 @@ export default function SettingsLayout() {
             <Icon name="person" size={20} />
             <span>User Identity</span>
           </NavLink>
-          <NavLink to="/settings" className={({ _isActive }) => `sidebar-link`}>
+          <NavLink to="/settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Icon name="terminal" size={20} />
             <span>IDE Preferences</span>
           </NavLink>
-          <NavLink to="/settings" className={({ _isActive }) => `sidebar-link`}>
+          <NavLink to="/settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <Icon name="credit_card" size={20} />
             <span>Plan &amp; Billing</span>
           </NavLink>

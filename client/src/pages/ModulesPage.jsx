@@ -18,6 +18,7 @@ export default function ModulesPage() {
   useEffect(() => {
     fetchCourses()
       .then(d => setCourses(Array.isArray(d) ? d : []))
+      .catch(() => setCourses([]))
       .finally(() => setLoading(false));
   }, []);
 

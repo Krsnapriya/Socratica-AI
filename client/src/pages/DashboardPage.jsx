@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import Icon from '../components/ui/Icon.jsx';
@@ -21,7 +20,7 @@ function StatCard({ label, icon, iconColor, value, loading: isLoading }) {
   );
 }
 
-function ModuleCard({ icon, iconColor, title, description, progress, progressColor, status, badge, badgeVariant }) {
+function ModuleCard({ icon, iconColor, title, description, progress, progressColor, status, badge, badgeVariant, onClick }) {
   const isLocked = status === 'locked';
   return (
     <article className={`bg-surface-container border border-outline-variant rounded-xl p-5 flex flex-col gap-4 transition-all duration-200 ${isLocked ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary cursor-pointer group'}`}>
@@ -45,7 +44,7 @@ function ModuleCard({ icon, iconColor, title, description, progress, progressCol
             : <span className={`font-mono text-xs ${progressColor.replace('bg-', 'text-')}`}>{progress} Complete</span>
           }
           {!isLocked && (
-            <button className="font-mono text-[10px] text-primary hover:text-primary-fixed uppercase tracking-wider transition-colors group-hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
+            <button onClick={onClick} className="font-mono text-[10px] text-primary hover:text-primary-fixed uppercase tracking-wider transition-colors group-hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
               {progress === '100%' ? 'Review' : 'Resume'}
             </button>
           )}
@@ -335,7 +334,10 @@ export default function DashboardPage() {
                 </Link>
               </div>
             ) : (
-              courses[0]?.modules?.slice(0, 4).map(mod => (
+              courses.flatMap(c => (c.modules || []).map(mod => ({
+                ...mod,
+                courseTitle: c.title,
+              }))).slice(0, 8).map(mod => (
                 <ModuleCard
                   key={mod._id}
                   icon="code" 
@@ -347,6 +349,7 @@ export default function DashboardPage() {
                   badge={mod.status === 'locked' ? 'Locked' : mod.progress === '100%' ? 'Mastered' : 'Active'}
                   badgeVariant={mod.status === 'locked' ? 'error' : mod.progress === '100%' ? 'secondary' : 'primary'}
                   status={mod.status}
+                  onClick={() => {}}
                 />
               ))
             )}

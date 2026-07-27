@@ -99,18 +99,18 @@ function buildStudentCodeWithDriver(studentCode, driverConfig, language) {
     const hasInclude = studentCode.includes("#include");
     const hasMain = studentCode.includes("int main");
     const hasNamespace = studentCode.includes("using namespace std;");
-    console.log("[DEBUG] C++ code analysis:", { hasInclude, hasMain, hasNamespace, codeLength: studentCode.length, first200: studentCode.slice(0, 200) });
     let result = "";
     if (!hasInclude) result += "#include <bits/stdc++.h>\n";
     if (!hasNamespace) result += "using namespace std;\n";
-    result += studentCode;
-    if (!hasMain) {
-      result += "\nint main() {\n" + driverCode + "\n}\n";
+    if (hasMain) {
+      // Rename student's main() to student_main() so driver can inject its own main()
+      result += studentCode.replace(/int\s+main\s*\(/g, 'int student_main(');
+    } else {
+      result += studentCode;
     }
-// If student provides their own main(), don't append driver code - they write their own test code
-  console.log("[DEBUG] Final C++ code length:", result.length);
-  return result;
-}
+    result += "\nint main() {\n" + driverCode + "\n}\n";
+    return result;
+  }
 
 // Python/JavaScript: append driver after student code
 return studentCode + "\n" + driverCode + "\n";

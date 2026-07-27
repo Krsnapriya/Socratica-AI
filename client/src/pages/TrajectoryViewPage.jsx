@@ -2,56 +2,159 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
-import { fetchSession } from '../api/api.js';
+import { fetchSession, fetchSessionAnalysis } from '../api/api.js';
 import { TRAJECTORY_SIDEBAR } from '../navigation';
+import { LANGUAGES, STORAGE_KEYS } from '../constants';
 
-function CodeLine({ num, content, type }) {
-  const lineClass = type === 'highlight'
-    ? 'bg-primary/10 border-l-2 border-primary'
-    : type === 'divergence'
-      ? 'bg-tertiary/10 border-l-2 border-tertiary'
-      : 'border-l-2 border-transparent';
+const VERDICT_META = {
+  pass: { icon: 'check_circle', color: 'text-secondary', label: 'Pass', dot: 'bg-secondary' },
+  fail: { icon: 'cancel', color: 'text-error', label: 'Fail', dot: 'bg-error' },
+  timeout: { icon: 'timer_off', color: 'text-tertiary', label: 'TLE', dot: 'bg-tertiary' },
+  compile_error: { icon: 'code_off', color: 'text-error', label: 'CE', dot: 'bg-error' },
+  memory_exceeded: { icon: 'memory', color: 'text-tertiary', label: 'MLE', dot: 'bg-tertiary' },
+  runtime_error: { icon: 'report_problem', color: 'text-error', label: 'RE', dot: 'bg-error' },
+  presentation_error: { icon: 'warning', color: 'text-tertiary', label: 'PE', dot: 'bg-tertiary' },
+};
 
-  const numColor = type === 'highlight' ? 'text-primary'
-    : type === 'divergence' ? 'text-tertiary'
-    : 'text-outline-variant';
+function extractFunction(oracleCode, lang) {
+  if (!oracleCode) return '// Oracle solution not available';
+  const lines = oracleCode.split('\n');
+  if (lang === 'python') {
+    const start = lines.findIndex(l => l.startsWith('def '));
+    if (start === -1) return oracleCode;
+    let end = start;
+    for (let i = start; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim() === '' && i > start) { end = i; break; }
+      if (line.match(/^    /) || line.match(/^def /)) { end = i; }
+      else if (line.trim() !== '' && i > start && !line.match(/^    /) && !line.match(/^#/)) { end = i - 1; break; }
+      end = i;
+    }
+    return lines.slice(start, end + 1).join('\n').trim();
+  }
+  if (lang === 'javascript') {
+    const start = lines.findIndex(l => l.match(/function\s+\w+/));
+    if (start === -1) return oracleCode;
+    let braces = 0, end = start;
+    for (let i = start; i < lines.length; i++) {
+      braces += (lines[i].match(/{/g) || []).length - (lines[i].match(/}/g) || []).length;
+      end = i;
+      if (braces === 0 && i > start) break;
+    }
+    return lines.slice(start, end + 1).join('\n').trim();
+  }
+  if (lang === 'cpp') {
+    const start = lines.findIndex(l => l.match(/^(vector|int|bool|void|string|long long|auto)\s/));
+    if (start === -1) return oracleCode;
+    let braces = 0, end = start;
+    for (let i = start; i < lines.length; i++) {
+      braces += (lines[i].match(/{/g) || []).length - (lines[i].match(/}/g) || []).length;
+      end = i;
+      if (braces === 0 && i > start) break;
+    }
+    return lines.slice(start, end + 1).join('\n').trim();
+  }
+  return oracleCode;
+}
 
-  const textColor = type === 'comment' ? 'text-outline italic'
-    : type === 'divergence' ? 'text-tertiary'
-    : 'text-on-surface-variant';
+function CodeBlock({ code, title }) {
+  const lines = (code || '').split('\n');
+  return (
+    <div className="rounded-xl border border-outline-variant/40 overflow-hidden bg-surface-container-lowest">
+      {title && (
+        <div className="px-3 py-2 border-b border-outline-variant/30 flex items-center gap-2">
+          <Icon name="code" size={13} className="text-primary" />
+          <span className="font-mono text-[10px] text-on-surface font-bold uppercase tracking-wider">{title}</span>
+        </div>
+      )}
+      <div className="overflow-x-auto max-h-[400px] overflow-y-auto scrollbar-thin">
+        <pre className="p-0 m-0">
+          {lines.map((line, i) => (
+            <div
+              key={i}
+              className="flex font-mono text-[11px] leading-5"
+            >
+                <span className="inline-block w-8 text-right pr-2 text-outline select-none shrink-0 border-r border-outline-variant/20">
+                  {i + 1}
+                </span>
+                <span className="pl-3 pr-4 whitespace-pre text-on-surface-variant">
+                  {line || ' '}
+                </span>
+              </div>
+            ))}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function DivergenceSection({ round, oracleCode }) {
+  const divStep = round.divergenceStep;
+  let explanation = '';
+  if (divStep != null && round.tier === 1) {
+    explanation = `Your code diverged from the expected behavior at step ${divStep}. The trace shows your program's state at this point differs from the oracle — likely an incorrect calculation, missing update, or wrong branch taken.`;
+  } else if (round.verdict === 'timeout') {
+    explanation = `Your solution exceeded the time limit. This typically indicates an inefficient algorithm. Consider the time complexity of your approach.`;
+  } else if (round.verdict === 'compile_error') {
+    explanation = `Your code failed to compile. Check for syntax errors, missing semicolons, unmatched brackets, or type mismatches.`;
+  } else {
+    explanation = `Your output didn't match the expected result. Compare your solution with the oracle to identify the logical difference.`;
+  }
 
   return (
-    <div className={`flex font-mono text-[13px] leading-6 ${lineClass}`}>
-      <span className={`w-10 text-right pr-4 shrink-0 select-none ${numColor}`}>{num}</span>
-      <span className={`pl-2 ${textColor}`}>{content}</span>
+    <div className="space-y-3">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/8 border border-primary/20">
+        <Icon name="account_tree" size={16} className="text-primary mt-0.5 shrink-0" />
+        <div>
+          <span className="font-mono text-[10px] text-primary font-bold uppercase tracking-wider">Divergence Analysis</span>
+          <p className="text-on-surface-variant text-xs leading-relaxed mt-1">{explanation}</p>
+        </div>
+      </div>
+
+      {divStep != null && round.tier === 1 && round.traceLog?.snapshots?.length > 0 && (
+        <div className="space-y-2">
+          <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+            State at divergence (step {divStep})
+          </span>
+          <div className="grid grid-cols-2 gap-2">
+            {round.traceLog.snapshots
+              .filter(s => s.step <= divStep + 2)
+              .slice(-4)
+              .map((snap, i) => (
+                <div key={i} className="p-2 rounded-lg bg-surface-container-highest border border-outline-variant/30">
+                  <span className="font-mono text-[9px] text-outline">Step {snap.step}</span>
+                  {snap.locals && Object.keys(snap.locals).length > 0 && (
+                    <div className="mt-1">
+                      {Object.entries(snap.locals).slice(0, 5).map(([k, v]) => (
+                        <div key={k} className="font-mono text-[10px]">
+                          <span className="text-primary">{k}</span>
+                          <span className="text-outline"> = </span>
+                          <span className="text-on-surface">{JSON.stringify(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function RoundCard({ sub, index }) {
-  const colors = {
-    pass: 'text-secondary border-secondary/40 bg-secondary/5',
-    fail: 'text-error border-error/40 bg-error/5',
-    timeout: 'text-tertiary border-tertiary/40 bg-tertiary/5',
-    compile_error: 'text-error border-error/40 bg-error/5',
-    memory_exceeded: 'text-tertiary border-tertiary/40 bg-tertiary/5',
-  };
-  const icons = {
-    pass: 'check_circle', fail: 'cancel', timeout: 'timer_off',
-    compile_error: 'code_off', memory_exceeded: 'memory',
-  };
-  const labels = {
-    pass: 'Pass', fail: 'Fail', timeout: 'TLE',
-    compile_error: 'CE', memory_exceeded: 'MLE',
-  };
-
-  const cls = colors[sub.verdict] || 'text-on-surface-variant border-outline-variant bg-transparent';
-
+  const meta = VERDICT_META[sub.verdict] || VERDICT_META.fail;
   return (
-    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${cls} cursor-pointer hover:opacity-80 transition-opacity`}>
-      <Icon name={icons[sub.verdict] || 'help'} size={14} />
+    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer hover:opacity-80 transition-opacity ${
+      meta.color === 'text-secondary' ? 'text-secondary border-secondary/40 bg-secondary/5'
+      : meta.color === 'text-tertiary' ? 'text-tertiary border-tertiary/40 bg-tertiary/5'
+      : 'text-error border-error/40 bg-error/5'
+    }`}>
+      <Icon name={meta.icon} size={14} />
       <div className="flex-1 min-w-0">
-        <div className="font-mono text-[10px] uppercase tracking-wider">{labels[sub.verdict] || sub.verdict}</div>
+        <div className="font-mono text-[10px] uppercase tracking-wider">{meta.label}</div>
         <div className="font-mono text-[9px] text-on-surface-variant truncate">Round {index + 1} · {sub.language}</div>
       </div>
       {sub.tier2Result && (
@@ -74,8 +177,8 @@ function WhatIsTrajectory({ onClose }) {
         </button>
       </div>
       <p className="text-on-surface-variant text-xs leading-relaxed">
-        A trajectory shows your complete journey through a problem — every attempt, 
-        every code change, and how your solution compares to an expert's approach.
+        A trajectory shows your complete journey through a problem — every attempt,
+        every code change, and exactly where your solution diverges from the expert's approach.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
@@ -87,12 +190,12 @@ function WhatIsTrajectory({ onClose }) {
           <p className="font-mono text-[10px] text-on-surface-variant">Your code didn't match expected output for some test cases.</p>
         </div>
         <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
-          <div className="font-mono text-[10px] text-tertiary font-bold uppercase mb-1">Timeout</div>
-          <p className="font-mono text-[10px] text-on-surface-variant">Your code took too long to execute (exceeded 2 seconds).</p>
+          <div className="font-mono text-[10px] text-primary font-bold uppercase mb-1">Divergence</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">The exact step where your trace differs from the oracle's trace.</p>
         </div>
         <div className="bg-surface-container rounded-lg p-3 border border-outline-variant/30">
-          <div className="font-mono text-[10px] text-error font-bold uppercase mb-1">Compile Error</div>
-          <p className="font-mono text-[10px] text-on-surface-variant">Your code couldn't be compiled. Check syntax errors.</p>
+          <div className="font-mono text-[10px] text-tertiary font-bold uppercase mb-1">Oracle</div>
+          <p className="font-mono text-[10px] text-on-surface-variant">The expert solution for comparison with your approach.</p>
         </div>
       </div>
     </div>
@@ -102,40 +205,78 @@ function WhatIsTrajectory({ onClose }) {
 export default function TrajectoryViewPage() {
   const navigate = useNavigate();
   const [rounds, setRounds] = useState([]);
+  const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedRound, setSelectedRound] = useState(null);
+  const [selectedRoundIdx, setSelectedRoundIdx] = useState(0);
   const [step, setStep] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [rightTab, setRightTab] = useState('deviation');
 
-  const sessionId = localStorage.getItem('socratica-last-session-id');
+  const sessionId = localStorage.getItem(STORAGE_KEYS.LAST_SESSION_ID);
 
   useEffect(() => {
     if (!sessionId) {
       setLoading(false);
       return;
     }
-    fetchSession(sessionId)
-      .then(data => {
-        setRounds(data || []);
-        if (data?.length > 0) setSelectedRound(data[0]);
-      })
-      .catch(() => setRounds([]))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetchSession(sessionId).catch(() => []),
+      fetchSessionAnalysis(sessionId).catch(() => null),
+    ]).then(([roundsData, analysisData]) => {
+      const r = roundsData || [];
+      setRounds(r);
+      setAnalysis(analysisData);
+      if (r.length > 0) {
+        setSelectedRound(r[0]);
+        setSelectedRoundIdx(0);
+      }
+    }).finally(() => setLoading(false));
   }, [sessionId]);
+
+  function selectRound(round, idx) {
+    setSelectedRound(round);
+    setSelectedRoundIdx(idx);
+    setStep(0);
+  }
+
+  const currentAnalysisRound = analysis?.rounds?.[selectedRoundIdx] || null;
+  const oracleCode = analysis?.oracleCode || null;
+  const oracleFunctionCode = extractFunction(oracleCode, analysis?.language);
+
+  // Trace snapshots for step-through (execution steps, not source lines)
+  const snapshots = currentAnalysisRound?.traceLog || [];
+  const hasSnapshots = snapshots.length > 0;
+  const currentSnapshot = hasSnapshots ? snapshots[Math.min(step, snapshots.length - 1)] : null;
+  const currentHighlightLine = currentSnapshot?.line || 0;
+  const currentLocals = currentSnapshot?.locals || {};
+  const currentSnapshotStep = currentSnapshot?.step || 0;
+
+  // Divergence line for persistent highlighting
+  const divergenceLine = currentAnalysisRound?.divergenceStep != null && currentAnalysisRound?.tier === 1
+    ? (() => {
+        const divSnap = snapshots.find(s => s.step === currentAnalysisRound.divergenceStep);
+        return divSnap?.line || 0;
+      })()
+    : 0;
 
   const codeLines = selectedRound?.code
     ? selectedRound.code.split('\n').map((content, i) => {
-        const type = content.trim().startsWith('#') || content.trim().startsWith('//')
-          ? 'comment'
-          : content.includes('while') || content.includes('for') || content.includes('if')
-            ? 'highlight'
-            : 'normal';
-        return { num: i + 1, content, type };
+        const lineNum = i + 1;
+        const isCurrentStep = hasSnapshots && lineNum === currentHighlightLine;
+        const isDivergence = divergenceLine > 0 && lineNum === divergenceLine;
+        const type = isCurrentStep ? 'highlight'
+          : isDivergence ? 'divergence'
+          : content.trim().startsWith('#') || content.trim().startsWith('//') ? 'comment'
+          : content.includes('while') || content.includes('for') || content.includes('if') ? 'highlight'
+          : 'normal';
+        return { num: lineNum, content, type };
       })
     : [];
 
   const lastLine = codeLines.length;
-  const currentStep = Math.min(step, lastLine);
+  const maxStep = hasSnapshots ? snapshots.length - 1 : lastLine;
+  const currentStep = Math.min(step, maxStep);
 
   return (
     <div className="flex overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
@@ -171,7 +312,7 @@ export default function TrajectoryViewPage() {
             </div>
             <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin">
               {rounds.map((r, i) => (
-                <button key={r._id} className="w-full text-left" onClick={() => setSelectedRound(r)}>
+                <button key={r._id} className="w-full text-left" onClick={() => selectRound(r, i)}>
                   <RoundCard sub={r} index={i} />
                 </button>
               ))}
@@ -194,14 +335,16 @@ export default function TrajectoryViewPage() {
             <h2 className="font-mono text-xs text-on-surface-variant uppercase tracking-wider flex items-center gap-2">
               <Icon name="timeline" size={16} />
               Session Overview
-              {selectedRound && (
-                <span className="ml-2 font-mono text-[10px] px-2.5 py-1 rounded-md border font-medium uppercase"
-                  style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderColor: 'var(--primary-container)' }}>
-                  {selectedRound.language.toUpperCase()}
+              {analysis && (
+                <span className="ml-2 font-mono text-[10px] px-2 py-0.5 rounded-md border border-outline-variant text-on-surface-variant">
+                  {analysis.title} · {analysis.language} · {analysis.totalRounds} rounds
                 </span>
               )}
+              {analysis?.hasPass && (
+                <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary font-mono text-[9px] font-bold border border-secondary/30">PASSED</span>
+              )}
             </h2>
-            <button 
+            <button
               onClick={() => setShowHelp(!showHelp)}
               className="font-mono text-[10px] text-primary hover:underline flex items-center gap-1"
             >
@@ -230,15 +373,15 @@ export default function TrajectoryViewPage() {
             ) : (
               <div className="flex items-center gap-2 flex-wrap">
                 {rounds.map((r, i) => {
-                  const dot = { pass: 'bg-secondary', fail: 'bg-error', timeout: 'bg-tertiary', compile_error: 'bg-error' };
+                  const meta = VERDICT_META[r.verdict] || VERDICT_META.fail;
                   return (
                     <div key={r._id} className="flex items-center gap-1">
                       {i > 0 && <div className="w-8 h-px bg-outline-variant" />}
                       <button
-                        onClick={() => setSelectedRound(r)}
+                        onClick={() => selectRound(r, i)}
                         className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all border-2
                           ${selectedRound?._id === r._id ? 'border-primary scale-110' : 'border-transparent scale-100'}
-                          ${dot[r.verdict] || 'bg-outline'}`}
+                          ${meta.dot}`}
                         title={`Round ${i + 1}: ${r.verdict}`}
                       >
                         {i + 1}
@@ -262,12 +405,17 @@ export default function TrajectoryViewPage() {
                 <div className="flex items-center gap-2">
                   <Icon name="code" size={16} className="text-on-surface-variant" />
                   <span className="font-mono text-xs text-on-surface">
-                    {selectedRound ? `solution.${selectedRound.language === 'python' ? 'py' : selectedRound.language === 'javascript' ? 'js' : 'cpp'}` : 'solution.py'}
+                    {selectedRound ? `solution.${LANGUAGES.find(l => l.id === selectedRound.language)?.ext?.slice(1) || 'py'}` : 'solution.py'}
                   </span>
+                  {currentAnalysisRound?.divergenceStep != null && currentAnalysisRound?.tier === 1 && (
+                    <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-error/10 text-error border border-error/20">
+                      divergence @ step {currentAnalysisRound.divergenceStep}
+                    </span>
+                  )}
                 </div>
                 {selectedRound && (
                   <span className="font-mono text-[10px] text-outline px-2 py-0.5 rounded-md border border-outline-variant">
-                    {selectedRound.language === 'python' ? 'Python 3.10' : selectedRound.language === 'javascript' ? 'JavaScript' : 'C++20'}
+                    {LANGUAGES.find(l => l.id === selectedRound.language)?.label || selectedRound.language}
                   </span>
                 )}
               </div>
@@ -282,8 +430,12 @@ export default function TrajectoryViewPage() {
                     <p className="text-sm">No code to display.</p>
                     <p className="font-mono text-xs text-outline">Submit code in the Workspace to see it here.</p>
                   </div>
+                ) : hasSnapshots ? (
+                  <div>
+                    {codeLines.map(line => <CodeLine key={line.num} {...line} />)}
+                  </div>
                 ) : (
-                  codeLines.map(line => <CodeLine key={line.num} {...line} />)
+                  codeLines.filter(line => line.num <= currentStep).map(line => <CodeLine key={line.num} {...line} />)
                 )}
               </div>
             </div>
@@ -300,7 +452,7 @@ export default function TrajectoryViewPage() {
                       <Icon name="skip_previous" size={20} />
                     </button>
                     <button
-                      onClick={() => setStep(s => Math.min(lastLine, s + 1))}
+                      onClick={() => setStep(s => Math.min(maxStep, s + 1))}
                       className="w-10 h-10 flex items-center justify-center rounded-full text-white hover:opacity-90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       style={{ background: 'var(--primary-container)' }}
                       aria-label="Next step"
@@ -308,7 +460,7 @@ export default function TrajectoryViewPage() {
                       <Icon name="play_arrow" size={24} />
                     </button>
                     <button
-                      onClick={() => setStep(s => Math.min(lastLine, s + 1))}
+                      onClick={() => setStep(s => Math.min(maxStep, s + 1))}
                       className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       aria-label="Next step"
                     >
@@ -317,10 +469,17 @@ export default function TrajectoryViewPage() {
                   </div>
                   <div className="flex-1" />
                   <div className="flex gap-4 font-mono text-xs text-outline">
-                    <span>Line {currentStep}/{lastLine}</span>
+                    {hasSnapshots ? (
+                      <span>Step {currentStep + 1}/{snapshots.length}{currentSnapshotStep > 0 ? ` (exec step ${currentSnapshotStep})` : ''}</span>
+                    ) : (
+                      <span>Line {currentStep}/{lastLine}</span>
+                    )}
+                    {currentSnapshot?.function && (
+                      <span className="text-primary">{currentSnapshot.function}()</span>
+                    )}
                     {selectedRound?.verdict && (
                       <span className={selectedRound.verdict === 'pass' ? 'text-secondary' : 'text-error'}>
-                        {selectedRound.verdict.toUpperCase()}
+                        {selectedRound.verdict.replace('_', ' ').toUpperCase()}
                       </span>
                     )}
                   </div>
@@ -330,14 +489,34 @@ export default function TrajectoryViewPage() {
                   <div className="relative flex-1 h-3 flex items-center cursor-pointer" onClick={e => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const pct = (e.clientX - rect.left) / rect.width;
-                    setStep(Math.round(pct * lastLine));
+                    setStep(Math.round(pct * maxStep));
                   }}>
                     <div className="absolute h-1.5 w-full rounded-full" style={{ background: 'var(--surface-container-highest)' }} />
-                    <div className="absolute h-1.5 rounded-full" style={{ width: `${(currentStep / Math.max(lastLine, 1)) * 100}%`, background: 'var(--primary)' }} />
-                    <div className="absolute w-3 h-3 rounded-full bg-white shadow-md z-10" style={{ left: `${(currentStep / Math.max(lastLine, 1)) * 100}%`, transform: 'translateX(-50%)' }} />
+                    <div className="absolute h-1.5 rounded-full" style={{ width: `${(currentStep / Math.max(maxStep, 1)) * 100}%`, background: 'var(--primary)' }} />
+                    <div className="absolute w-3 h-3 rounded-full bg-white shadow-md z-10" style={{ left: `${(currentStep / Math.max(maxStep, 1)) * 100}%`, transform: 'translateX(-50%)' }} />
                   </div>
-                  <span className="font-mono text-[10px] text-outline w-6 text-left select-none">{lastLine}</span>
+                  <span className="font-mono text-[10px] text-outline w-6 text-left select-none">{maxStep}</span>
                 </div>
+
+                {hasSnapshots && Object.keys(currentLocals).length > 0 && (
+                  <div className="mt-1 p-2.5 rounded-lg bg-surface-container-highest border border-outline-variant/30">
+                    <span className="font-mono text-[9px] text-on-surface-variant uppercase tracking-wider font-bold">
+                      Variables at step {currentStep + 1}
+                    </span>
+                    <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      {Object.entries(currentLocals).slice(0, 10).map(([k, v]) => (
+                        <div key={k} className="font-mono text-[10px] flex items-baseline gap-1 truncate">
+                          <span className="text-primary font-bold shrink-0">{k}</span>
+                          <span className="text-outline">=</span>
+                          <span className="text-on-surface truncate">{JSON.stringify(v)}</span>
+                        </div>
+                      ))}
+                      {Object.keys(currentLocals).length > 10 && (
+                        <div className="font-mono text-[9px] text-outline">+{Object.keys(currentLocals).length - 10} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -348,11 +527,23 @@ export default function TrajectoryViewPage() {
               className="flex-1 bg-surface-container-low border border-outline-variant rounded-xl flex flex-col overflow-hidden"
               aria-label="Divergence analysis"
             >
-              <div className="h-10 bg-surface-container border-b border-outline-variant flex items-center px-4 justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <Icon name="speed" size={16} className="text-tertiary" />
-                  <span className="font-mono text-xs text-tertiary uppercase tracking-wide font-bold">Outcome Analysis</span>
-                </div>
+              <div className="h-10 bg-surface-container border-b border-outline-variant flex items-center shrink-0">
+                {[
+                  { id: 'deviation', label: 'Deviation', icon: 'account_tree' },
+                  { id: 'oracle', label: 'Oracle', icon: 'school' },
+                  { id: 'performance', label: 'Performance', icon: 'speed' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setRightTab(t.id)}
+                    className={`flex-1 h-full flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-wider font-bold transition-colors border-b-2 ${
+                      rightTab === t.id ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-on-surface'
+                    }`}
+                  >
+                    <Icon name={t.icon} size={12} />
+                    {t.label}
+                  </button>
+                ))}
               </div>
               <div className="flex-1 p-5 overflow-auto scrollbar-thin space-y-4">
                 {loading ? (
@@ -368,74 +559,160 @@ export default function TrajectoryViewPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-1">
-                      <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Verdict</div>
-                      <div className={`font-mono text-sm font-bold ${selectedRound.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
-                        {selectedRound.verdict.replace('_', ' ').toUpperCase()}
-                      </div>
-                    </div>
-
-                    {selectedRound.tier2Result && (
-                      <div className="space-y-2">
-                        <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Performance Comparison</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { label: 'Your Time', value: `${selectedRound.tier2Result.studentTimeMs}ms`, desc: 'How long your code took' },
-                            { label: 'Oracle Time', value: `${selectedRound.tier2Result.oracleTimeMs}ms`, desc: 'Expert solution time' },
-                            { label: 'Your Memory', value: `${selectedRound.tier2Result.studentMemMb}MB`, desc: 'Memory your code used' },
-                            { label: 'Oracle Memory', value: `${selectedRound.tier2Result.oracleMemMb}MB`, desc: 'Expert memory usage' },
-                          ].map(({ label, value, desc }) => (
-                            <div key={label} className="bg-surface-container rounded-lg p-3 border border-outline-variant">
-                              <div className="font-mono text-[9px] text-on-surface-variant uppercase mb-1">{label}</div>
-                              <div className="font-mono text-sm font-bold text-on-surface">{value}</div>
-                              <div className="font-mono text-[9px] text-outline mt-0.5">{desc}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedRound.hint && (
-                      <div className="bg-surface-container border border-primary/25 rounded-xl p-4 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl" aria-hidden="true" />
-                        <div className="pl-2">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Icon name="auto_awesome" size={14} className="text-primary" />
-                            <span className="font-mono text-[10px] text-primary uppercase tracking-wider font-bold">AI Mentor Hint</span>
+                    {rightTab === 'deviation' && (
+                      <>
+                        {currentAnalysisRound ? (
+                          <DivergenceSection
+                            round={currentAnalysisRound}
+                            oracleCode={oracleCode}
+                          />
+                        ) : (
+                          <div className="text-center py-8">
+                            <Icon name="account_tree" size={32} className="text-outline mx-auto mb-3" />
+                            <p className="font-mono text-xs text-outline">Divergence data not available for this round.</p>
                           </div>
-                          <p className="text-on-surface-variant text-xs leading-relaxed font-mono whitespace-pre-wrap">{selectedRound.hint}</p>
-                        </div>
-                      </div>
+                        )}
+
+                        {analysis?.divergences?.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                              All Divergence Points
+                            </span>
+                            {analysis.divergences.map((d, i) => (
+                              <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-surface-container-highest border border-outline-variant/30">
+                                <span className="font-mono text-[10px] text-on-surface-variant">Round {d.round}</span>
+                                <span className="font-mono text-[10px] text-primary">Step {d.step}</span>
+                                <span className="font-mono text-[9px] text-outline">Tier {d.tier}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {selectedRound.verdict !== 'pass' && (
+                          <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Icon name="lightbulb" size={14} className="text-secondary" />
+                              <span className="font-mono text-[10px] text-secondary uppercase tracking-wider font-bold">Next Steps</span>
+                            </div>
+                            <ul className="text-on-surface-variant text-xs space-y-1.5 font-mono">
+                              <li className="flex items-start gap-2">
+                                <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                                Review the divergence analysis above
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                                Compare your code with the Oracle tab
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
+                                Try fixing the code at the divergence point
+                              </li>
+                            </ul>
+                            <button
+                              onClick={() => navigate(`/workspace?problem=${analysis?.problemId || selectedRound?.problemId}`)}
+                              className="mt-3 w-full bg-secondary text-white font-mono text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Icon name="refresh" size={14} />
+                              Try Again
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {selectedRound.verdict !== 'pass' && (
-                      <div className="bg-secondary/5 border border-secondary/20 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Icon name="lightbulb" size={14} className="text-secondary" />
-                          <span className="font-mono text-[10px] text-secondary uppercase tracking-wider font-bold">Next Steps</span>
+                    {rightTab === 'oracle' && (
+                      <>
+                        {oracleCode ? (
+                          <>
+                            <div className="bg-surface-container-high border border-secondary/25 rounded-xl p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Icon name="school" size={14} className="text-secondary" />
+                                <span className="font-mono text-[10px] text-secondary font-bold uppercase tracking-wider">Oracle Approach</span>
+                              </div>
+                              <p className="text-on-surface-variant text-xs leading-relaxed font-mono">
+                                The oracle demonstrates the optimal approach for this problem. Study the algorithm, understand its time/space complexity, and compare it with your attempt.
+                              </p>
+                            </div>
+                            <CodeBlock
+                              code={oracleFunctionCode}
+                              title="Oracle Solution"
+                            />
+                          </>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Icon name="school" size={32} className="text-outline mx-auto mb-3" />
+                            <p className="font-mono text-xs text-outline">Oracle solution not available for this problem.</p>
+                          </div>
+                        )}
+
+                        {currentAnalysisRound && (
+                          <div className="space-y-2">
+                            <span className="font-mono text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
+                              Your Code (Round {currentAnalysisRound.round})
+                            </span>
+                            <CodeBlock
+                              code={currentAnalysisRound.code}
+                              title={`Your Solution — ${VERDICT_META[currentAnalysisRound.verdict]?.label || currentAnalysisRound.verdict}`}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {rightTab === 'performance' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Verdict</div>
+                          <div className={`font-mono text-sm font-bold ${selectedRound.verdict === 'pass' ? 'text-secondary' : 'text-error'}`}>
+                            {selectedRound.verdict.replace('_', ' ').toUpperCase()}
+                          </div>
                         </div>
-                        <ul className="text-on-surface-variant text-xs space-y-1.5 font-mono">
-                          <li className="flex items-start gap-2">
-                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
-                            Review the AI hint above for specific guidance
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
-                            Compare your code with the performance metrics
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <Icon name="check" size={12} className="text-secondary mt-0.5 shrink-0" />
-                            Try optimizing your approach and submit again
-                          </li>
-                        </ul>
-                        <button 
-                          onClick={() => navigate(`/workspace?problem=${submission?.problemId}`)}
-                          className="mt-3 w-full bg-secondary text-white font-mono text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Icon name="refresh" size={14} />
-                          Try Again
-                        </button>
-                      </div>
+
+                        {selectedRound.tier2Result && (
+                          <div className="space-y-2">
+                            <div className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">Performance Comparison</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {[
+                                { label: 'Your Time', value: `${selectedRound.tier2Result.studentTimeMs}ms`, desc: 'How long your code took' },
+                                { label: 'Oracle Time', value: `${selectedRound.tier2Result.oracleTimeMs}ms`, desc: 'Expert solution time' },
+                                { label: 'Your Memory', value: `${selectedRound.tier2Result.studentMemMb}MB`, desc: 'Memory your code used' },
+                                { label: 'Oracle Memory', value: `${selectedRound.tier2Result.oracleMemMb}MB`, desc: 'Expert memory usage' },
+                              ].map(({ label, value, desc }) => (
+                                <div key={label} className="bg-surface-container rounded-lg p-3 border border-outline-variant">
+                                  <div className="font-mono text-[9px] text-on-surface-variant uppercase mb-1">{label}</div>
+                                  <div className="font-mono text-sm font-bold text-on-surface">{value}</div>
+                                  <div className="font-mono text-[9px] text-outline mt-0.5">{desc}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedRound.tier != null && (
+                          <div className="bg-surface-container rounded-lg p-3 border border-outline-variant">
+                            <div className="font-mono text-[9px] text-on-surface-variant uppercase mb-1">Analysis Tier</div>
+                            <div className="font-mono text-sm font-bold text-on-surface">
+                              Tier {selectedRound.tier}
+                              <span className="text-[10px] font-normal text-on-surface-variant ml-2">
+                                {selectedRound.tier === 1 ? '(trace-level divergence)' : '(performance comparison only)'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedRound.hint && (
+                          <div className="bg-surface-container border border-primary/25 rounded-xl p-4 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl" aria-hidden="true" />
+                            <div className="pl-2">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Icon name="auto_awesome" size={14} className="text-primary" />
+                                <span className="font-mono text-[10px] text-primary uppercase tracking-wider font-bold">AI Mentor Hint</span>
+                              </div>
+                              <p className="text-on-surface-variant text-xs leading-relaxed font-mono whitespace-pre-wrap">{selectedRound.hint}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}

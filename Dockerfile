@@ -2,11 +2,12 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install Python3 and g++ for sandbox fallback execution
+# Install Python3, g++, make for sandbox fallback + native module compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     g++ \
+    make \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./

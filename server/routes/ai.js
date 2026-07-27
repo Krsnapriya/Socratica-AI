@@ -1,4 +1,5 @@
 const express = require("express");
+const { z } = require("zod");
 const router = express.Router();
 const requireAuth = require("../middleware/requireAuth");
 const requireRole = require("../middleware/requireRole");
@@ -24,6 +25,71 @@ const { buildInsightsPrompt } = require("../ai/agents/definitions/instructor/ins
 const { buildProblemAuthorPrompt } = require("../ai/agents/definitions/instructor/problemAuthor");
 const redis = require("../redis");
 
+// ── Zod validation schemas ────────────────────────────────────────────────
+const MAX_MESSAGE_LENGTH = 10000;
+const MAX_CODE_LENGTH = 50000;
+
+const chatSchema = z.object({
+  message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH, "Message too long"),
+  sessionId: z.string().optional(),
+  topic: z.string().optional(),
+  context: z.object({}).passthrough().optional(),
+  style: z.string().optional(),
+  code: z.string().max(MAX_CODE_LENGTH).optional(),
+  language: z.string().optional(),
+  problemId: z.string().optional(),
+});
+
+const guestChatSchema = z.object({
+  message: z.string().min(1, "Message is required").max(MAX_MESSAGE_LENGTH, "Message too long"),
+  topic: z.string().optional(),
+});
+
+const syllabusSchema = z.object({
+  moduleId: z.string().optional(),
+  problemId: z.string().optional(),
+}).refine(data => data.moduleId || data.problemId, { message: "moduleId or problemId required" });
+
+const debugSchema = z.object({
+  code: z.string().max(MAX_CODE_LENGTH).optional(),
+  language: z.string().optional(),
+  problemId: z.string().optional(),
+  error: z.string().min(1, "Error message is required").max(MAX_MESSAGE_LENGTH),
+  sessionId: z.string().optional(),
+});
+
+const codeReviewSchema = z.object({
+  code: z.string().min(1, "Code is required").max(MAX_CODE_LENGTH, "Code too long"),
+  language: z.string().optional(),
+  problemId: z.string().optional(),
+  sessionId: z.string().optional(),
+});
+
+const confidenceSchema = z.object({
+  code: z.string().min(1, "Code is required").max(MAX_CODE_LENGTH),
+  language: z.string().optional(),
+  problemId: z.string().optional(),
+});
+
+const quizSchema = z.object({
+  moduleId: z.string().optional(),
+  problemId: z.string().optional(),
+  difficulty: z.enum(["easy", "medium", "hard", "mixed"]).optional(),
+  count: z.number().int().min(1).max(20).optional(),
+}).refine(data => data.moduleId || data.problemId, { message: "moduleId or problemId required" });
+
+function validateBody(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      const errors = result.error.errors.map(e => `${e.path.join(".")}: ${e.message}`);
+      return res.status(400).json({ error: "Validation failed", details: errors });
+    }
+    req.body = result.data;
+    next();
+  };
+}
+
 // ── Rate limit store (Redis-backed, per-role) ────────────────────────────
 async function roleRateLimit(req, res, next) {
   const role = req.userRole || "guest";
@@ -38,7 +104,7 @@ async function roleRateLimit(req, res, next) {
 }
 
 // ── Guest access routes (no auth required) ──────────────────────────────
-router.post("/guest/chat", roleRateLimit, async (req, res) => {
+router.post("/guest/chat", roleRateLimit, validateBody(guestChatSchema), async (req, res) => {
   try {
     const { message, topic } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
@@ -57,7 +123,7 @@ router.post("/guest/chat", roleRateLimit, async (req, res) => {
   }
 });
 
-router.post("/guest/syllabus", roleRateLimit, async (req, res) => {
+router.post("/guest/syllabus", roleRateLimit, validateBody(z.object({ problemId: z.string().min(1, "problemId required") })), async (req, res) => {
   try {
     const { problemId } = req.body;
     if (!problemId) return res.status(400).json({ error: "problemId required" });
@@ -84,7 +150,7 @@ router.post("/guest/syllabus", roleRateLimit, async (req, res) => {
 router.use(requireAuth);
 
 // ── Chat with AI Mentor ──────────────────────────────────────────────────
-router.post("/chat", roleRateLimit, async (req, res) => {
+router.post("/chat", roleRateLimit, validateBody(chatSchema), async (req, res) => {
   try {
     const { message, sessionId, topic, context, style, code, language, problemId } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
@@ -165,7 +231,7 @@ router.delete("/history", async (req, res) => {
 });
 
 // ── Explain syllabus / topic ────────────────────────────────────────────
-router.post("/syllabus", roleRateLimit, async (req, res) => {
+router.post("/syllabus", roleRateLimit, validateBody(syllabusSchema), async (req, res) => {
   try {
     const { moduleId, problemId } = req.body;
     if (!moduleId && !problemId) return res.status(400).json({ error: "moduleId or problemId required" });
@@ -201,7 +267,7 @@ router.post("/syllabus", roleRateLimit, async (req, res) => {
 });
 
 // ── Explain compiler error ──────────────────────────────────────────────
-router.post("/debug", roleRateLimit, async (req, res) => {
+router.post("/debug", roleRateLimit, validateBody(debugSchema), async (req, res) => {
   try {
     const { code, language, problemId, error, sessionId } = req.body;
     if (!error) return res.status(400).json({ error: "Error message is required" });
@@ -227,7 +293,7 @@ router.post("/debug", roleRateLimit, async (req, res) => {
 });
 
 // ── Code review (contextual) ────────────────────────────────────────────
-router.post("/code-review-contextual", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/code-review-contextual", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), validateBody(codeReviewSchema), async (req, res) => {
   try {
     const { code, language, problemId } = req.body;
     if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
@@ -248,7 +314,7 @@ router.post("/code-review-contextual", roleRateLimit, requireRole(["student", "i
 });
 
 // ── Code review (legacy) ─────────────────────────────────────────────────
-router.post("/code-review", roleRateLimit, async (req, res) => {
+router.post("/code-review", roleRateLimit, validateBody(codeReviewSchema), async (req, res) => {
   try {
     const { code, language, problemId, sessionId } = req.body;
     if (!code) return res.status(400).json({ error: "Code is required" });
@@ -358,7 +424,7 @@ router.post("/contextual-hint", roleRateLimit, requireRole(["student", "instruct
 });
 
 // ── Confidence Report ────────────────────────────────────────────────────
-router.post("/confidence", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+router.post("/confidence", roleRateLimit, requireRole(["student", "instructor", "admin", "super_admin"]), validateBody(confidenceSchema), async (req, res) => {
   try {
     const { code, language, problemId } = req.body;
     if (!code) return res.status(400).json({ error: "code is required" });
@@ -374,7 +440,7 @@ router.post("/confidence", roleRateLimit, requireRole(["student", "instructor", 
 });
 
 // ── Generate quiz ───────────────────────────────────────────────────────
-router.post("/quiz", roleRateLimit, async (req, res) => {
+router.post("/quiz", roleRateLimit, validateBody(quizSchema), async (req, res) => {
   try {
     const { moduleId, problemId, difficulty, count = 5 } = req.body;
     if (!moduleId && !problemId) return res.status(400).json({ error: "moduleId or problemId required" });

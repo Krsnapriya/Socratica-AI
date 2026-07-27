@@ -42,6 +42,47 @@ export const CATEGORIES = [
 
 export const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
+// ── Verdict Labels & Colors (single source of truth) ──────────────────────
+export const VERDICT_LABELS = {
+  pass: "Passed",
+  fail: "Wrong Answer",
+  timeout: "Time Limit Exceeded",
+  compile_error: "Compile Error",
+  memory_exceeded: "Memory Limit Exceeded",
+  recursion_limit_exceeded: "Recursion Limit Exceeded",
+  system_judge_error: "System Error",
+};
+
+export const VERDICT_COLORS = {
+  pass: "text-green-400",
+  fail: "text-red-400",
+  timeout: "text-amber-400",
+  compile_error: "text-orange-400",
+  memory_exceeded: "text-purple-400",
+  recursion_limit_exceeded: "text-pink-400",
+  system_judge_error: "text-gray-400",
+};
+
+export const VERDICT_DOT_COLORS = {
+  pass: "bg-green-400",
+  fail: "bg-red-400",
+  timeout: "bg-amber-400",
+  compile_error: "bg-orange-400",
+  memory_exceeded: "bg-purple-400",
+  recursion_limit_exceeded: "bg-pink-400",
+  system_judge_error: "bg-gray-400",
+};
+
+// ── Difficulty Styles ──────────────────────────────────────────────────────
+export const DIFFICULTY_STYLES = {
+  easy: { bg: "bg-green-500/15", text: "text-green-400", border: "border-green-500/30" },
+  medium: { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30" },
+  hard: { bg: "bg-red-500/15", text: "text-red-400", border: "border-red-500/30" },
+  Easy: { bg: "bg-green-500/15", text: "text-green-400", border: "border-green-500/30" },
+  Medium: { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30" },
+  Hard: { bg: "bg-red-500/15", text: "text-red-400", border: "border-red-500/30" },
+};
+
 // ── Reference Solution Variants ────────────────────────────────────────────
 export const SOLUTION_VARIANTS = [
   "most_readable",
@@ -121,12 +162,6 @@ export const SANDBOX_INFO = {
 };
 
 // ── Admin Display Constants ────────────────────────────────────────────────
-export const DIFFICULTY_STYLES = {
-  Easy: { bg: 'bg-green-500/10', text: 'text-green-500', border: 'border-green-500/30' },
-  Medium: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', border: 'border-yellow-500/30' },
-  Hard: { bg: 'bg-red-500/10', text: 'text-red-500', border: 'border-red-500/30' },
-};
-
 export const ROLE_BADGE_STYLES = {
   super_admin: { bg: 'bg-purple-500/10', text: 'text-purple-500', border: 'border-purple-500/30' },
   admin: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/30' },

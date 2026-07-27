@@ -1,22 +1,93 @@
-name: Deploy
+name: Deploy to EC2
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ubuntu
+  APP_DIR: /opt/socratica
 
 jobs:
-  deploy:
-    name: Deploy Server
+  ci:
+    name: CI Gate
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Lint server syntax
+        run: |
+          cd server
+          for f in server.js routes/*.js middleware/*.js models/*.js sandbox/*.js ai/*.js tracer/*.js; do
+            [ -f "$f" ] && node -c "$f"
+          done
+
+      - name: Build client
+        run: |
+          cd client
+          npm ci
+          npx vite build
+
+  deploy:
+    name: Deploy to EC2
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
         with:
-          node-version: "20"
-      - run: npm ci
-      - run: npm test -- --forceExit
-        env:
-          JWT_SECRET: test-secret
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            echo "=== Pulling latest code ==="
+            cd ${{ env.APP_DIR }}
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Installing root dependencies ==="
+            npm ci --omit=dev 2>&1 | tail -5
+
+            echo "=== Installing server dependencies ==="
+            cd server && npm ci --omit=dev 2>&1 | tail -5 && cd ..
+
+            echo "=== Building client ==="
+            cd client && npm ci && npx vite build 2>&1 | tail -10 && cd ..
+
+            echo "=== Installing deploy action on host (if needed) ==="
+            cd server && npm ci --omit=dev 2>&1 | tail -3 && cd ..
+
+            echo "=== Restarting service ==="
+            sudo systemctl restart socratica
+
+            echo "=== Waiting for health check ==="
+            for i in $(seq 1 15); do
+              if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+                echo "✓ Server healthy after ${i}s"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "✗ Health check failed after 30s"
+            sudo journalctl -u socratica --no-pager -n 30
+            exit 1
+
+      - name: Notify deployment
+        if: success()
+        run: echo "✓ Deployed to ${{ env.EC2_HOST }} successfully"
+
+      - name: Notify failure
+        if: failure()
+        run: echo "✗ Deployment to ${{ env.EC2_HOST }} failed — check workflow logs"

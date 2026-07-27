@@ -8,13 +8,12 @@ import VerdictDisplay from '../components/ui/VerdictDisplay.jsx';
 import AIMentorPanel from '../components/AIMentorPanel.jsx';
 import SessionAnalysis from '../components/SessionAnalysis.jsx';
 import { WORKSPACE_NAV } from '../navigation';
-import { LANGUAGES } from '../constants';
+import { LANGUAGES, DIFFICULTY_STYLES, STORAGE_KEYS } from '../constants';
 
-const DIFFICULTY_STYLES = {
-  easy: 'text-green-500 border-green-500 bg-green-500/10',
-  medium: 'text-yellow-500 border-yellow-500 bg-yellow-500/10',
-  hard: 'text-red-500 border-red-500 bg-red-500/10',
-};
+function getDifficultyStyle(difficulty) {
+  const d = DIFFICULTY_STYLES[difficulty] || DIFFICULTY_STYLES[difficulty?.toLowerCase()];
+  return d ? `${d.text} ${d.border} ${d.bg}` : 'text-on-surface-variant border-outline-variant';
+}
 
 function TestCaseRow({ tc, index }) {
   return (
@@ -71,6 +70,7 @@ export default function Workspace() {
   const [output, setOutput] = useState(null);
   const [loadingProblems, setLoadingProblems] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [executing, setExecuting] = useState(false);
   const [rightTab, setRightTab] = useState('console');
   const [consoleTab, setConsoleTab] = useState('output');
@@ -80,7 +80,7 @@ export default function Workspace() {
 
   function startNewSession() {
     const newId = crypto.randomUUID();
-    localStorage.setItem('socratica-last-session-id', newId);
+    localStorage.setItem(STORAGE_KEYS.LAST_SESSION_ID, newId);
     setMaxAttemptsReached(false);
     setOutput(null);
     setExecutionMode(null);
@@ -96,8 +96,10 @@ export default function Workspace() {
         if (list.length > 0 && !selectedProblemId) {
           setSelectedProblemId(list[0].problemId);
         }
-      } catch {
-        // Failed to load problems
+      } catch (err) {
+        console.error('[Workspace] Failed to load problems:', err.message);
+        setProblems([]);
+        setLoadError('Failed to load problems. Please try again.');
       } finally {
         setLoadingProblems(false);
       }
@@ -107,31 +109,38 @@ export default function Workspace() {
 
   useEffect(() => {
     if (!selectedProblemId) return;
+    let cancelled = false;
     async function loadDetail() {
       try {
         setLoadingDetail(true);
         const detail = await fetchProblem(selectedProblemId);
-        setProblemDetail(detail);
-      } catch {
-        // Failed to load problem detail
+        if (!cancelled) setProblemDetail(detail);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[Workspace] Failed to load problem detail:', err.message);
+          setProblemDetail(null);
+        }
       } finally {
-        setLoadingDetail(false);
+        if (!cancelled) setLoadingDetail(false);
       }
     }
     loadDetail();
+    return () => { cancelled = true; };
   }, [selectedProblemId]);
 
   useEffect(() => {
     if (!selectedProblemId) return;
+    let cancelled = false;
     async function loadTemplate() {
       try {
-        const { code: templateCode } = await fetchTemplate(selectedProblemId, lang);
-        setCode(templateCode || '');
+        const result = await fetchTemplate(selectedProblemId, lang);
+        if (!cancelled) setCode(result?.code || result?.template || '');
       } catch {
-        setCode('');
+        if (!cancelled) setCode('');
       }
     }
     loadTemplate();
+    return () => { cancelled = true; };
   }, [selectedProblemId, lang]);
 
   useEffect(() => {
@@ -148,6 +157,13 @@ export default function Workspace() {
         e.preventDefault();
         setOutput(null);
         setExecutionMode(null);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (selectedProblemId && code) {
+          const key = `socratica-draft-${selectedProblemId}-${lang}`;
+          localStorage.setItem(key, code);
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -199,10 +215,10 @@ export default function Workspace() {
       setConsoleTab('verdict');
       const result = await submitSolution({
         code, language: lang, problemId: selectedProblemId,
-        sessionId: localStorage.getItem('socratica-last-session-id') || undefined,
+        sessionId: localStorage.getItem(STORAGE_KEYS.LAST_SESSION_ID) || undefined,
       });
       if (result.sessionId) {
-        localStorage.setItem('socratica-last-session-id', result.sessionId);
+        localStorage.setItem(STORAGE_KEYS.LAST_SESSION_ID, result.sessionId);
       }
       if (result.error && result.error.includes('Max')) {
         setMaxAttemptsReached(true);
@@ -224,7 +240,7 @@ export default function Workspace() {
     editorRef.current = editor;
   }
 
-  const diffStyle = DIFFICULTY_STYLES[problemDetail?.difficulty] || 'text-on-surface-variant border-outline-variant';
+  const diffStyle = getDifficultyStyle(problemDetail?.difficulty);
 
   return (
     <div className="flex overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
@@ -245,8 +261,13 @@ export default function Workspace() {
         <div className="hidden md:flex flex-col flex-1 px-2 py-3 overflow-y-auto scrollbar-thin">
           <span className="font-mono text-[10px] text-on-surface font-bold uppercase tracking-wider px-2 mb-2">Problems</span>
           <div className="flex flex-col gap-0.5">
-            {loadingProblems ? (
+            {              loadingProblems ? (
               <span className="font-mono text-xs text-outline py-2 px-2 animate-pulse">Loading…</span>
+            ) : loadError ? (
+              <div className="py-2 px-2 space-y-2">
+                <span className="font-mono text-xs text-error">{loadError}</span>
+                <button onClick={() => { setLoadError(null); setLoadingProblems(true); fetchProblems().then(d => { const l = Array.isArray(d) ? d : d?.problems || []; setProblems(l); }).catch(() => setLoadError('Failed to load problems.')).finally(() => setLoadingProblems(false)); }} className="font-mono text-[10px] text-primary hover:underline">Retry</button>
+              </div>
             ) : problems.length === 0 ? (
               <span className="font-mono text-xs text-outline py-2 px-2">No problems found</span>
             ) : (
@@ -298,6 +319,29 @@ export default function Workspace() {
                     ))}
                   </div>
                 )}
+                {problemDetail.testCases?.length > 0 && (
+                  <div className="pt-3 border-t border-outline-variant/40 space-y-2">
+                    <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold flex items-center gap-1">
+                      <Icon name="checklist" size={12} />
+                      Sample Test Cases
+                    </span>
+                    {problemDetail.testCases.filter(tc => tc.visibility === 'public' || !tc.visibility).slice(0, 3).map((tc, i) => (
+                      <div key={i} className="rounded-lg border border-outline-variant/30 p-2.5 space-y-1.5">
+                        <div className="font-mono text-[9px] text-outline uppercase tracking-wider">Example {i + 1}</div>
+                        {tc.input && (
+                          <div>
+                            <span className="font-mono text-[9px] text-on-surface-variant uppercase">Input</span>
+                            <pre className="mt-0.5 p-2 rounded bg-surface-container-lowest text-on-surface font-mono text-[10px] overflow-x-auto whitespace-pre-wrap">{typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input)}</pre>
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-mono text-[9px] text-on-surface-variant uppercase">Expected Output</span>
+                          <pre className="mt-0.5 p-2 rounded bg-surface-container-lowest text-on-surface font-mono text-[10px] overflow-x-auto whitespace-pre-wrap">{typeof tc.expectedOutput === 'string' ? tc.expectedOutput : JSON.stringify(tc.expectedOutput)}</pre>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -319,7 +363,7 @@ export default function Workspace() {
                 <option key={l.id} value={l.id}>{l.label}</option>
               ))}
             </select>
-            <button onClick={() => { if (confirm('Switch to a different problem? Current unsaved changes will be lost.')) { setSelectedProblemId(null); setProblemDetail(null); }}}
+            <button onClick={() => { if (confirm('Switch to a different problem? Current unsaved changes will be lost.')) { setSelectedProblemId(null); setProblemDetail(null); setCode(''); setCustomInput(''); setOutput(null); setMaxAttemptsReached(false); setExecutionMode(null); }}}
               className="font-mono text-[10px] px-2 py-1 rounded text-on-surface-variant hover:bg-surface-container-highest transition-colors"
               title="Switch problem">
               <Icon name="swap_horiz" size={12} className="inline mr-1" />New
@@ -445,7 +489,7 @@ export default function Workspace() {
                     <span className="font-mono text-[10px] text-outline">This may take a few seconds</span>
                   </div>
                 ) : maxAttemptsReached ? (
-                  <SessionAnalysis sessionId={localStorage.getItem('socratica-last-session-id')} onStartNewSession={startNewSession} />
+                  <SessionAnalysis sessionId={localStorage.getItem(STORAGE_KEYS.LAST_SESSION_ID)} onStartNewSession={startNewSession} />
                 ) : output?.error ? (
                   <VerdictDisplay error={output.error} />
                 ) : output ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 import AuthPage from './pages/AuthPage.jsx';
@@ -60,8 +60,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let loggingOut = false;
     function handleUnauthorized() {
-      handleLogout();
+      if (loggingOut) return;
+      loggingOut = true;
+      handleLogout().finally(() => { loggingOut = false; });
     }
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
@@ -71,9 +74,9 @@ export default function App() {
     setUser(userData);
   }
 
-  function handleRoleSync(role) {
+  const handleRoleSync = useCallback((role) => {
     setUser(prev => prev ? { ...prev, role } : prev);
-  }
+  }, []);
 
   async function handleLogout() {
     await logout().catch(() => {});

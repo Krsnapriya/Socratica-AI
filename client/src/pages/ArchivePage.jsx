@@ -3,14 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Icon from '../components/ui/Icon.jsx';
 import { fetchStats, fetchSolved } from '../api/api.js';
+import { DIFFICULTY_STYLES } from '../constants';
 
 function ArchiveCard({ icon, category, title, description, difficulty, onClick }) {
-  const difficultyStyles = {
-    easy: 'text-green-500 border-green-500 bg-green-500/10',
-    medium: 'text-yellow-500 border-yellow-500 bg-yellow-500/10',
-    hard: 'text-red-500 border-red-500 bg-red-500/10',
-  };
-  const diffStyle = difficultyStyles[difficulty] || 'text-on-surface-variant border-outline-variant';
+  const d = DIFFICULTY_STYLES[difficulty] || DIFFICULTY_STYLES[difficulty?.toLowerCase()];
+  const diffStyle = d ? `${d.text} ${d.border} ${d.bg}` : 'text-on-surface-variant border-outline-variant';
 
   return (
     <article 

@@ -29,7 +29,7 @@ export default function AboutPage() {
         <h2 className="font-sans text-xl font-semibold text-on-surface">How It Works</h2>
         <div className="space-y-3">
           {[
-            { icon: 'edit', title: 'Write', desc: 'Write your solution in the language of your choice — Python, C, or JavaScript.' },
+            { icon: 'edit', title: 'Write', desc: 'Write your solution in the language of your choice — Python, C++, or JavaScript.' },
             { icon: 'send', title: 'Submit', desc: 'Your code runs against hidden test cases. We compare your execution trace with a reference solution.' },
             { icon: 'psychology', title: 'Learn', desc: 'If your solution fails, our AI analyzes the trace and explains what went wrong — with Socratic questions to guide your thinking.' },
             { icon: 'trending_up', title: 'Improve', desc: 'Track your progress, revisit problems, and build mastery over time.' },
@@ -53,7 +53,7 @@ export default function AboutPage() {
           {[
             'Dual Execution with Trace Alignment',
             'AI-Powered Mentoring (Socratic method)',
-            'Multi-language support (Python, C, JavaScript)',
+            'Multi-language support (Python, C++, JavaScript)',
             'Structured curriculum with progressive modules',
             'Admin panel with analytics and user management',
             'Real-time code execution in Docker sandboxes',

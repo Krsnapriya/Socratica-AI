@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import Icon from './ui/Icon.jsx';
 import Button from './ui/Button.jsx';
-import { WORKSPACE_NAV, ADMIN_NAV_ITEMS } from '../navigation';
+import { NAV_ITEMS, ADMIN_NAV_ITEMS } from '../navigation';
 
-const NAV_LINKS = WORKSPACE_NAV.map(item => ({
+const NAV_LINKS = NAV_ITEMS.map(item => ({
   ...item,
   icon: item.icon || 'code',
   label: item.label,

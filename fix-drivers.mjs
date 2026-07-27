@@ -28,7 +28,7 @@ const functionNames = {
 };
 
 async function fixTemplates() {
-  await mongoose.connect('mongodb://127.0.0.1:55704/', { serverSelectionTimeoutMS: 10000 });
+  await mongoose.connect('mongodb://127.0.0.1:55704/');
   console.log('Connected to MongoDB');
   
   const DriverTemplate = (await import('./server/models/DriverTemplate.js')).default;
@@ -36,8 +36,8 @@ async function fixTemplates() {
   const drivers = await DriverTemplate.find({}).lean();
   console.log('Found', drivers.length, 'drivers');
   
-  for (const p of problems) {
-    const fix = functionNames[p.problemId];
+  for (const d of drivers) {
+    const fix = functionNames[d.problemId];
     if (!fix) continue;
     
     const fn = fix[d.language];

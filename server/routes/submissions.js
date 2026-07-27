@@ -63,6 +63,7 @@ router.get("/session/:sessionId/analysis", requireAuth, requireRole(["student", 
         hint: r.hint,
         divergenceStep: r.divergenceStep,
         tier2Result: r.tier2Result,
+        traceLog: r.traceLog || null,
       })),
       bestAttempt: bestRound ? {
         round: bestRound.round,

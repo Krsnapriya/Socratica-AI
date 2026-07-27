@@ -81,9 +81,7 @@ async function runCode({ code, language, customInput, problemId }) {
   // For runCode mode with C++, use driver to add main() if not present
   // For JS/Python, raw code works fine
   const driverConfig = language === "cpp" ? await loadDriver(problemId, language) : null;
-  console.log("[DEBUG] runCode driverConfig:", JSON.stringify(driverConfig, null, 2));
   const codeWithDriver = driverConfig ? buildStudentCodeWithDriver(code, driverConfig, language) : code;
-  console.log("[DEBUG] runCode codeWithDriver:", codeWithDriver.slice(0, 500));
   
   const timeLimitMs = problem.executionConfig?.defaultTimeLimitMs || problem.timeLimitMs || 10000;
   const memoryLimitMb = problem.executionConfig?.defaultMemoryLimitMb || problem.memoryLimitMb || 256;
@@ -173,34 +171,73 @@ async function runSamples({ code, language, problemId }) {
         compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
       });
 
-      console.log("[DEBUG] runSamples result:", JSON.stringify(result, null, 2));
-
       if (isCompileError(result)) {
         const formatted = formatCompileError(result);
         return { mode: "samples", verdict: "compile_error", compileError: formatted.compileError, results: [] };
       }
 
       const actualOutput = (result.student?.stdout || "").trim();
-      console.log("[DEBUG] runSamples actualOutput:", JSON.stringify(actualOutput));
-      console.log("[DEBUG] runSamples result.student.stdout:", JSON.stringify(result.student?.stdout));
 
       // Try to get expected output from oracle + driver
       const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, problem.memoryLimitMb || 256, problem.executionConfig?.compileTimeoutMs);
-      const expectedOutput = oracleOutput || (testCases[0].expectedOutput || "").trim();
-      const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true; // if no oracle, don't fail
 
-      const results = testCases.map(tc => ({
-        input: tc.input,
-        expectedOutput,
-        actualOutput,
-        passed,
-        visible: tc.visibility === "public",
-        description: tc.description || "",
-        category: tc.category || "sample",
-        elapsed_ms: result.student?.elapsed_ms || 0,
-        max_memory_bytes: result.student?.max_memory_bytes || 0,
-        error: result.student?.error || null,
-      }));
+      let results;
+      if (oracleOutput) {
+        const passed = outputsMatch(actualOutput, oracleOutput);
+        results = testCases.map(tc => ({
+          input: tc.input,
+          expectedOutput: oracleOutput,
+          actualOutput,
+          passed,
+          visible: tc.visibility === "public",
+          description: tc.description || "",
+          category: tc.category || "sample",
+          elapsed_ms: result.student?.elapsed_ms || 0,
+          max_memory_bytes: result.student?.max_memory_bytes || 0,
+          error: result.student?.error || null,
+        }));
+      } else {
+        // No oracle: run each test case individually for accurate results
+        results = [];
+        for (const tc of testCases) {
+          try {
+            const tcResult = await executeInContainer({
+              code: codeWithDriver, language,
+              stdin: tc.input || "",
+              timeLimitMs,
+              memoryLimitMb: problem.memoryLimitMb || 256,
+              compileTimeoutMs: problem.executionConfig?.compileTimeoutMs,
+            });
+            const tcActual = (tcResult.stdout || "").trim();
+            const tcExpected = (tc.expectedOutput || "").trim();
+            results.push({
+              input: tc.input,
+              expectedOutput: tcExpected,
+              actualOutput: tcActual,
+              passed: outputsMatch(tcActual, tcExpected),
+              visible: tc.visibility === "public",
+              description: tc.description || "",
+              category: tc.category || "sample",
+              elapsed_ms: tcResult.elapsed_ms || 0,
+              max_memory_bytes: tcResult.max_memory_bytes || 0,
+              error: tcResult.error || null,
+            });
+          } catch (tcErr) {
+            results.push({
+              input: tc.input,
+              expectedOutput: tc.expectedOutput || "",
+              actualOutput: "",
+              passed: false,
+              visible: tc.visibility === "public",
+              description: tc.description || "",
+              category: tc.category || "sample",
+              elapsed_ms: 0,
+              max_memory_bytes: 0,
+              error: tcErr.message === "container_timeout" ? "timeout" : "runtime_error",
+            });
+          }
+        }
+      }
 
       const allPassed = results.length > 0 && results.every(r => r.passed);
       return {
@@ -212,7 +249,6 @@ async function runSamples({ code, language, problemId }) {
       };
     } catch (err) {
       if (err.message === "system_judge_error") {
-        // Docker unavailable - return system judge error
         return {
           mode: "samples",
           verdict: "system_judge_error",
@@ -451,9 +487,8 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
 
   const isFunctionCall = driverConfig?.wrapperType === "function_call";
 
-  // For function_call mode, the driverCode runs all test cases at once.
-  // Compute expected output dynamically by running oracle solution through the driver.
   if (isFunctionCall) {
+    // Function_call mode: try oracle comparison first, fall back to individual test runs
     try {
       const runResult = await executeInContainer({
         code: codeWithDriver, language, stdin: "",
@@ -464,26 +499,65 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
 
       // Try to get expected output from oracle + driver
       const oracleOutput = await getOracleOutput(problem, language, driverConfig.driverCode, timeLimitMs, memoryLimitMb, compileTimeoutMs);
-      const expectedOutput = oracleOutput || (effectiveTestCases[0]?.expectedOutput || "").trim();
-      const passed = oracleOutput ? outputsMatch(actualOutput, expectedOutput) : true;
 
-      for (const tc of effectiveTestCases) {
-        testResults.push({
-          input: tc.input,
-          expectedOutput,
-          actualOutput,
-          passed,
-          visible: tc.visibility === "public",
-          description: tc.description || "",
-          category: tc.category || "sample",
-          elapsed_ms: runResult.elapsed_ms || 0,
-          max_memory_bytes: runResult.max_memory_bytes || 0,
-          error: runResult.error || null,
-        });
+      if (oracleOutput) {
+        // Oracle available: compare full output against oracle
+        const passed = outputsMatch(actualOutput, oracleOutput);
+        for (const tc of effectiveTestCases) {
+          testResults.push({
+            input: tc.input,
+            expectedOutput: oracleOutput,
+            actualOutput,
+            passed,
+            visible: tc.visibility === "public",
+            description: tc.description || "",
+            category: tc.category || "sample",
+            elapsed_ms: runResult.elapsed_ms || 0,
+            max_memory_bytes: runResult.max_memory_bytes || 0,
+            error: runResult.error || null,
+          });
+        }
+      } else {
+        // No oracle: run each test case individually for accurate per-test results
+        for (const tc of effectiveTestCases) {
+          try {
+            const tcResult = await executeInContainer({
+              code: codeWithDriver, language,
+              stdin: tc.input || "",
+              timeLimitMs, memoryLimitMb, compileTimeoutMs,
+            });
+            const tcActual = (tcResult.stdout || "").trim();
+            const tcExpected = (tc.expectedOutput || "").trim();
+            testResults.push({
+              input: tc.input,
+              expectedOutput: tcExpected,
+              actualOutput: tcActual,
+              passed: outputsMatch(tcActual, tcExpected),
+              visible: tc.visibility === "public",
+              description: tc.description || "",
+              category: tc.category || "sample",
+              elapsed_ms: tcResult.elapsed_ms || 0,
+              max_memory_bytes: tcResult.max_memory_bytes || 0,
+              error: tcResult.error || null,
+            });
+          } catch (tcErr) {
+            testResults.push({
+              input: tc.input,
+              expectedOutput: tc.expectedOutput || "",
+              actualOutput: "",
+              passed: false,
+              visible: tc.visibility === "public",
+              description: tc.description || "",
+              category: tc.category || "sample",
+              elapsed_ms: 0,
+              max_memory_bytes: 0,
+              error: tcErr.message === "container_timeout" ? "timeout" : tcErr.message === "system_judge_error" ? "system_judge_error" : "runtime_error",
+            });
+          }
+        }
       }
     } catch (err) {
       if (err.message === "system_judge_error") {
-        // Docker unavailable - return system judge error
         return {
           mode: "submit",
           verdict: "system_judge_error",
@@ -748,7 +822,7 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
     ...sub.toObject(),
     sessionId: sId,
     // Frontend can display these directly
-    testResults: testResults.filter(r => r.visible), // Only show public tests
+    testResults, // Return all tests (public + hidden) so student sees full picture
     totalTests,
     passedTests,
     failedCategories: getFailedCategories(testResults),

@@ -1,0 +1,22 @@
+[Unit]
+Description=Socratica AI Server
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/socratica
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/socratica/server/.env
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/socratica /var/run/docker.sock /tmp
+
+[Install]
+WantedBy=multi-user.target

@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node server/server.js",
-    "build": "cd client && npm install && npm run build",
-    "vercel-build": "cd client && npm install && npm run build"
+    "vercel-build": "ls -la && cd client && npm install && npx vite build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
@@ -16,7 +15,6 @@
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dockerode": "^4.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^8.5.2",
@@ -28,5 +26,8 @@
     "nodemailer": "^9.0.3",
     "rate-limit-redis": "^5.0.0",
     "zod": "^3.25.76"
+  },
+  "optionalDependencies": {
+    "dockerode": "^4.0.0"
   }
 }

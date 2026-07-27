@@ -421,7 +421,7 @@ export default function AdminDashboard({ user }) {
           {tab === 'settings' && <AdminErrorBoundary key="settings"><SettingsTab config={config} setConfig={setConfig} onSave={handleSaveConfig} savingConfig={savingConfig} loading={loading} /></AdminErrorBoundary>}
           {tab === 'notifications' && <AdminErrorBoundary key="notifications"><NotificationsTab notifs={notifs} showNewNotif={showNewNotif} setShowNewNotif={setShowNewNotif} newNotif={newNotif} setNewNotif={setNewNotif} onCreate={handleCreateNotif} onDelete={handleDeleteNotif} loading={loading} /></AdminErrorBoundary>}
           {tab === 'permissions' && <AdminErrorBoundary key="permissions"><PermissionsTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} /></AdminErrorBoundary>}
-          {tab === 'module-access' && <AdminErrorBoundary key="module-access"><ModuleAccessTab loading={loading} /></AdminErrorBoundary>}
+          {tab === 'module-access' && <AdminErrorBoundary key="module-access"><ModuleAccessTab permissions={permissions} editingPerm={editingPerm} setEditingPerm={setEditingPerm} onSave={handleSavePerm} onDelete={handleDeletePerm} loading={loading} /></AdminErrorBoundary>}
           {tab === 'database' && <AdminErrorBoundary key="database"><DatabaseMonitoringTab loading={loading} /></AdminErrorBoundary>}
         </Suspense>
       </div>

@@ -5,6 +5,17 @@ let transporter = null;
 function getTransporter() {
   if (transporter) return transporter;
 
+  // SendGrid API support (preferred for production)
+  const sendgridKey = process.env.SENDGRID_API_KEY;
+  if (sendgridKey) {
+    transporter = nodemailer.createTransport({
+      service: 'SendGrid',
+      auth: { api_key: sendgridKey },
+    });
+    return transporter;
+  }
+
+  // Generic SMTP support
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT || '587');
   const user = process.env.SMTP_USER;
@@ -23,6 +34,10 @@ function getTransporter() {
   });
 
   return transporter;
+}
+
+function isEmailVerificationRequired() {
+  return process.env.SKIP_EMAIL_VERIFICATION !== 'true' && process.env.NODE_ENV === 'production';
 }
 
 async function sendEmail({ to, subject, text, html }) {
@@ -83,4 +98,4 @@ async function sendPasswordResetEmail(email, token) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendEmail, isEmailVerificationRequired };

@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const requireAuth = require("../middleware/requireAuth");
 const { revokeToken, isRevoked } = require("../middleware/tokenBlacklist");
 const { validate, schemas } = require("../middleware/validate");
-const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/email");
+const { sendVerificationEmail, sendPasswordResetEmail, isEmailVerificationRequired } = require("../utils/email");
 const LocalUserStore = require("../localUserStore");
 
 const router = express.Router();
@@ -117,13 +117,14 @@ router.post("/register", validate(schemas.register), async (req, res) => {
       }
 
       const emailVerifyToken = crypto.randomBytes(32).toString("hex");
+      const autoVerify = !isEmailVerificationRequired();
       const user = await User.create({
         email: normalizedEmail,
         passwordHash,
         displayName,
         emailVerifyToken,
         emailVerifyTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        emailVerified: false,
+        emailVerified: autoVerify,
       });
 
       const adminCount = await User.countDocuments({ role: { $in: ["admin", "super_admin"] } });
@@ -132,7 +133,11 @@ router.post("/register", validate(schemas.register), async (req, res) => {
         await user.save();
       }
 
-      sendVerificationEmail(email, emailVerifyToken);
+      if (!autoVerify) {
+        sendVerificationEmail(email, emailVerifyToken);
+      } else {
+        console.log(`[auth] Email auto-verified (dev mode): ${email}`);
+      }
 
       const { token, refreshToken } = await signToken(user._id.toString(), user);
 
@@ -143,7 +148,7 @@ router.post("/register", validate(schemas.register), async (req, res) => {
         userId: user._id,
         displayName: user.displayName,
         role: user.role,
-        emailVerified: false,
+        emailVerified: autoVerify,
       });
     } catch (err) {
       console.warn("[auth] Mongo register failed, trying local store:", err.message);

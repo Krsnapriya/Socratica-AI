@@ -58,7 +58,7 @@ app.use(cors({
     if (/\.netlify\.app$/.test(origin) || /\.railway\.app$/.test(origin) || /\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
-    return callback(null, true); // fail-open for now — tighten in production
+    return callback(new Error(`CORS blocked: origin ${origin} not allowed`));
   },
   credentials: true,
 }));
