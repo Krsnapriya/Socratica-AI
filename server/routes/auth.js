@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
+const { OAuth2Client } = require("google-auth-library");
 const requireAuth = require("../middleware/requireAuth");
 const { revokeToken, isRevoked } = require("../middleware/tokenBlacklist");
 const { validate, schemas } = require("../middleware/validate");
@@ -449,7 +450,6 @@ router.post("/google", async (req, res) => {
     const googleClientId =
       process.env.GOOGLE_CLIENT_ID ||
       "773033468672-4o2heb1mvk43b5293n8gqa7tg2h6nu2p.apps.googleusercontent.com";
-    const { OAuth2Client } = require("google-auth-library");
     const client = new OAuth2Client(googleClientId);
 
     let ticket;
