@@ -64,6 +64,19 @@ function buildHintPrompt(context = {}) {
           codeAnalysis, executionResult, hintLevel: forcedLevel, previousHint, curriculum, problem } = context;
 
   const level = forcedLevel || getHintLevel(context);
+
+  if (executionResult?.verdict === "pass" || executionResult?.passedTests === executionResult?.totalTests) {
+    if (executionResult.totalTests > 0) {
+      return {
+        system: "You are a supportive CS tutor.",
+        userContent: `The student's code for "${problemTitle || problem?.title || 'this problem'}" passes all ${executionResult.totalTests} test cases.\n\n` +
+          `Their code:\n\`\`\`\n${(code || "").slice(0, 2500)}\n\`\`\`\n\n` +
+          `Congratulate them. Briefly explain why their approach is correct and efficient (1-2 sentences). ` +
+          `Then suggest one optimization or alternative approach they could consider. ` +
+          `Do NOT give a hint — their code works.`,
+      };
+    }
+  }
   const system = HINT_PROMPTS[level] || HINT_PROMPTS[1];
 
   let userContent = `## Problem: ${problemTitle || problem?.title || "Unknown"}\n`;

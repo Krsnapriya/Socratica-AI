@@ -69,13 +69,18 @@ async function requireAuth(req, res, next) {
     }
   }
 
-  // Local store fallback
-  const localUser = LocalUserStore.findById(req.userId);
-  if (!localUser) {
-    return res.status(401).json({ error: "User not found" });
+  // Local store fallback — dev-only. In production an in-memory user store would
+  // silently lose accounts on restart/scale-out, so it must never be trusted.
+  if (process.env.NODE_ENV !== "production") {
+    const localUser = LocalUserStore.findById(req.userId);
+    if (!localUser) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    req.userRole = localUser.role;
+    return next();
   }
-  req.userRole = localUser.role;
-  return next();
+
+  return res.status(503).json({ error: "User data store unavailable" });
 }
 
 module.exports = requireAuth;

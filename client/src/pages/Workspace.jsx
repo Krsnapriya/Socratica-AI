@@ -15,6 +15,10 @@ function getDifficultyStyle(difficulty) {
   return d ? `${d.text} ${d.border} ${d.bg}` : 'text-on-surface-variant border-outline-variant';
 }
 
+function stripConstraintsSection(text) {
+  return String(text || '').replace(/##\s*Constraints\s*\n[\s\S]*?(?=\n##\s|\n##$|$)/i, '').trim();
+}
+
 function TestCaseRow({ tc, index }) {
   return (
     <div className={`rounded-lg border p-3 ${tc.passed ? 'border-secondary/30 bg-secondary/5' : 'border-error/30 bg-error/5'}`}>
@@ -74,6 +78,7 @@ export default function Workspace() {
   const [executing, setExecuting] = useState(false);
   const [rightTab, setRightTab] = useState('console');
   const [consoleTab, setConsoleTab] = useState('output');
+  const [mobilePane, setMobilePane] = useState('editor');
   const [maxAttemptsReached, setMaxAttemptsReached] = useState(false);
   const [executionMode, setExecutionMode] = useState(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -178,6 +183,7 @@ export default function Workspace() {
       setMaxAttemptsReached(false);
       setExecutionMode('run');
       setConsoleTab('output');
+      setMobilePane('right');
       const result = await runCode({ code, language: lang, problemId: selectedProblemId, customInput });
       setOutput(result);
     } catch (err) {
@@ -195,6 +201,7 @@ export default function Workspace() {
       setMaxAttemptsReached(false);
       setExecutionMode('samples');
       setConsoleTab('results');
+      setMobilePane('right');
       const result = await runSamples({ code, language: lang, problemId: selectedProblemId });
       setOutput(result);
     } catch (err) {
@@ -213,6 +220,7 @@ export default function Workspace() {
       setMaxAttemptsReached(false);
       setExecutionMode('submit');
       setConsoleTab('verdict');
+      setMobilePane('right');
       const result = await submitSolution({
         code, language: lang, problemId: selectedProblemId,
         sessionId: localStorage.getItem(STORAGE_KEYS.LAST_SESSION_ID) || undefined,
@@ -243,7 +251,24 @@ export default function Workspace() {
   const diffStyle = getDifficultyStyle(problemDetail?.difficulty);
 
   return (
-    <div className="flex overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
+    <div className="flex flex-col overflow-hidden pt-16 h-screen w-full" style={{ background: 'var(--background)' }}>
+
+      {/* Mobile pane switcher */}
+      <div className="lg:hidden flex h-11 border-b shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
+        {[
+          { key: 'problem', label: 'Problem', icon: 'description' },
+          { key: 'editor', label: 'Code', icon: 'code' },
+          { key: 'right', label: 'Console', icon: 'terminal' },
+        ].map(({ key, label, icon }) => (
+          <button key={key} onClick={() => setMobilePane(key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-colors ${mobilePane === key ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent'}`}>
+            <Icon name={icon} size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
 
       <aside className="h-full w-14 md:w-52 flex flex-col border-r shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
         <nav className="flex flex-col py-3 px-2 gap-0.5 border-b" style={{ borderColor: 'var(--outline-variant)' }}>
@@ -284,10 +309,10 @@ export default function Workspace() {
 
       <div className="flex flex-1 overflow-hidden">
 
-        <section className="w-[28%] min-w-[260px] border-r flex flex-col" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
+        <section className={`${mobilePane === 'problem' ? 'flex' : 'hidden'} lg:flex w-full lg:w-[28%] lg:min-w-[260px] border-r flex-col`} style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
           <div className="h-10 border-b flex items-center px-4 shrink-0 gap-2" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <span className="font-mono text-xs text-on-surface uppercase tracking-wider font-bold">Problem</span>
-            <select value={selectedProblemId} onChange={e => setSelectedProblemId(e.target.value)}
+            <select value={selectedProblemId} onChange={e => { setSelectedProblemId(e.target.value); setMobilePane('editor'); }}
               className="md:hidden ml-auto bg-surface-container border border-outline-variant text-xs py-1 px-2 rounded font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
               {problems.map(p => <option key={p.problemId} value={p.problemId}>{p.title}</option>)}
             </select>
@@ -311,7 +336,23 @@ export default function Workspace() {
                   )}
                 </div>
                 <h2 className="font-sans text-xl font-semibold text-on-surface">{problemDetail.title}</h2>
-                <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{problemDetail.statement || problemDetail.description}</p>
+                <p className="text-on-surface-variant text-sm leading-relaxed whitespace-pre-wrap">{stripConstraintsSection(problemDetail.statement || problemDetail.description)}</p>
+                {problemDetail.constraints?.length > 0 && (
+                  <div className="rounded-lg border border-outline-variant/40 bg-surface-container-lowest p-3.5">
+                    <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold flex items-center gap-1">
+                      <Icon name="list_alt" size={12} />
+                      Constraints
+                    </span>
+                    <ul className="mt-2 space-y-1.5">
+                      {problemDetail.constraints.map((c, i) => (
+                        <li key={i} className="flex items-start gap-2 font-mono text-xs text-on-surface-variant leading-relaxed">
+                          <Icon name="check" size={12} className="text-primary mt-0.5 shrink-0" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {problemDetail.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-2 border-t border-outline-variant/40">
                     {problemDetail.tags.map(tag => (
@@ -355,7 +396,7 @@ export default function Workspace() {
           </div>
         </section>
 
-        <section className="flex-1 flex flex-col min-w-0 border-r" style={{ background: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }}>
+        <section className={`${mobilePane === 'editor' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col min-w-0 lg:border-r`} style={{ background: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }}>
           <div className="h-10 border-b flex items-center justify-between shrink-0 px-3 gap-3" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <select value={lang} onChange={e => setLang(e.target.value)}
               className="bg-surface-container border border-outline-variant text-xs py-1.5 px-2 rounded font-mono text-on-surface focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
@@ -434,10 +475,23 @@ export default function Workspace() {
                 />
               </div>
             )}
+
+            {/* Mobile action bar */}
+            <div className="lg:hidden p-3 border-t shrink-0 flex gap-2" style={{ background: 'var(--surface-container)', borderColor: 'var(--outline-variant)' }}>
+              <Button variant="ghost" className="flex-1" onClick={handleRunCode} disabled={executing || !selectedProblemId}>
+                {executing && executionMode === 'run' ? 'Running…' : 'Run'}
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={handleRunSamples} disabled={executing || !selectedProblemId}>
+                {executing && executionMode === 'samples' ? 'Running…' : 'Samples'}
+              </Button>
+              <Button variant="primary" className="flex-1" onClick={handleSubmit} disabled={executing || !selectedProblemId}>
+                {executing && executionMode === 'submit' ? 'Submitting…' : 'Submit'}
+              </Button>
+            </div>
           </div>
         </section>
 
-        <section className="w-[30%] min-w-[260px] flex flex-col" style={{ background: 'var(--surface-container-low)' }}>
+        <section className={`${mobilePane === 'right' ? 'flex' : 'hidden'} lg:flex w-full lg:w-[30%] lg:min-w-[260px] flex-col`} style={{ background: 'var(--surface-container-low)' }}>
           <div className="h-10 border-b flex items-center shrink-0" style={{ background: 'var(--surface-container-low)', borderColor: 'var(--outline-variant)' }}>
             <button onClick={() => setRightTab('console')}
               className={`h-full px-4 font-mono text-xs uppercase tracking-wider font-bold flex items-center gap-1.5 transition-colors border-b-2 ${rightTab === 'console' ? 'text-primary border-primary' : 'text-on-surface-variant border-transparent hover:text-on-surface'}`}>
@@ -654,6 +708,7 @@ export default function Workspace() {
             </div>
           )}
         </section>
+      </div>
       </div>
 
       {showShortcuts && (

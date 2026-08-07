@@ -18,7 +18,6 @@ const ModulesPage = lazy(() => import('./pages/ModulesPage.jsx'));
 const Workspace = lazy(() => import('./pages/Workspace.jsx'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage.jsx'));
 const ArchivePage = lazy(() => import('./pages/ArchivePage.jsx'));
-const TrajectoryViewPage = lazy(() => import('./pages/TrajectoryViewPage.jsx'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage.jsx'));
 const AboutPage = lazy(() => import('./pages/AboutPage.jsx'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
@@ -108,7 +107,7 @@ export default function App() {
         <Route element={<ProtectedRoute user={user} />}>
           <Route element={<TopNavLayout user={user} onLogout={handleLogout} />}>
           
-          {/* Main layout with Curriculum side nav */}
+          {/* Main content layout (top nav only) */}
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><DashboardPage /></Suspense></PageErrorBoundary>} />
             <Route path="/modules" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><ModulesPage /></Suspense></PageErrorBoundary>} />
@@ -130,7 +129,7 @@ export default function App() {
 
           {/* Standalone pages under TopNav */}
           <Route path="/workspace" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><Workspace /></Suspense></PageErrorBoundary>} />
-          <Route path="/trajectory" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><TrajectoryViewPage /></Suspense></PageErrorBoundary>} />
+          <Route path="/trajectory" element={<Navigate to="/analytics" replace />} />
           <Route path="/about" element={<PageErrorBoundary><Suspense fallback={<PageLoader />}><AboutPage /></Suspense></PageErrorBoundary>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

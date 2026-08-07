@@ -21,6 +21,7 @@ const API = {
   // ── Problems ──────────────────────────────────────────────────────────────
   PROBLEMS: {
     LIST: "/problems",
+    NEXT: "/problems/next",
     GET: (id) => `/problems/${id}`,
     TEMPLATE: (id, lang) => `/problems/${id}/template?lang=${lang}`,
   },
@@ -103,6 +104,8 @@ const API = {
   ACHIEVEMENTS: {
     LIST: "/achievements",
     CHECK: "/achievements/check",
+    DAILY: "/achievements/daily",
+    WEEKLY_GOAL: "/achievements/weekly-goal",
     LEADERBOARD: "/achievements/leaderboard",
     LEADERBOARD_TOP: "/achievements/leaderboard/top",
   },

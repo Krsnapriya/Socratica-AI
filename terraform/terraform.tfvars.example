@@ -1,7 +1,12 @@
 # terraform.tfvars.example
-# Copy this to terraform.tfvars and fill in your values.
+# Copy to terraform.tfvars and fill in your values.
 # WARNING: terraform.tfvars is gitignored. NEVER commit this file.
 
-aws_region      = "us-east-1"
-instance_type   = "t3.medium"
-public_key_path = "~/.ssh/id_rsa.pub"
+project_id   = "project-d4899a6a-135b-4a98-b1b"
+region       = "asia-south1"
+db_zone      = "asia-south1-a"
+sandbox_zone = "asia-south1-c"
+
+# Service accounts
+sandbox_service_account  = "897120847312-compute@developer.gserviceaccount.com"
+cloud_run_service_account = "897120847312-compute@developer.gserviceaccount.com"

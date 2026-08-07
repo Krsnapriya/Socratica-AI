@@ -52,7 +52,6 @@ socratica/
 │   │   ├── components/
 │   │   │   ├── ui/           # Atomic: Button, Badge, Icon
 │   │   │   ├── TopNavBar.jsx
-│   │   │   ├── SideNavBar.jsx
 │   │   │   ├── MobileNav.jsx
 │   │   │   ├── TopNavLayout.jsx
 │   │   │   ├── MainLayout.jsx

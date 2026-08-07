@@ -97,6 +97,11 @@ export async function fetchTemplate(problemId, lang) {
   return data;
 }
 
+export async function fetchNextRecommendation() {
+  const { data } = await client.get(API.PROBLEMS.NEXT);
+  return data;
+}
+
 // ── Curriculum ────────────────────────────────────────────────────────────────
 export async function fetchCourses() {
   const { data } = await client.get(API.COURSES.LIST);
@@ -194,6 +199,16 @@ export async function fetchLeaderboard(limit = 20) {
 
 export async function fetchTopPerformers() {
   const { data } = await client.get(API.ACHIEVEMENTS.LEADERBOARD_TOP);
+  return data;
+}
+
+export async function fetchDailyChallenge() {
+  const { data } = await client.get(API.ACHIEVEMENTS.DAILY);
+  return data;
+}
+
+export async function fetchWeeklyGoal() {
+  const { data } = await client.get(API.ACHIEVEMENTS.WEEKLY_GOAL);
   return data;
 }
 

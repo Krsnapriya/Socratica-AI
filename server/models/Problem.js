@@ -8,6 +8,7 @@ const problemSchema = new mongoose.Schema({
   category: { type: String, default: "General" },
   difficulty: { type: String, required: true },
   tags: { type: [String], default: [] },
+  constraints: { type: [String], default: [] },
   estimatedMinutes: { type: Number, default: 30 },
   timeLimitMs: { type: Number, default: 8000 },
   memoryLimitMb: { type: Number, default: 256 },

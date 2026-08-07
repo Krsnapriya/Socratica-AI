@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import Icon from '../components/ui/Icon.jsx';
-import { fetchStats, fetchRecentActivity, fetchCourses, fetchAchievements, fetchTopPerformers } from '../api/api.js';
+import { fetchStats, fetchRecentActivity, fetchCourses, fetchAchievements, fetchTopPerformers, fetchDailyChallenge, fetchWeeklyGoal } from '../api/api.js';
 
 function StatCard({ label, icon, iconColor, value, loading: isLoading }) {
   return (
@@ -148,23 +148,29 @@ export default function DashboardPage() {
   const [courses, setCourses] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [daily, setDaily] = useState(null);
+  const [weeklyGoal, setWeeklyGoal] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, a, c, ach, lb] = await Promise.allSettled([
+        const [s, a, c, ach, lb, dl, wg] = await Promise.allSettled([
           fetchStats(),
           fetchRecentActivity(8),
           fetchCourses(),
           fetchAchievements(),
           fetchTopPerformers(),
+          fetchDailyChallenge(),
+          fetchWeeklyGoal(),
         ]);
         setStats(s.status === 'fulfilled' && s.value && typeof s.value === 'object' && !Array.isArray(s.value) ? s.value : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity(a.status === 'fulfilled' && Array.isArray(a.value) ? a.value : []);
         setCourses(c.status === 'fulfilled' && Array.isArray(c.value) ? c.value : []);
         setAchievements(ach.status === 'fulfilled' && ach.value?.achievements ? ach.value.achievements : []);
         setLeaderboard(lb.status === 'fulfilled' && Array.isArray(lb.value) ? lb.value : []);
+        setDaily(dl.status === 'fulfilled' && dl.value?.challenge ? dl.value.challenge : null);
+        setWeeklyGoal(wg.status === 'fulfilled' && wg.value ? wg.value : null);
       } catch {
         setStats({ total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity([]);
@@ -308,6 +314,65 @@ export default function DashboardPage() {
         ].map(({ label, icon, color, value }) => (
           <StatCard key={label} label={label} icon={icon} iconColor={color} value={value} loading={loading} />
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Today's Challenge */}
+        <div className="bg-surface-container-low border border-primary/30 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-mono text-[10px] text-primary uppercase tracking-wider font-bold flex items-center gap-1.5">
+              <Icon name="wb_sunny" size={14} /> Today's Challenge
+            </span>
+            {!loading && daily?.solved && <Badge variant="secondary">Completed</Badge>}
+          </div>
+          {loading ? (
+            <div className="h-12 skeleton rounded" />
+          ) : daily ? (
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-sans text-lg font-semibold text-on-surface truncate">{daily.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full border uppercase ${daily.difficulty === 'easy' ? 'text-green-500 border-green-500/30' : daily.difficulty === 'medium' ? 'text-yellow-500 border-yellow-500/30' : 'text-red-500 border-red-500/30'}`}>{daily.difficulty}</span>
+                  <span className="font-mono text-[10px] text-on-surface-variant">{daily.category}</span>
+                </div>
+              </div>
+              <Link to={`/workspace?problem=${daily.problemId}`}>
+                <Button variant="primary" size="sm">
+                  <Icon name="play_arrow" size={14} />
+                  {daily.solved ? 'Review' : 'Solve'}
+                </Button>
+              </Link>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Weekly Goal */}
+        <div className="bg-surface-container-low border border-outline-variant rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider font-bold flex items-center gap-1.5">
+              <Icon name="flag" size={14} /> Weekly Goal
+            </span>
+            {!loading && weeklyGoal?.completed && <Badge variant="secondary">Goal Met</Badge>}
+          </div>
+          {loading ? (
+            <div className="h-12 skeleton rounded" />
+          ) : weeklyGoal ? (
+            <div className="flex-1">
+              <div className="flex justify-between items-end mb-2">
+                <span className="font-sans text-2xl font-bold text-on-surface">
+                  {weeklyGoal.solved}<span className="text-on-surface-variant font-mono text-sm">/{weeklyGoal.goal}</span>
+                </span>
+                <span className="font-mono text-xs text-on-surface-variant">problems this week</span>
+              </div>
+              <div className="w-full h-2 bg-surface-container-lowest rounded-full overflow-hidden">
+                <div className="h-full bg-secondary rounded-full transition-all duration-700" style={{ width: `${Math.min(100, Math.round((weeklyGoal.solved / weeklyGoal.goal) * 100))}%` }} />
+              </div>
+              <p className="font-mono text-[10px] text-on-surface-variant mt-2">
+                {weeklyGoal.completed ? "Amazing — you crushed this week's goal!" : `${weeklyGoal.remaining} more to reach your weekly goal`}
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

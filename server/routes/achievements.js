@@ -2,6 +2,7 @@ const express = require("express");
 const Achievement = require("../models/Achievement");
 const Submission = require("../models/Submission");
 const User = require("../models/User");
+const Module = require("../models/Module");
 const requireAuth = require("../middleware/requireAuth");
 
 const router = express.Router();
@@ -58,6 +59,7 @@ async function checkAndAwardAchievements(userId) {
     { key: "streak_3", cond: (user.learningProfile?.streakDays || 0) >= 3 },
     { key: "streak_7", cond: (user.learningProfile?.streakDays || 0) >= 7 },
     { key: "streak_30", cond: (user.learningProfile?.streakDays || 0) >= 30 },
+    { key: "perfect_session", cond: submissions.some(s => s.round === 1 && s.verdict === "pass") },
   ];
 
   for (const check of checks) {
@@ -145,6 +147,85 @@ router.get("/leaderboard/top", requireAuth, async (req, res) => {
     })));
   } catch (err) {
     console.error("[achievements] GET /leaderboard/top error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+// ── Daily challenge: deterministic per-user, per-day pick ────────────────────
+router.get("/daily", requireAuth, async (req, res) => {
+  try {
+    const Problem = require("../models/Problem");
+    const [problems, user] = await Promise.all([
+      Problem.find({}, { problemId: 1, title: 1, difficulty: 1, category: 1 }).lean(),
+      User.findById(req.userId).lean(),
+    ]);
+    if (!user || problems.length === 0) return res.json({ challenge: null });
+
+    const isAdminRole = ['admin', 'super_admin', 'instructor'].includes(user.role);
+    let accessible;
+    if (isAdminRole) {
+      accessible = problems;
+    } else {
+      const modules = await Module.find({}, { topics: 1, prerequisites: 1 }).lean();
+      const unlockedIds = (user.unlockedModules || []).map(id => id.toString());
+      const accessibleSet = new Set();
+      for (const m of modules) {
+        const unlocked = unlockedIds.includes(m._id.toString()) || !m.prerequisites || m.prerequisites.length === 0;
+        if (unlocked) {
+          for (const t of (m.topics || [])) accessibleSet.add(t.problemId);
+        }
+      }
+      accessible = problems.filter(p => accessibleSet.has(p.problemId));
+      if (accessible.length === 0) accessible = problems;
+    }
+
+    const dateKey = new Date().toISOString().slice(0, 10);
+    const challenge = accessible[hashString(`${req.userId}-${dateKey}`) % accessible.length];
+    const solved = await Submission.findOne({ userId: req.userId, problemId: challenge.problemId, verdict: "pass" }).lean();
+
+    res.json({ challenge: { ...challenge, solved: Boolean(solved), date: dateKey } });
+  } catch (err) {
+    console.error("[achievements] GET /daily error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── Weekly goal: N distinct problems solved this week ────────────────────────
+router.get("/weekly-goal", requireAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const day = (now.getDay() + 6) % 7; // Monday = 0
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() - day);
+    const end = new Date(monday);
+    end.setDate(monday.getDate() + 7);
+
+    const solvedThisWeek = await Submission.distinct("problemId", {
+      userId: req.userId,
+      verdict: "pass",
+      createdAt: { $gte: monday, $lt: end },
+    });
+
+    const goal = 5;
+    res.json({
+      goal,
+      solved: solvedThisWeek.length,
+      remaining: Math.max(0, goal - solvedThisWeek.length),
+      completed: solvedThisWeek.length >= goal,
+      weekStart: monday.toISOString(),
+      weekEnd: end.toISOString(),
+    });
+  } catch (err) {
+    console.error("[achievements] GET /weekly-goal error:", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });

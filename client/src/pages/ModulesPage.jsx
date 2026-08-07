@@ -35,6 +35,9 @@ export default function ModulesPage() {
       if (data.success) {
         setUnlocked(data.unlockedModules);
         addToast("Module unlocked successfully", "success");
+        fetchCourses()
+          .then(d => setCourses(Array.isArray(d) ? d : []))
+          .catch(() => {});
       }
     } catch (err) {
       addToast("Failed to unlock module: " + err.message, "error");
@@ -184,7 +187,7 @@ export default function ModulesPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredModules.map(module => {
-                  const isUnlocked = unlocked.includes(module._id) || (user?.role === 'admin' || user?.role === 'super_admin') || (!module.prerequisites || module.prerequisites.length === 0);
+                  const isUnlocked = module.unlocked || (user?.role === 'admin' || user?.role === 'super_admin');
                   const moduleTopics = module.topics || [];
                   const solvedCount = moduleTopics.filter(t => t.solved).length;
                   const moduleProgress = moduleTopics.length > 0 ? Math.round((solvedCount / moduleTopics.length) * 100) : 0;

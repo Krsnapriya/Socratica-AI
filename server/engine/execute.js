@@ -5,6 +5,8 @@ const { getAIResponse } = require("../ai/orchestrator");
 const TestCase = require("../models/TestCase");
 const DriverTemplate = require("../models/DriverTemplate");
 const Problem = require("../models/Problem");
+const { notifyProblemSolved } = require("../utils/email");
+const { checkAndAwardAchievements } = require("../routes/achievements");
 
 function extractFunctionName(code, language) {
   if (language === "python") {
@@ -453,7 +455,6 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
     }).catch(() => null);
 
     let verdict = "fail";
-    const compError = compilationResult.student?.error || compilationResult.error;
     if (compError === "timeout") verdict = "timeout";
     else if (compError && (compError.includes("oom") || compError.includes("OutOfMemory"))) verdict = "memory_exceeded";
 
@@ -832,6 +833,11 @@ async function submitSolution({ code, language, problemId, sessionId, userId }) 
   if (verdict === "pass") sessionUpdate.finalVerdict = "pass";
   else if (roundNum >= maxRounds) sessionUpdate.finalVerdict = "max_attempts_reached";
   await Session.updateOne({ sessionId: sId }, { $set: sessionUpdate });
+
+  if (verdict === "pass") {
+    notifyProblemSolved({ userId, problemId, problemTitle: problem.title }).catch(() => {});
+    checkAndAwardAchievements(userId).catch(() => {});
+  }
 
   // ── Step 7: Return rich response with test results ───────────────────────
   return {

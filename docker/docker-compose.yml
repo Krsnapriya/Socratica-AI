@@ -11,8 +11,10 @@ services:
       - MONGO_URI=mongodb://mongo:27017/socratica
       - REDIS_URL=redis://redis:6379
       - SANDBOX_IMAGE=socratica/sandbox:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Never mount the host Docker socket into an untrusted-service container.
+      # Point the sandbox at a remote daemon instead (set DOCKER_HOST, and
+      # DOCKER_CA/DOCKER_CERT/DOCKER_KEY when TLS is enabled).
+      - DOCKER_HOST=tcp://sandbox-host:2376
     depends_on:
       - mongo
       - redis

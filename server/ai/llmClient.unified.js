@@ -323,6 +323,21 @@ async function generateSocraticHint({ code, language, problemStatement, verdict,
     previousHint,
   });
   const result = await callLLM(SYSTEM_SOCRATIC, prompt);
+
+  // Never return silent empty text: surface the raw structured telemetry so the
+  // workspace shows real evidence instead of a blank mentor pane.
+  if (!result.text || result.error) {
+    const telemetry =
+      tier === 1 && traceData && (traceData.divergenceStep != null)
+        ? `Divergence detected at step ${traceData.divergenceStep} (line ${traceData.studentLine ?? "?"}).\n` +
+          (traceData.studentState ? `Student state: ${JSON.stringify(traceData.studentState).slice(0, 500)}\n` : "") +
+          (traceData.oracleState ? `Oracle state: ${JSON.stringify(traceData.oracleState).slice(0, 500)}` : "")
+        : (performanceData && (performanceData.studentTimeMs != null)
+            ? `Student: ${performanceData.studentTimeMs}ms / ${performanceData.studentMemMb ?? "?"}MB vs Oracle: ${performanceData.oracleTimeMs ?? "?"}ms / ${performanceData.oracleMemMb ?? "?"}MB`
+            : "Sandbox produced no telemetry for this submission.");
+    const note = result.error ? ` (LLM unavailable: ${result.error})` : "";
+    return `Mentor temporarily unavailable${note}. Raw telemetry:\n${telemetry}\n\nReview the divergence above and think about what changed between the two paths.`;
+  }
   return result.text;
 }
 

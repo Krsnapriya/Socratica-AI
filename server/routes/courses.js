@@ -13,7 +13,11 @@ const Submission = require("../models/Submission");
 router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
     const [courses, currentUser, solvedIds] = await Promise.all([
-      Course.find().populate({ path: 'modules', model: 'Module' }).sort({ order: 1 }).lean(),
+      Course.find()
+        .populate({ path: 'modules', model: 'Module' })
+        .populate({ path: 'modules.prerequisites', model: 'Module' })
+        .sort({ order: 1 })
+        .lean(),
       User.findById(req.userId).lean(),
       Submission.distinct("problemId", { userId: req.userId, verdict: "pass" }),
     ]);
@@ -25,28 +29,37 @@ router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "sup
 
     const enrichedCourses = courses.map(course => {
       course.modules = course.modules.map(module => {
+        const topics = module.topics || [];
+        const totalTopics = topics.length;
         let solvedCount = 0;
-        const totalTopics = module.topics?.length || 0;
 
-        module.topics?.forEach(topic => {
-          if (solvedIds.includes(topic.problemId)) {
-            solvedCount++;
-          }
+        const enrichedTopics = topics.map(topic => {
+          const solved = solvedIds.includes(topic.problemId);
+          if (solved) solvedCount++;
+          return { ...topic, solved };
         });
 
         const progressPercent = totalTopics === 0 ? 0 : Math.round((solvedCount / totalTopics) * 100);
 
-        // Admins/instructors always have access; otherwise check unlockedModules or no prerequisites
+        // Auto-unlock once all prerequisite modules are fully solved
+        const prereqsMet = !module.prerequisites
+          || module.prerequisites.length === 0
+          || module.prerequisites.every(prereq => {
+            if (!prereq) return true;
+            const prereqTopics = prereq.topics || [];
+            return prereqTopics.length === 0 || prereqTopics.every(t => solvedIds.includes(t.problemId));
+          });
+
+        // Admins/instructors always have access; otherwise check unlockedModules or completed prerequisites
         const isUnlocked = isAdminRole
           || unlockedModuleIds.includes(module._id.toString())
-          || !module.prerequisites
-          || module.prerequisites.length === 0;
+          || prereqsMet;
 
         const status = isUnlocked
           ? (progressPercent === 100 ? 'complete' : 'active')
           : 'locked';
 
-        return { ...module, progress: `${progressPercent}%`, status };
+        return { ...module, topics: enrichedTopics, progress: `${progressPercent}%`, status, unlocked: isUnlocked };
       });
       return course;
     });

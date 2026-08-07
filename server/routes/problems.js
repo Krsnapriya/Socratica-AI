@@ -48,6 +48,53 @@ router.get("/", requireAuth, requireRole(["student", "instructor", "admin", "sup
   }
 });
 
+// ── Recommended next problem (progress-based nudge) ─────────────────────────
+router.get("/next", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
+  try {
+    const Submission = require("../models/Submission");
+    const [user, solvedIds] = await Promise.all([
+      User.findById(req.userId).lean(),
+      Submission.distinct("problemId", { userId: req.userId, verdict: "pass" }),
+    ]);
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const isAdminRole = ["admin", "super_admin", "instructor"].includes(user.role);
+    const unlockedIds = (user.unlockedModules || []).map(id => id.toString());
+    const modules = await Module.find().populate({ path: 'prerequisites', model: 'Module' }).sort({ order: 1 }).lean();
+
+    for (const m of modules) {
+      const prereqsMet = !m.prerequisites
+        || m.prerequisites.length === 0
+        || m.prerequisites.every(p => {
+          if (!p) return true;
+          const pts = p.topics || [];
+          return pts.length === 0 || pts.every(t => solvedIds.includes(t.problemId));
+        });
+      const unlocked = isAdminRole || unlockedIds.includes(m._id.toString()) || prereqsMet;
+      if (!unlocked) continue;
+
+      const next = (m.topics || []).find(t => !solvedIds.includes(t.problemId));
+      if (!next) continue;
+
+      const problem = await Problem.findOne(
+        { problemId: next.problemId },
+        { problemId: 1, title: 1, difficulty: 1, category: 1, tags: 1 }
+      ).lean();
+      if (problem) {
+        return res.json({
+          recommendation: { ...problem, moduleId: m._id, moduleTitle: m.title },
+          solvedCount: solvedIds.length,
+        });
+      }
+    }
+
+    res.json({ recommendation: null, solvedCount: solvedIds.length });
+  } catch (err) {
+    console.error("[problems] GET /next error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Get problem detail
 router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "super_admin"]), async (req, res) => {
   try {
@@ -69,6 +116,17 @@ router.get("/:id", requireAuth, requireRole(["student", "instructor", "admin", "
       enabled: true,
     }).sort({ order: 1, createdAt: 1 }).lean();
     problem.testCases = testCases;
+
+    // Structured constraints: fall back to parsing the statement's ## Constraints block
+    if (!problem.constraints || problem.constraints.length === 0) {
+      const match = String(problem.statement || "").match(/##\s*Constraints\s*\n([\s\S]*?)(?=\n##\s|\n##$|$)/i);
+      if (match) {
+        problem.constraints = match[1]
+          .split("\n")
+          .map(l => l.replace(/^[-*]\s+/, "").trim())
+          .filter(Boolean);
+      }
+    }
 
     res.json(problem);
   } catch (err) {

@@ -7,7 +7,7 @@ const { OAuth2Client } = require("google-auth-library");
 const requireAuth = require("../middleware/requireAuth");
 const { revokeToken, isRevoked } = require("../middleware/tokenBlacklist");
 const { validate, schemas } = require("../middleware/validate");
-const { sendVerificationEmail, sendPasswordResetEmail, isEmailVerificationRequired } = require("../utils/email");
+const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, isEmailVerificationRequired } = require("../utils/email");
 const LocalUserStore = require("../localUserStore");
 
 const router = express.Router();
@@ -139,6 +139,7 @@ router.post("/register", validate(schemas.register), async (req, res) => {
       } else {
         console.log(`[auth] Email auto-verified (dev mode): ${email}`);
       }
+      sendWelcomeEmail(email, displayName).catch(() => {});
 
       const { token, refreshToken } = await signToken(user._id.toString(), user);
 
@@ -172,6 +173,7 @@ router.post("/register", validate(schemas.register), async (req, res) => {
     const { token, refreshToken } = await signToken(user._id, user);
 
     console.log("[auth] User registered via local store:", normalizedEmail);
+    sendWelcomeEmail(normalizedEmail, user.displayName).catch(() => {});
     return res.status(201).json({
       email: normalizedEmail,
       token,

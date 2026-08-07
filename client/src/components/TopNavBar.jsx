@@ -80,18 +80,14 @@ export default function TopNavBar({ user, onLogout, onMobileMenuToggle, mobileMe
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-2">
-            {/* Trajectory quick link */}
+            {/* Start Coding CTA */}
             <NavLink
-              to="/trajectory"
-              className={({ isActive }) =>
-                `h-8 px-3 flex items-center gap-1.5 rounded-md font-mono text-xs transition-colors
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
-                ${isActive ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'}`
-              }
-              aria-label="View trajectory"
+              to="/workspace"
+              className="h-8 px-3 flex items-center gap-1.5 rounded-md font-mono text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              style={{ background: 'var(--primary)', color: 'white' }}
             >
-              <Icon name="account_tree" size={14} />
-              <span className="hidden lg:inline">Trajectory</span>
+              <Icon name="play_arrow" size={14} />
+              Start Coding
             </NavLink>
 
             <div className="w-px h-6 bg-outline-variant mx-1" aria-hidden="true" />

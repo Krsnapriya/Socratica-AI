@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Icon from '../components/ui/Icon.jsx';
 import Button from '../components/ui/Button.jsx';
-import { fetchStats, fetchRecentActivity } from '../api/api.js';
+import { fetchStats, fetchRecentActivity, fetchNextRecommendation } from '../api/api.js';
+import TrajectoryViewer from '../components/TrajectoryViewer.jsx';
 
 function RadarChart({ data }) {
   const size = 260;
@@ -113,14 +114,16 @@ export default function AnalyticsPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, a] = await Promise.all([fetchStats(), fetchRecentActivity(20)]);
-        setStats(s && typeof s === 'object' && !Array.isArray(s) ? s : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
-        setActivity(Array.isArray(a) ? a : []);
+        const [s, a, rec] = await Promise.allSettled([fetchStats(), fetchRecentActivity(20), fetchNextRecommendation()]);
+        setStats(s.status === 'fulfilled' && s.value && typeof s.value === 'object' && !Array.isArray(s.value) ? s.value : { total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
+        setActivity(a.status === 'fulfilled' && Array.isArray(a.value) ? a.value : []);
+        setRecommendation(rec.status === 'fulfilled' && rec.value?.recommendation ? rec.value.recommendation : null);
       } catch {
         setStats({ total: 0, passRate: 0, solved: 0, streak: 0, attempted: 0, avgTimeMs: 0, langCounts: {} });
         setActivity([]);
@@ -358,6 +361,48 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
+
+      {/* Recommended Next */}
+      {!loading && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon name="lightbulb" size={16} className="text-primary" />
+            <h3 className="font-sans text-sm font-semibold text-on-surface">Recommended Next</h3>
+          </div>
+          {recommendation ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full border uppercase ${recommendation.difficulty === 'easy' ? 'text-green-500 border-green-500/30' : recommendation.difficulty === 'medium' ? 'text-yellow-500 border-yellow-500/30' : 'text-red-500 border-red-500/30'}`}>{recommendation.difficulty}</span>
+                  <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">{recommendation.moduleTitle}</span>
+                </div>
+                <p className="font-sans text-lg font-semibold text-on-surface truncate mt-1">{recommendation.title}</p>
+                {recommendation.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {recommendation.tags.map(tag => (
+                      <span key={tag} className="font-mono text-[9px] px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">#{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Link to={`/workspace?problem=${recommendation.problemId}`}>
+                <Button variant="primary" size="sm">
+                  <Icon name="play_arrow" size={14} />
+                  Solve Next
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-on-surface-variant">
+              <Icon name="task_alt" size={24} className="text-secondary" />
+              <p className="text-sm">You've solved everything in the curriculum — amazing! Explore new problems or review your trajectory below.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Session Trajectory (merged) */}
+      <TrajectoryViewer />
 
       {/* Export */}
       {!loading && stats && (

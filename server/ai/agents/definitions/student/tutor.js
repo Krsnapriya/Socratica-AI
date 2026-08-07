@@ -57,6 +57,13 @@ function buildTutorPrompt(context = {}) {
 
   let userContent = "";
 
+  // If code passes all tests, tell the tutor explicitly
+  if (execution?.verdict === "pass" || execution?.allTestsPassed) {
+    userContent += `**IMPORTANT: The student's code PASSES all ${execution.totalTestCount || "?"} test cases.** `;
+    userContent += `Do NOT suggest their code is wrong or incomplete. `;
+    userContent += `If they ask "is this correct?", confirm it is correct and discuss the approach.\n\n`;
+  }
+
   // ── Curriculum Context ──────────────────────────────────────────────────
   if (curriculum) {
     if (curriculum.course) {

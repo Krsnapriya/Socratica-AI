@@ -1,17 +1,41 @@
-variable "aws_region" {
-  description = "The AWS region to deploy in"
+variable "project_id" {
+  description = "GCP project ID"
   type        = string
-  default     = "us-east-1"
+  default     = "project-d4899a6a-135b-4a98-b1b"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
+variable "region" {
+  description = "GCP region for Cloud Run, VPC connector, and Artifact Registry"
   type        = string
-  default     = "t3.medium"
+  default     = "asia-south1"
 }
 
-variable "public_key_path" {
-  description = "Path to the public SSH key to inject into the EC2 instance"
+variable "db_zone" {
+  description = "Zone for the Mongo/Services VMs"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = "asia-south1-a"
+}
+
+variable "sandbox_zone" {
+  description = "Zone for the Docker sandbox VM"
+  type        = string
+  default     = "asia-south1-c"
+}
+
+variable "artifact_repo" {
+  description = "Artifact Registry repository name"
+  type        = string
+  default     = "socratica"
+}
+
+variable "sandbox_service_account" {
+  description = "Service account attached to the sandbox VM (must have artifactregistry.writer)"
+  type        = string
+  default     = "897120847312-compute@developer.gserviceaccount.com"
+}
+
+variable "cloud_run_service_account" {
+  description = "Runtime service account for the Cloud Run service (must have secretAccessor)"
+  type        = string
+  default     = "897120847312-compute@developer.gserviceaccount.com"
 }

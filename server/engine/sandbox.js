@@ -5,16 +5,31 @@ const fs = require("fs");
 
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 const DOCKER_HOST = process.env.DOCKER_HOST || null;
+const DOCKER_CA = process.env.DOCKER_CA || null;
+const DOCKER_CERT = process.env.DOCKER_CERT || null;
+const DOCKER_KEY = process.env.DOCKER_KEY || null;
+
+function buildDockerClient() {
+  if (DOCKER_HOST) {
+    const cleaned = DOCKER_HOST.replace(/^(tcp|http|https):\/\//, "");
+    const [host, portRaw] = cleaned.split(":");
+    const port = parseInt(portRaw, 10);
+    if (DOCKER_CA) {
+      // TLS-secured remote daemon (cert material provided via Secret Manager)
+      return new Docker({ protocol: "https", host, port, ca: DOCKER_CA, cert: DOCKER_CERT, key: DOCKER_KEY });
+    }
+    return new Docker({ host, port });
+  }
+  return new Docker({ socketPath: DOCKER_SOCKET });
+}
 
 let docker = null;
 let dockerAvailable = false;
 try {
   if (!DOCKER_HOST && !fs.existsSync(DOCKER_SOCKET)) {
-    console.warn("[engine] Docker socket not found — sandbox will use local fallback");
+    console.warn("[engine] Docker socket not found — remote sandbox unavailable");
   } else {
-    docker = DOCKER_HOST
-      ? new Docker({ host: DOCKER_HOST.split(":")[0], port: parseInt(DOCKER_HOST.split(":")[1]) })
-      : new Docker({ socketPath: DOCKER_SOCKET });
+    docker = buildDockerClient();
     dockerAvailable = true;
   }
 } catch (err) {
@@ -218,7 +233,11 @@ function buildStdinWrapper(studentCode, functionName, language) {
 // ── Unified container execution ────────────────────────────────────────────
 async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
   if (!dockerAvailable) {
-    console.warn("[sandbox] Docker unavailable — falling back to local execution");
+    if (process.env.NODE_ENV === "production") {
+      console.error("[sandbox] Docker daemon unavailable in production — refusing unsafe local fallback");
+      throw new Error("system_judge_error: sandbox unavailable");
+    }
+    console.warn("[sandbox] Docker unavailable — falling back to local execution (dev only)");
     const fb = await runFallback({ code, language, stdin, timeLimitMs });
     return { student: fb };
   }
@@ -250,7 +269,11 @@ async function executeInContainer({ code, language, stdin, timeLimitMs, memoryLi
 
 async function executeWithOracle({ studentCode, oracleCode, language, stdin, timeLimitMs, memoryLimitMb, compileTimeoutMs }) {
   if (!dockerAvailable) {
-    console.warn("[sandbox] Docker unavailable — falling back to local execution for oracle");
+    if (process.env.NODE_ENV === "production") {
+      console.error("[sandbox] Docker daemon unavailable in production — refusing unsafe local fallback");
+      throw new Error("system_judge_error: sandbox unavailable");
+    }
+    console.warn("[sandbox] Docker unavailable — falling back to local execution for oracle (dev only)");
     const [studentFb, oracleFb] = await Promise.all([
       runFallback({ code: studentCode, language, stdin, timeLimitMs }),
       runFallback({ code: oracleCode, language, stdin, timeLimitMs }),
@@ -338,7 +361,7 @@ function findRuntime(name, candidates) {
 }
 
 async function runFallback({ code, language, stdin, timeLimitMs }) {
-  const { execSync } = require("child_process");
+  const { spawn } = require("child_process");
   const fs = require("fs");
   const path = require("path");
   const os = require("os");
@@ -357,24 +380,52 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
 
   fs.writeFileSync(codeFile, codeToRun);
 
-  const timeout = Math.min(timeLimitMs || 10000, 10000);
+  const timeoutMs = Math.min(timeLimitMs || 10000, 10000);
   const start = Date.now();
   let stdout = "";
   let stderr = "";
   let error = null;
+  let exitCode = 0;
+
+  function run(cmd, args, { stdin: stdinText = "" } = {}) {
+    return new Promise((resolve) => {
+      const child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        child.stdout.destroy();
+        child.stderr.destroy();
+        resolve({ killed: true, stdout: "", stderr: "", code: 137 });
+      }, timeoutMs);
+      const outChunks = [];
+      const errChunks = [];
+      child.stdout.on("data", (d) => outChunks.push(d));
+      child.stderr.on("data", (d) => errChunks.push(d));
+      child.on("error", (err) => {
+        clearTimeout(timer);
+        resolve({ killed: false, stdout: Buffer.concat(outChunks).toString(), stderr: err.message, code: 1 });
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        resolve({ killed: false, stdout: Buffer.concat(outChunks).toString(), stderr: Buffer.concat(errChunks).toString(), code });
+      });
+      if (stdinText) child.stdin.write(stdinText);
+      child.stdin.end();
+    });
+  }
 
   try {
     if (language === "python") {
       const pythonCmd = findRuntime("python", ["python3", "python"]);
       if (!pythonCmd) {
-        error = "Python is not installed on this server. Please use JavaScript or contact support.";
+        error = "Python is not installed on this server.";
         stderr = "Python runtime not available";
         return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
       }
-      const cmd = stdin
-        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${pythonCmd} ${codeFile}`
-        : `${pythonCmd} ${codeFile}`;
-      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+      const r = await run(pythonCmd, [codeFile], { stdin });
+      if (r.killed) error = "timeout";
+      else if (r.code !== 0) { error = "runtime_error"; stderr = r.stderr.slice(0, 500); }
+      else stdout = r.stdout.toString().trim();
+      exitCode = r.code || 0;
     } else if (language === "javascript") {
       const nodeCmd = findRuntime("node", ["node"]);
       if (!nodeCmd) {
@@ -382,10 +433,11 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
         stderr = "Node.js runtime not available";
         return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
       }
-      const cmd = stdin
-        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${nodeCmd} ${codeFile}`
-        : `${nodeCmd} ${codeFile}`;
-      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+      const r = await run(nodeCmd, [codeFile], { stdin });
+      if (r.killed) error = "timeout";
+      else if (r.code !== 0) { error = "runtime_error"; stderr = r.stderr.slice(0, 500); }
+      else stdout = r.stdout.toString().trim();
+      exitCode = r.code || 0;
     } else if (language === "cpp") {
       const gppCmd = findRuntime("g++", ["g++"]);
       if (!gppCmd) {
@@ -394,19 +446,25 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
         return { stdout, stderr, error, elapsed_ms: 0, max_memory_bytes: 0, exit_code: 1 };
       }
       const outBin = path.join(tmpDir, "solution");
-      execSync(`${gppCmd} -o ${outBin} ${codeFile} -std=c++17`, { timeout: 10000 });
-      const cmd = stdin
-        ? `echo ${Buffer.from(stdin).toString("base64")} | base64 -d | ${outBin}`
-        : outBin;
-      stdout = execSync(cmd, { timeout, maxBuffer: 1024 * 1024 }).toString().trim();
+      const c = await run(gppCmd, ["-o", outBin, codeFile, "-std=c++17"]);
+      if (c.killed) {
+        error = "compile_timeout";
+        exitCode = 1;
+      } else if (c.code !== 0) {
+        error = "compile_error";
+        stderr = c.stderr.slice(0, 500);
+        exitCode = 1;
+      } else {
+        const r = await run(outBin, [], { stdin });
+        if (r.killed) error = "timeout";
+        else if (r.code !== 0) { error = "runtime_error"; stderr = r.stderr.slice(0, 500); }
+        else stdout = r.stdout.toString().trim();
+        exitCode = r.code || 0;
+      }
     }
   } catch (err) {
-    if (err.killed) error = "timeout";
-    else if (err.status === 137) error = "oom";
-    else {
-      stderr = err.stderr?.toString()?.slice(0, 500) || "";
-      error = err.status === 1 ? "compile_error" : (stderr || err.message);
-    }
+    error = err.message;
+    exitCode = 1;
   }
 
   const elapsed = Date.now() - start;
@@ -415,7 +473,7 @@ async function runFallback({ code, language, stdin, timeLimitMs }) {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   } catch (_) {}
 
-  return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: error ? 1 : 0 };
+  return { stdout, stderr, error, elapsed_ms: elapsed, max_memory_bytes: 0, exit_code: exitCode };
 }
 
 module.exports = { executeInContainer, executeWithOracle, buildStudentCodeWithDriver, buildStdinWrapper, runFallback };

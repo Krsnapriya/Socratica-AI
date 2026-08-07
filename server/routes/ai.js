@@ -160,6 +160,16 @@ router.post("/chat", roleRateLimit, validateBody(chatSchema), async (req, res) =
     const effectiveLanguage = language || context?.language;
     const effectiveProblemId = problemId || context?.problemId;
 
+    let executionResult = null;
+    if (effectiveCode && effectiveProblemId) {
+      try {
+        const { runSamples } = require("../engine/execute");
+        executionResult = await runSamples({ code: effectiveCode, language: effectiveLanguage || "python", problemId: effectiveProblemId });
+      } catch (execErr) {
+        console.warn("[ai/chat] Pre-chat execution failed (non-fatal):", execErr.message);
+      }
+    }
+
     const result = await routeAndRespond({
       userId: req.userId,
       userRole: req.userRole,
@@ -170,6 +180,7 @@ router.post("/chat", roleRateLimit, validateBody(chatSchema), async (req, res) =
       problemId: effectiveProblemId,
       sessionId,
       context: { topic, ...context, preferredStyle: style },
+      executionResult,
     });
     res.json(result);
   } catch (err) {
@@ -406,6 +417,14 @@ router.post("/contextual-hint", roleRateLimit, requireRole(["student", "instruct
     const { code, language, problemId, sessionId } = req.body;
     if (!code || !problemId) return res.status(400).json({ error: "code and problemId are required" });
 
+    let executionResult = null;
+    try {
+      const { runSamples } = require("../engine/execute");
+      executionResult = await runSamples({ code, language: language || "python", problemId });
+    } catch (execErr) {
+      console.warn("[ai/contextual-hint] Pre-hint execution failed (non-fatal):", execErr.message);
+    }
+
     const result = await routeAndRespond({
       userId: req.userId,
       userRole: req.userRole,
@@ -415,6 +434,7 @@ router.post("/contextual-hint", roleRateLimit, requireRole(["student", "instruct
       problemId,
       sessionId,
       explicitAgent: "hintAgent",
+      executionResult,
     });
     res.json(result);
   } catch (err) {

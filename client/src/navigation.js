@@ -1,11 +1,10 @@
 // Socratica AI — Shared Navigation Config
-// Used by SideNavBar and TopNavBar to avoid duplication.
+// Single source of truth for the top navigation bar.
 
 export const NAV_ITEMS = [
   { to: "/dashboard", icon: "dashboard", label: "Dashboard" },
   { to: "/modules", icon: "school", label: "Curriculum" },
   { to: "/workspace", icon: "code", label: "Workspace" },
-  { to: "/trajectory", icon: "account_tree", label: "Trajectory" },
   { to: "/analytics", icon: "insights", label: "Analytics" },
   { to: "/archive", icon: "archive", label: "Archive" },
 ];
@@ -16,14 +15,6 @@ export const ADMIN_NAV_ITEMS = [
 
 export const WORKSPACE_NAV = [
   { to: "/workspace", icon: "code", label: "Workspace" },
-  { to: "/trajectory", icon: "account_tree", label: "Trajectory" },
-  { to: "/analytics", icon: "insights", label: "Analytics" },
-  { to: "/settings", icon: "settings", label: "Settings" },
-];
-
-export const TRAJECTORY_SIDEBAR = [
-  { to: "/workspace", icon: "code", label: "Workspace" },
-  { to: "/trajectory", icon: "account_tree", label: "Trajectory" },
   { to: "/analytics", icon: "insights", label: "Analytics" },
   { to: "/settings", icon: "settings", label: "Settings" },
 ];
