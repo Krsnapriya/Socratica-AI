@@ -1,4 +1,8 @@
 require("dotenv").config();
+if (process.env.NODE_ENV === "production" && process.env.FORCE_SEED !== "1") {
+  console.error("[seed] Refusing to seed in production. Set FORCE_SEED=1 to override.");
+  process.exit(1);
+}
 const mongoose = require("mongoose");
 const Problem = require("./models/Problem");
 const Course = require("./models/Course");

@@ -2,6 +2,20 @@ const nodemailer = require('nodemailer');
 
 let transporter = null;
 
+// Simple per-recipient hourly rate limiter (in-memory)
+const emailSendLog = new Map();
+const EMAIL_HOURLY_LIMIT = parseInt(process.env.EMAIL_HOURLY_LIMIT || "10", 10);
+
+function allowEmailSend(to) {
+  const now = Date.now();
+  const windowStart = now - 60 * 60 * 1000;
+  const stamps = (emailSendLog.get(to) || []).filter((t) => t > windowStart);
+  if (stamps.length >= EMAIL_HOURLY_LIMIT) return false;
+  stamps.push(now);
+  emailSendLog.set(to, stamps);
+  return true;
+}
+
 function getTransporter() {
   if (transporter) return transporter;
 
@@ -48,6 +62,11 @@ async function sendEmail({ to, subject, text, html }) {
     console.log(`[email] (console) To: ${to} | Subject: ${subject}`);
     console.log(`[email] Body: ${text || html}`);
     return { sent: false, reason: 'SMTP not configured' };
+  }
+
+  if (!allowEmailSend(to)) {
+    console.log(`[email] Rate-limited ${to} (hourly cap reached)`);
+    return { sent: false, reason: 'rate-limited' };
   }
 
   try {

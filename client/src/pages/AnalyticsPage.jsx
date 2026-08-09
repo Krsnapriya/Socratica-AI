@@ -377,6 +377,9 @@ export default function AnalyticsPage() {
                   <span className="font-mono text-[10px] text-on-surface-variant uppercase tracking-wider">{recommendation.moduleTitle}</span>
                 </div>
                 <p className="font-sans text-lg font-semibold text-on-surface truncate mt-1">{recommendation.title}</p>
+                {recommendation.reason && (
+                  <p className="font-mono text-[11px] text-on-surface-variant mt-1.5 leading-snug">{recommendation.reason}</p>
+                )}
                 {recommendation.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {recommendation.tags.map(tag => (

@@ -54,10 +54,6 @@ app.use(cors({
     // Allow requests with no origin (curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    // Allow any netlify.app or railway.app subdomain
-    if (/\.netlify\.app$/.test(origin) || /\.railway\.app$/.test(origin) || /\.vercel\.app$/.test(origin)) {
-      return callback(null, true);
-    }
     return callback(new Error(`CORS blocked: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -239,8 +235,12 @@ async function autoSeed() {
     }
 
     // Seed / sync test users (all 5 default role accounts)
-    console.log("[server] Syncing default role accounts...");
-    await require("./seedUsers")();
+    if (process.env.NODE_ENV === "production") {
+      console.log("[server] Skipping default role-account seed in production (security).");
+    } else {
+      console.log("[server] Syncing default role accounts...");
+      await require("./seedUsers")();
+    }
 
     // Seed Languages
     const langCount = await Language.countDocuments();

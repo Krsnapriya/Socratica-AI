@@ -81,8 +81,18 @@ router.get("/next", requireAuth, requireRole(["student", "instructor", "admin", 
         { problemId: 1, title: 1, difficulty: 1, category: 1, tags: 1 }
       ).lean();
       if (problem) {
+        const moduleTopics = m.topics || [];
+        const solvedInModule = moduleTopics.filter((t) => solvedIds.includes(t.problemId)).length;
+        const reason = solvedInModule === 0
+          ? `Next up in ${m.title} — starts a fresh topic area.`
+          : `Continuing ${m.title} — ${solvedInModule} of ${moduleTopics.length} topics done here.`;
         return res.json({
-          recommendation: { ...problem, moduleId: m._id, moduleTitle: m.title },
+          recommendation: {
+            ...problem,
+            moduleId: m._id,
+            moduleTitle: m.title,
+            reason: `${reason} ${solvedIds.length} problem${solvedIds.length === 1 ? '' : 's'} solved so far.`,
+          },
           solvedCount: solvedIds.length,
         });
       }

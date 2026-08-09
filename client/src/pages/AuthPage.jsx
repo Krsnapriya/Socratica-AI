@@ -284,6 +284,8 @@ export default function AuthPage({ onAuth }) {
       const msg = err.message || 'Something went wrong. Try again.';
       if (msg.includes('rate limit') || msg.includes('too many')) {
         setError('Too many attempts. Please wait a few minutes before trying again.');
+      } else if (msg.includes('verify your email')) {
+        setError('Please verify your email first. Check your inbox for the verification link.');
       } else if (msg.includes('already exists') || msg.includes('already registered')) {
         setError('An account with this email already exists. Try signing in instead.');
       } else if (msg.includes('Invalid credentials') || msg.includes('incorrect')) {

@@ -135,7 +135,7 @@ router.post("/register", validate(schemas.register), async (req, res) => {
       }
 
       if (!autoVerify) {
-        sendVerificationEmail(email, emailVerifyToken);
+        sendVerificationEmail(email, emailVerifyToken).catch(() => {});
       } else {
         console.log(`[auth] Email auto-verified (dev mode): ${email}`);
       }
@@ -207,6 +207,13 @@ router.post("/login", validate(schemas.login), async (req, res) => {
         const match = await bcrypt.compare(password, user.passwordHash);
         if (!match) {
           return res.status(400).json({ error: "Incorrect email or password" });
+        }
+        if (isEmailVerificationRequired() && user.emailVerified !== true) {
+          return res.status(403).json({
+            error: "Please verify your email address before logging in.",
+            code: "EMAIL_NOT_VERIFIED",
+            email: normalizedEmail,
+          });
         }
         await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date(), lastActiveAt: new Date() } });
         const { token, refreshToken } = await signToken(user._id.toString(), user);

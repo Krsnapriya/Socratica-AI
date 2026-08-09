@@ -35,11 +35,13 @@ async function seedUsers() {
         createdCount++;
         console.log(`[seedUsers] Created ${u.role}: ${email}`);
       } else {
-        existing.passwordHash = passwordHash;
-        existing.role = u.role;
-        existing.emailVerified = true;
-        await existing.save();
-        console.log(`[seedUsers] Updated credentials for ${u.role}: ${email}`);
+        // Security: never overwrite an existing user's credentials on re-seed.
+        // Only ensure the role is set, never reset the password hash.
+        if (!existing.role || existing.role === "student") {
+          existing.role = u.role;
+          await existing.save();
+        }
+        console.log(`[seedUsers] Skipped credential reset for existing ${u.role}: ${email}`);
       }
     }
 

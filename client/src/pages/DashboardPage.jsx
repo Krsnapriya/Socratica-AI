@@ -184,6 +184,7 @@ export default function DashboardPage() {
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'there';
   const isNewUser = !loading && (stats?.total ?? 0) === 0 && activity.length === 0;
+  const practicedToday = activity.some((a) => a?.createdAt && new Date(a.createdAt).toDateString() === new Date().toDateString());
 
   return (
     <div className="page-enter space-y-8">
@@ -315,6 +316,27 @@ export default function DashboardPage() {
           <StatCard key={label} label={label} icon={icon} iconColor={color} value={value} loading={loading} />
         ))}
       </div>
+
+      {!isNewUser && (stats?.streak ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-tertiary/15 to-secondary/10 border border-tertiary/30 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-tertiary text-xl shrink-0"><Icon name="local_fire_department" size={22} /></span>
+            <div className="min-w-0">
+              <p className="font-sans text-sm font-semibold text-on-surface">
+                {practicedToday
+                  ? `${stats.streak}-day streak active`
+                  : `Solve today to keep your ${stats.streak}-day streak`}
+              </p>
+              <p className="font-mono text-[10px] text-on-surface-variant">Consistency beats intensity — one problem a day compounds.</p>
+            </div>
+          </div>
+          <Link to="/workspace" className="shrink-0">
+            <Button variant="primary" size="sm">
+              <Icon name="bolt" size={14} /> Practice now
+            </Button>
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Today's Challenge */}

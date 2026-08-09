@@ -50,9 +50,9 @@ const config = {
   },
 
   // ── LLM / AI ────────────────────────────────────────────────────────────
-llm: {
-    baseUrl: process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
-    model: process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct",
+  llm: {
+    baseUrl: process.env.LLM_BASE_URL || process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
+    model: process.env.LLM_MODEL || process.env.NVIDIA_MODEL || "meta/llama-3.1-8b-instruct",
     temperature: parseFloat(process.env.LLM_TEMPERATURE) || 0.7,
     topP: parseFloat(process.env.LLM_TOP_P) || 0.9,
     maxTokens: parseInt(process.env.LLM_MAX_TOKENS) || 4096,

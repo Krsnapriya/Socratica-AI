@@ -2,8 +2,8 @@
 const { config } = require("../configLoader");
 const redis = require("../redis");
 
-const NVIDIA_URL = process.env.NVIDIA_API_URL || `${config.llm.baseUrl}/chat/completions`;
-const API_KEY = process.env.NVIDIA_API_KEY || process.env.OPENROUTER_API_KEY || "";
+const NVIDIA_URL = process.env.LLM_BASE_URL ? `${process.env.LLM_BASE_URL.replace(/\/$/, "")}/chat/completions` : process.env.NVIDIA_API_URL || `${config.llm.baseUrl}/chat/completions`;
+const API_KEY = process.env.LLM_API_KEY || process.env.NVIDIA_API_KEY || process.env.OPENROUTER_API_KEY || "";
 const DEFAULT_MODEL = process.env.LLM_MODEL || config.llm.model;
 
 // ── Circuit Breaker (Redis-backed) ─────────────────────────────────────────
