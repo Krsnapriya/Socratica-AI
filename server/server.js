@@ -25,7 +25,6 @@ const achievementRoutes = require("./routes/achievements");
 const aiRoutes = require("./routes/ai");
 const { apiLimiter, authLimiter } = require("./middleware/rateLimiter");
 const cookieParser = require("cookie-parser");
-const { csrfProtection, csrfToken } = require("./middleware/csrf");
 const configLoader = require("./configLoader");
 const knowledgeGraph = require("./ai/knowledgeGraph");
 const roleRouter = require("./ai/roleRouter");
@@ -70,16 +69,13 @@ app.use((req, _res, next) => {
 
 app.use("/api/auth", authLimiter, authRoutes);
 
-// CSRF token endpoint must be accessible before csrfProtection
-app.get("/api/csrf-token", csrfToken, (req, res) => res.json({ token: req._csrfToken || req.cookies?._csrf }));
-
 // Submissions & AI bypass CSRF — students need reliable access from Workspace
 app.use("/api/submissions", submissionsRoutes);
 app.use("/api/execute", executeRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Apply CSRF protection to all other state-changing endpoints
-app.use(csrfProtection);
+// No cookie/session auth in use (all routes require Bearer tokens), so CSRF
+// protection is redundant here and would break legit cross-origin requests.
 app.use("/api/problems", problemsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", coursesRoutes);
