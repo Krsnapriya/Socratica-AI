@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/api/(.*)", "destination": "https://socratica-api-897120847312.asia-south1.run.app/api/$1" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
