@@ -65,7 +65,7 @@ function buildHintPrompt(context = {}) {
 
   const level = forcedLevel || getHintLevel(context);
 
-  if (executionResult?.verdict === "pass" || executionResult?.passedTests === executionResult?.totalTests) {
+  if (executionResult && (executionResult.verdict === "pass" || (executionResult.totalTests != null && executionResult.passedTests === executionResult.totalTests))) {
     if (executionResult.totalTests > 0) {
       return {
         system: "You are a supportive CS tutor.",
